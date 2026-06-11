@@ -812,10 +812,23 @@ function refreshTile(i){setHeight(i,HMAP[i]);}
 const DEC=new Array(N).fill(null);
 const trunkMat=new THREE.MeshStandardMaterial({color:0x5a4632,roughness:1});
 const decoMats={
-  tree:new THREE.MeshStandardMaterial({color:0x2f7a4d,roughness:.9}),
+  tree:new THREE.MeshStandardMaterial({color:0x3f8a48,roughness:.9}),
+  leaf2:new THREE.MeshStandardMaterial({color:0x5aa64e,roughness:.9}),
   pine:new THREE.MeshStandardMaterial({color:0x1f5c38,roughness:.9}),
-  cactus:new THREE.MeshStandardMaterial({color:0x4d8a4a,roughness:.85}),
-  snowpine:new THREE.MeshStandardMaterial({color:0xd8e6ec,roughness:.9}),
+  pineDark:new THREE.MeshStandardMaterial({color:0x174a2c,roughness:.9}),
+  pineLight:new THREE.MeshStandardMaterial({color:0x2c7046,roughness:.9}),
+  birch:new THREE.MeshStandardMaterial({color:0xe6e2d6,roughness:.8}),
+  birchLeaf:new THREE.MeshStandardMaterial({color:0x97c465,roughness:.9}),
+  cactus:new THREE.MeshStandardMaterial({color:0x4d8a4a,roughness:.85,flatShading:true}),
+  barrel:new THREE.MeshStandardMaterial({color:0x5e9a44,roughness:.85,flatShading:true}),
+  bloom:new THREE.MeshStandardMaterial({color:0xffb04a,emissive:0xc46a18,emissiveIntensity:.35,roughness:.7}),
+  snowpine:new THREE.MeshStandardMaterial({color:0x2a5648,roughness:.9}),
+  deadwood:new THREE.MeshStandardMaterial({color:0x7a6a58,roughness:1}),
+  char:new THREE.MeshStandardMaterial({color:0x1d1517,roughness:.95}),
+  obsidian:new THREE.MeshStandardMaterial({color:0x16121c,roughness:.3,metalness:.25,flatShading:true}),
+  seam:new THREE.MeshStandardMaterial({color:0x000000,emissive:0xff5a1a,emissiveIntensity:1.1,wireframe:true}),
+  shroomStalk:new THREE.MeshStandardMaterial({color:0xcfc8e4,roughness:.8}),
+  shroomCap:new THREE.MeshStandardMaterial({color:0x4adcff,emissive:0x2db8e8,emissiveIntensity:.85,roughness:.5}),
   spike:new THREE.MeshStandardMaterial({color:0x2a2026,roughness:.6}),
   spikeTip:new THREE.MeshStandardMaterial({color:0xff5a1a,emissive:0xff5a1a,emissiveIntensity:1.3}),
   shard:new THREE.MeshStandardMaterial({color:0x8a5dd8,emissive:0x6a3dc8,emissiveIntensity:.9}),
@@ -835,11 +848,104 @@ const decoMats={
 function buildDeco(kind){
   const g=new THREE.Group();
   const M=(geo,mat,y)=>{const m=new THREE.Mesh(geo,mat);m.position.y=y;m.castShadow=true;g.add(m);return m;};
-  if(kind==='tree'){M(new THREE.CylinderGeometry(.05,.07,.22,5),trunkMat,.11);M(new THREE.ConeGeometry(.24,.6,6),decoMats.tree,.5);}
-  else if(kind==='pine'){M(new THREE.CylinderGeometry(.05,.07,.2,5),trunkMat,.1);M(new THREE.ConeGeometry(.26,.5,6),decoMats.pine,.4);M(new THREE.ConeGeometry(.18,.4,6),decoMats.pine,.68);}
-  else if(kind==='cactus'){M(new THREE.CylinderGeometry(.09,.11,.6,7),decoMats.cactus,.3);const a=M(new THREE.CylinderGeometry(.05,.05,.26,6),decoMats.cactus,.42);a.position.x=.16;a.rotation.z=.5;}
-  else if(kind==='snowpine'){M(new THREE.CylinderGeometry(.05,.07,.2,5),trunkMat,.1);M(new THREE.ConeGeometry(.24,.56,6),decoMats.snowpine,.45);}
-  else if(kind==='spike'){M(new THREE.ConeGeometry(.16,.7,5),decoMats.spike,.35);M(new THREE.SphereGeometry(.05,6,6),decoMats.spikeTip,.72);}
+  if(kind==='tree'){ /* meadow: round leafy tree — sphere clusters on a trunk */
+    M(new THREE.CylinderGeometry(.05,.08,.32,6),trunkMat,.16);
+    for(let k=0;k<3;k++){
+      const s=.15+rnd()*.06;
+      const m=M(new THREE.SphereGeometry(s,7,6),rnd()<.5?decoMats.tree:decoMats.leaf2,.4+rnd()*.1);
+      m.position.x=(rnd()-.5)*.24;m.position.z=(rnd()-.5)*.24;
+    }
+    M(new THREE.SphereGeometry(.16,7,6),decoMats.tree,.55); /* crown */
+  }
+  else if(kind==='bush'){ /* meadow: low flowering bush */
+    const b=M(new THREE.SphereGeometry(.2,7,6),decoMats.leaf2,.13);b.scale.y=.7;b.rotation.y=rnd()*6.28;
+    for(let k=0;k<3;k++){
+      const fl=M(new THREE.SphereGeometry(.035,6,5),decoMats.flower,.2+rnd()*.05);
+      const a2=rnd()*6.28;fl.position.x=Math.cos(a2)*.13;fl.position.z=Math.sin(a2)*.13;
+    }
+  }
+  else if(kind==='pine'){ /* forest: tall layered conifer, per-tree shade variation */
+    M(new THREE.CylinderGeometry(.05,.08,.26,5),trunkMat,.13);
+    const shade=[decoMats.pine,decoMats.pineDark,decoMats.pineLight][(rnd()*3)|0];
+    const tiers=3+(rnd()<.5?1:0);
+    for(let k=0;k<tiers;k++)M(new THREE.ConeGeometry(.3-k*.06,.4-k*.04,6),shade,.32+k*.18);
+  }
+  else if(kind==='birch'){ /* forest: pale trunk, dark bark bands, small airy canopy */
+    M(new THREE.CylinderGeometry(.035,.05,.52,6),decoMats.birch,.26);
+    M(new THREE.CylinderGeometry(.049,.05,.03,6),trunkMat,.12+rnd()*.06);
+    M(new THREE.CylinderGeometry(.044,.046,.03,6),trunkMat,.3+rnd()*.06);
+    M(new THREE.SphereGeometry(.14,7,6),decoMats.birchLeaf,.56);
+    const c2=M(new THREE.SphereGeometry(.09,6,5),decoMats.birchLeaf,.64);c2.position.x=.09;
+  }
+  else if(kind==='cactus'){ /* desert: saguaro — ridged trunk, elbow-jointed arms reaching up */
+    const h=.62+rnd()*.16;
+    M(new THREE.CylinderGeometry(.085,.105,h,9),decoMats.cactus,h/2+.02);
+    M(new THREE.SphereGeometry(.085,9,6),decoMats.cactus,h+.02); /* rounded crown */
+    const arms=1+(rnd()<.6?1:0);
+    let side=rnd()<.5?1:-1;
+    for(let k=0;k<arms;k++){
+      const ay=h*(.38+rnd()*.22);
+      const stub=M(new THREE.CylinderGeometry(.05,.055,.15,7),decoMats.cactus,ay); /* shoulder out of the trunk */
+      stub.rotation.z=side*Math.PI/2;stub.position.x=side*.12;
+      M(new THREE.SphereGeometry(.057,7,6),decoMats.cactus,ay).position.x=side*.19; /* elbow joint */
+      const up=.22+rnd()*.12;
+      M(new THREE.CylinderGeometry(.048,.057,up,7),decoMats.cactus,ay+up/2).position.x=side*.19; /* forearm up */
+      side=-side;
+    }
+  }
+  else if(kind==='barrel'){ /* desert: squat barrel cactus, blooming crown */
+    const b=M(new THREE.SphereGeometry(.17,10,7),decoMats.barrel,.14);b.scale.y=.85;b.rotation.y=rnd()*6.28;
+    M(new THREE.SphereGeometry(.05,7,5),decoMats.bloom,.29);
+    if(rnd()<.6){const p=M(new THREE.SphereGeometry(.09,8,6),decoMats.barrel,.08);p.position.x=.22;p.scale.y=.8;}
+  }
+  else if(kind==='snowpine'){ /* tundra: spruce with a white dusting cap on every tier */
+    M(new THREE.CylinderGeometry(.05,.07,.2,5),trunkMat,.1);
+    for(let k=0;k<3;k++){
+      const r2=.27-k*.075,y2=.28+k*.17;
+      M(new THREE.ConeGeometry(r2,.3,6),decoMats.snowpine,y2);
+      M(new THREE.ConeGeometry(r2*.82,.16,6),decoMats.snow,y2+.1);
+    }
+  }
+  else if(kind==='deadtree'){ /* tundra: bare dead tree, a few jutting branches */
+    const t=M(new THREE.CylinderGeometry(.035,.07,.6,6),decoMats.deadwood,.3);
+    t.rotation.z=(rnd()-.5)*.16;
+    for(let k=0;k<3;k++){
+      const a2=rnd()*6.28,tilt=.7+rnd()*.5;
+      const br=M(new THREE.CylinderGeometry(.012,.024,.3,5),decoMats.deadwood,.34+rnd()*.22);
+      br.rotation.y=a2;br.rotation.z=tilt;
+      br.position.x=-Math.cos(a2)*.13;br.position.z=Math.sin(a2)*.13;
+    }
+  }
+  else if(kind==='spike'){ /* volcanic: faceted obsidian spire, glowing seams, fang shards */
+    const m=M(new THREE.ConeGeometry(.17,.78,5),decoMats.obsidian,.39);
+    m.rotation.y=rnd()*6.28;
+    const w=new THREE.Mesh(new THREE.ConeGeometry(.17,.78,5),decoMats.seam); /* edge seams glow through */
+    w.scale.setScalar(1.015);w.position.y=.39;w.rotation.y=m.rotation.y;g.add(w);
+    for(let k=0;k<2;k++){
+      const s=M(new THREE.ConeGeometry(.07,.26,4),decoMats.obsidian,.13);
+      const a2=rnd()*6.28;s.position.x=Math.cos(a2)*.17;s.position.z=Math.sin(a2)*.17;s.rotation.z=(rnd()-.5)*.4;
+    }
+  }
+  else if(kind==='snag'){ /* volcanic: charred dead snag, embers at the foot */
+    const t=M(new THREE.CylinderGeometry(.04,.09,.55,6),decoMats.char,.28);
+    t.rotation.z=(rnd()-.5)*.14;
+    for(let k=0;k<2;k++){
+      const a2=rnd()*6.28,tilt=.8+rnd()*.5;
+      const br=M(new THREE.CylinderGeometry(.012,.026,.26,5),decoMats.char,.32+rnd()*.18);
+      br.rotation.y=a2;br.rotation.z=tilt;
+      br.position.x=-Math.cos(a2)*.11;br.position.z=Math.sin(a2)*.11;
+    }
+    const em=M(new THREE.SphereGeometry(.035,6,5),decoMats.spikeTip,.05);em.position.x=.09+rnd()*.05;
+  }
+  else if(kind==='shroom'){ /* caverns: glowing mushroom cluster */
+    const n2=2+(rnd()<.6?1:0);
+    for(let k=0;k<n2;k++){
+      const h=.14+rnd()*.18,r=.07+rnd()*.05,ox=(rnd()-.5)*.34,oz=(rnd()-.5)*.34;
+      const st=M(new THREE.CylinderGeometry(r*.35,r*.45,h,6),decoMats.shroomStalk,h/2);
+      const cap=M(new THREE.SphereGeometry(r,8,6),decoMats.shroomCap,h);cap.scale.y=.62;
+      st.position.x=cap.position.x=ox;st.position.z=cap.position.z=oz;
+    }
+  }
   else if(kind==='pond'){const m=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.06,14),decoMats.pond);m.position.y=.04;g.add(m);}
   else if(kind==='boulder'){M(new THREE.DodecahedronGeometry(.27),decoMats.boulder,.24);M(new THREE.DodecahedronGeometry(.14),decoMats.boulder,.12).position.x=.22;}
   else if(kind==='snowball'){M(new THREE.SphereGeometry(.26,10,10),decoMats.snow,.24);M(new THREE.SphereGeometry(.14,8,8),decoMats.snow,.5);}
@@ -887,6 +993,9 @@ function buildDeco(kind){
   }
   return g;
 }
+/* each biome's scenery comes in two flavours — rnd-weighted so layouts stay seeded */
+const DECO_VAR={tree:'bush',pine:'birch',cactus:'barrel',snowpine:'deadtree',spike:'snag',shard:'shroom'};
+function pickDeco(f){const d=BIOMES[f].deco;return rnd()<.32?DECO_VAR[d]:d;}
 function waterFeature(f){
   const cfg=BIOMES[f].wtr;if(!cfg)return;
   const ok=i=>{
@@ -925,7 +1034,7 @@ function decorateDormant(f){ /* locked faces show dark, sleeping versions of the
     const u=1+((rnd()*(S-2))|0),v=1+((rnd()*(S-2))|0);
     const i=f*FCELLS+v*S+u;
     if(DEC[i])continue;
-    const g=buildDeco(BIOMES[f].deco);
+    const g=buildDeco(pickDeco(f));
     g.traverse(ch=>{if(ch.material)ch.material=dormantMat;});
     g.scale.setScalar(.8+rnd()*.5);
     orientOnFace(g,i,0);
@@ -947,7 +1056,7 @@ function decorateFace(f){
   const extra=BIOME_EXTRA[f];
   let placed=0,tries=0;
   while(placed<11&&tries++<180){
-    const kind=rnd()<.55?BIOMES[f].deco:extra[(rnd()*extra.length)|0];
+    const kind=rnd()<.55?pickDeco(f):extra[(rnd()*extra.length)|0];
     const u=1+((rnd()*(S-2))|0),v=1+((rnd()*(S-2))|0);
     const i=f*FCELLS+v*S+u;
     if(DEC[i]||TWR[i]||HMAP[i]!==0||PORTALS.includes(i)||i===CRYSTAL)continue;
@@ -3424,7 +3533,7 @@ function resetGame(diff,demo){
   lives=DIFF.lives;
   focusActive();
   if(demo){ /* the demo fields the hero too — it's part of the game */
-    MODE='siege';
+    MODE='classic'; /* the demo shows the REAL game: one portal in, one crystal out, maze everything */
     gold=400;dirt=20;
     walker.face=0;walker.pos.copy(cellTop(0*FCELLS+(S>>1)*S+1));
     heroSpawned=true;hero.aiOwned=true;hero.auto=true;
