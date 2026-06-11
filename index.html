@@ -825,7 +825,7 @@ const decoMats={
   snowpine:new THREE.MeshStandardMaterial({color:0x2a5648,roughness:.9}),
   deadwood:new THREE.MeshStandardMaterial({color:0x7a6a58,roughness:1}),
   char:new THREE.MeshStandardMaterial({color:0x1d1517,roughness:.95}),
-  obsidian:new THREE.MeshStandardMaterial({color:0x16121c,roughness:.3,metalness:.25,flatShading:true}),
+  obsidian:new THREE.MeshStandardMaterial({color:0x16121c,roughness:.45,metalness:.15,flatShading:true}),
   seam:new THREE.MeshStandardMaterial({color:0x000000,emissive:0xff5a1a,emissiveIntensity:1.1,wireframe:true}),
   shroomStalk:new THREE.MeshStandardMaterial({color:0xcfc8e4,roughness:.8}),
   shroomCap:new THREE.MeshStandardMaterial({color:0x4adcff,emissive:0x2db8e8,emissiveIntensity:.85,roughness:.5}),
@@ -847,6 +847,7 @@ const decoMats={
 };
 function buildDeco(kind){
   const g=new THREE.Group();
+  g.userData.kind=kind;
   const M=(geo,mat,y)=>{const m=new THREE.Mesh(geo,mat);m.position.y=y;m.castShadow=true;g.add(m);return m;};
   if(kind==='tree'){ /* meadow: round leafy tree — sphere clusters on a trunk */
     M(new THREE.CylinderGeometry(.05,.08,.32,6),trunkMat,.16);
@@ -4385,7 +4386,7 @@ window.GameAPI={
     unlockedTowers:Object.keys(TT).filter(towerUnlocked),
     hmap:Array.from(HMAP),
     water:Array.from(WATER),
-    decs:DEC.reduce((a,d,i)=>(d&&a.push(i),a),[]), /* scenery-occupied cells */
+    decs:DEC.reduce((a,d,i)=>(d&&a.push({cell:i,kind:d.userData&&d.userData.kind||'?'}),a),[]), /* scenery-occupied cells */
     path:pathCellsList(),
     fp:mode==='walk'?{view:walkView,tool,buildType:walkBuildType(),aimCell:aimWireCell}:null,
   };},
@@ -4475,11 +4476,12 @@ window.GameAPI={
     towers:towers.map(tw=>{const b=acquire(tw);return{type:tw.type,cool:+tw.cool.toFixed(2),
       acquired:b?b.type:null,nearest:creeps.length?Math.min(...creeps.map(c=>tw.g.position.distanceTo(c.g.position))).toFixed(2):null,range:tw.tt.range};})}),
   unlock(){const b=facesUnlocked;unlockNextFace();return{ok:facesUnlocked>b,faces:facesUnlocked};},
-  cam(yaw,pitch,dist){ /* testing tool: park the orbit camera (screenshots, agents) */
+  cam(yaw,pitch,dist,cell){ /* testing tool: park the orbit camera (screenshots, agents); cell pans onto it */
     autoSpin=false;camPan.set(0,0,0);
+    if(cell>=0&&cell<N)camPan.copy(cellTop(cell));
     if(yaw!=null)camYaw=+yaw;
     if(pitch!=null)camPitch=Math.max(-1.35,Math.min(1.35,+pitch));
-    if(dist!=null)camDist=Math.max(14,Math.min(50,+dist));
+    if(dist!=null)camDist=Math.max(4,Math.min(50,+dist)); /* tighter than the wheel allows — close-ups */
     return{ok:true,yaw:+camYaw.toFixed(2),pitch:+camPitch.toFixed(2),dist:camDist};
   },
   face(f){ /* aim the orbit camera square at face f */
