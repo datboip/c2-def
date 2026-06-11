@@ -104,6 +104,8 @@ async function launchBrowser() {
       case 'tool':    return page.evaluate(n => GameAPI.fp.tool(n), +a);
       case 'act':     return page.evaluate(n => GameAPI.fp.act(n), +a || 0);
       case 'score':   return page.evaluate(() => GameAPI.scorecard());
+      case 'player':  return page.evaluate(n => GameAPI.player(n), a);
+      case 'lead':    return page.evaluate(() => GameAPI.leaderboard());
       case 'bench': { /* autopilot baseline: bench [playSec=60] [diff=1] */
         const target = +a || 60, diff = b == null ? 1 : +b;
         await page.evaluate(d => { GameAPI.start(d, false); GameAPI.auto(true); GameAPI.callWave(); GameAPI.speed(8); }, diff);

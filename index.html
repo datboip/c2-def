@@ -267,7 +267,7 @@ const IC=(function(){
 const $=id=>document.getElementById(id);
 
 /* ============ CONFIG / STATE ============ */
-const UNLOCK_ORDER=[4,2,5,3,1];
+const UNLOCK_ORDER=[2,4,5,3,1]; /* desert first: sand beside the green meadow — no more two-grass-faces opening */
 const DIFFS=[
   {name:'settler',unlockEvery:9,maxFaces:3,hp:.85,exp:1.12,budget:.85,bounty:1.15,lives:15},
   {name:'frontier',unlockEvery:6,maxFaces:5,hp:1,exp:1.14,budget:1,bounty:1,lives:12},
@@ -297,6 +297,20 @@ let gold=CFG.startGold,dirt=CFG.startDirt,lives=12,wave=0,kills=0,prestige=0,gol
 let score=0,leaksThisWave=0,totalLeaks=0,perfectWaves=0,surgeT=0;
 const leakLog=[]; /* forensics: which portal each leak came through */
 let bestScore=0;try{bestScore=+(localStorage.getItem('c2best')||0);}catch(e){}
+/* named leaderboard — tag your runs (human or AI model) and compare on this machine */
+let playerName='anon';
+function getLeaderboard(){try{return JSON.parse(localStorage.getItem('c2lead')||'[]');}catch(e){return[];}}
+function recordScore(){
+  if(FREE||DEMO||score<=0)return;
+  let lead=getLeaderboard();
+  const prev=lead.find(x=>x.name===playerName);
+  const entry={name:playerName,score,wave,diff:DIFF.name,seed:rngSeed};
+  if(!prev)lead.push(entry);
+  else if(score>prev.score)Object.assign(prev,entry);
+  lead.sort((a,b)=>b.score-a.score);
+  lead=lead.slice(0,10);
+  try{localStorage.setItem('c2lead',JSON.stringify(lead));}catch(e){}
+}
 function addScore(n){
   score+=n;
   if(score>bestScore&&!FREE){bestScore=score;try{localStorage.setItem('c2best',bestScore);}catch(e){}}
@@ -388,27 +402,33 @@ const ADJ=[];
 /* pc = portal tint (tells you which biome a portal belongs to at a glance)
    hz = biome hazard: mul = ground speed factor, pitSlow = extra slow in dug pits,
         dpsPct = % of max hp burned per second while on that face, frostX = frost slow lasts longer */
+/* wtr = the biome's water feature: w 1=water (slows hard) · 2=ice (speeds up) · 3=lava (burns) */
 const BIOMES=[ /* obs = the obstacle each biome drops ON the road — dig/chop it or detour */
-  {name:'meadow', a:0x6f9a4e,b:0x638c45,deco:'tree',   obs:'pond',    pc:0xa86bff,hz:null}, /* bright spring green — must NOT read like the dark forest face */
-  {name:'caverns',a:0x2c2440,b:0x251e38,deco:'shard',  obs:'shard',   pc:0xc89bff,hz:{label:'crystal static',dpsPct:.012}},
-  {name:'desert', a:0x9c8458,b:0x8f794e,deco:'cactus', obs:'cactus',  pc:0xffd24a,hz:{label:'quicksand',pitSlow:2}},
-  {name:'volcanic',a:0x4a3034,b:0x422a2e,deco:'spike', obs:'boulder', pc:0xff7a2d,hz:{label:'embers',dpsPct:.015}},
-  {name:'forest', a:0x2c5239,b:0x254832,deco:'pine',   obs:'boulder', pc:0x4dff7a,hz:{label:'undergrowth',mul:.85}},
-  {name:'tundra', a:0x8fa3b0,b:0x8298a6,deco:'snowpine',obs:'snowball',pc:0x9be8ff,hz:{label:'ice',mul:1.15,frostX:1.5}},
+  {name:'meadow', a:0x6f9a4e,b:0x638c45,deco:'tree',   obs:'boulder', pc:0xa86bff,hz:null,wtr:{w:1,shape:'blob',n:4}}, /* bright spring green — must NOT read like the dark forest face */
+  {name:'caverns',a:0x2c2440,b:0x251e38,deco:'shard',  obs:'shard',   pc:0xc89bff,hz:{label:'crystal static',dpsPct:.012},wtr:{w:1,shape:'blob',n:3}},
+  {name:'desert', a:0x9c8458,b:0x8f794e,deco:'cactus', obs:'cactus',  pc:0xffd24a,hz:{label:'quicksand',pitSlow:2},wtr:{w:1,shape:'blob',n:2}},
+  {name:'volcanic',a:0x4a3034,b:0x422a2e,deco:'spike', obs:'boulder', pc:0xff7a2d,hz:{label:'embers',dpsPct:.015},wtr:{w:3,shape:'stream',n:6}},
+  {name:'forest', a:0x1f4434,b:0x1a3a2c,deco:'pine',   obs:'boulder', pc:0x4dff7a,hz:{label:'undergrowth',mul:.85},wtr:{w:1,shape:'stream',n:7}}, /* deep dark forest ≠ meadow */
+  {name:'tundra', a:0x8fa3b0,b:0x8298a6,deco:'snowpine',obs:'snowball',pc:0x9be8ff,hz:{label:'ice',mul:1.15,frostX:1.5},wtr:{w:2,shape:'blob',n:5}},
 ];
 const matBio=BIOMES.map(B=>[
   new THREE.MeshStandardMaterial({color:B.a,roughness:.95}),
   new THREE.MeshStandardMaterial({color:B.b,roughness:.95})]);
 const matLockA=new THREE.MeshStandardMaterial({color:0x14161d,roughness:1});
 const matLockB=new THREE.MeshStandardMaterial({color:0x101218,roughness:1});
-const matD=[null,
-  new THREE.MeshStandardMaterial({color:0x4a3a28,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x39322e,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x262a35,roughness:.9})];
+const matD=[null, /* dug-pit floors: readable earth strata, not voids */
+  new THREE.MeshStandardMaterial({color:0x7a5f40,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x5c4c3a,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x474655,roughness:.9})];
 const matWall=new THREE.MeshStandardMaterial({color:0x7a6346,roughness:.95});
 const matRoad=new THREE.MeshStandardMaterial({color:0xa08e6a,roughness:.85}); /* the invasion's paved trail */
-const matSide=new THREE.MeshStandardMaterial({color:0x2a2d3d,roughness:1});
+const matSide=new THREE.MeshStandardMaterial({color:0x6a543c,roughness:1}); /* pit walls read as dug earth, not gray voids */
 const ROAD=new Uint8Array(N);
+/* water is TERRAIN, full tiles: 1 water · 2 ice · 3 lava */
+const WATER=new Uint8Array(N);
+const matWater=new THREE.MeshStandardMaterial({color:0x2e6bc4,roughness:.2,emissive:0x1a4a8c,emissiveIntensity:.3});
+const matIce=new THREE.MeshStandardMaterial({color:0xcdeaf5,roughness:.12});
+const matLava=new THREE.MeshStandardMaterial({color:0xc4451c,roughness:.5,emissive:0xff5a1a,emissiveIntensity:.9});
 const tileGeo=new THREE.BoxGeometry(.98,.98,4.4); /* +Z = outward; deep enough that a -3 dig still shows solid pit walls */
 const tiles=[];
 function topMat(i){
@@ -417,6 +437,7 @@ function topMat(i){
   const h=HMAP[i];
   if(h<0)return matD[-h];
   if(h>0)return matWall;
+  if(WATER[i])return WATER[i]===3?matLava:WATER[i]===2?matIce:matWater;
   if(ROAD[i])return matRoad;
   return matBio[faceOf(i)][checker];
 }
@@ -465,6 +486,54 @@ function buildDeco(kind){
   else {M(new THREE.OctahedronGeometry(.22),decoMats.shard,.26);M(new THREE.OctahedronGeometry(.12),decoMats.shard,.1).position.x=.18;}
   return g;
 }
+function waterFeature(f){
+  const cfg=BIOMES[f].wtr;if(!cfg)return;
+  const ok=i=>{
+    if(faceOf(i)!==f||DEC[i]||TWR[i]||HMAP[i]!==0||WATER[i]||PORTALS.includes(i)||i===CRYSTAL)return false;
+    for(const j of ADJ[i])if(PORTALS.includes(j)||j===CRYSTAL)return false;
+    return true;
+  };
+  const cells=[];
+  if(cfg.shape==='blob'){ /* pond / lake / oasis */
+    for(let tries=0;tries<30&&!cells.length;tries++){
+      const u=2+((rnd()*(S-4))|0),v=2+((rnd()*(S-4))|0);
+      const c0=f*FCELLS+v*S+u;
+      if(ok(c0))cells.push(c0);
+    }
+    let guard=0;
+    while(cells.length<cfg.n&&cells.length&&guard++<40){
+      const base=cells[(rnd()*cells.length)|0];
+      const adj=ADJ[base].filter(j=>ok(j)&&!cells.includes(j));
+      if(!adj.length)continue;
+      cells.push(adj[(rnd()*adj.length)|0]);
+    }
+  }else{ /* stream: meanders across the face */
+    let u=1+((rnd()*(S-2))|0);
+    for(let v=0;v<S&&cells.length<cfg.n;v++){
+      const i=f*FCELLS+v*S+u;
+      if(ok(i))cells.push(i);
+      u=Math.max(1,Math.min(S-2,u+((rnd()*3)|0)-1));
+    }
+  }
+  for(const i of cells){WATER[i]=cfg.w;refreshTile(i);}
+}
+const dormantMat=new THREE.MeshStandardMaterial({color:0x23262f,roughness:1});
+function decorateDormant(f){ /* locked faces show dark, sleeping versions of their environment */
+  let placed=0,tries=0;
+  while(placed<8&&tries++<60){
+    const u=1+((rnd()*(S-2))|0),v=1+((rnd()*(S-2))|0);
+    const i=f*FCELLS+v*S+u;
+    if(DEC[i])continue;
+    const g=buildDeco(BIOMES[f].deco);
+    g.traverse(ch=>{if(ch.material)ch.material=dormantMat;});
+    g.scale.setScalar(.8+rnd()*.5);
+    orientOnFace(g,i,0);
+    scene.add(g);DEC[i]=g;placed++;
+  }
+}
+function clearFaceDecos(f){
+  for(let i=f*FCELLS;i<(f+1)*FCELLS;i++)if(DEC[i]){scene.remove(DEC[i]);DEC[i]=null;}
+}
 function markRoad(p){ /* pave the invasion's current route from this portal */
   let i=p,g=0;
   while(i!==-1&&i!==CRYSTAL&&g++<N){
@@ -507,6 +576,7 @@ function decorateFace(f){
     orientOnFace(g,i,0);
     scene.add(g);DEC[i]=g;placedO++;
   }
+  waterFeature(f);
   bfs();refreshPathDots();
 }
 /* glowing core */
@@ -542,7 +612,12 @@ const FIELDS={
   jump:{dist:new Int32Array(N),next:new Int32Array(N),hMax:1,step:2},
   climb:{dist:new Int32Array(N),next:new Int32Array(N),hMax:9,step:99},
 };
-const moveCost=i=>HMAP[i]<0?2-HMAP[i]:2;
+const moveCost=i=>{
+  let m=HMAP[i]<0?2-HMAP[i]:2;
+  if(WATER[i]===1)m+=2;       /* creeps prefer dry routes */
+  else if(WATER[i]===3)m+=5;  /* and really hate lava */
+  return m;
+};
 let PORTALS=[];
 function computeField(F2){
   /* Dijkstra with a binary heap — runs constantly (every edit + AI mazing probes), so it must be fast */
@@ -601,6 +676,7 @@ function refreshPathDots(){
       const hz=BIOMES[faceOf(i)].hz;
       if(hz&&hz.mul)f*=hz.mul;
       if(HMAP[i]<0)f*=(hz&&hz.pitSlow)?.4:.7;
+      if(WATER[i]===1)f*=.45;else if(WATER[i]===2)f*=1.35;else if(WATER[i]===3)f*=.5;
       if(prev>=0&&ADJ[i].includes(prev)&&Math.abs(HMAP[i]-HMAP[prev])>0)f*=.55;
       const F=FACES[faceOf(i)];
       const d=new THREE.Mesh(dotGeo,f>=.99?dotMatF:f>=.6?dotMatM:dotMatS);
@@ -812,6 +888,7 @@ function callWave(early){
     const perfect=leaksThisWave===0;
     if(perfect)perfectWaves++;
     addScore(100+10*wave+(perfect?50:0));
+    recordScore();
   }
   leaksThisWave=0;
   if(early){const b=CFG.earlyBonus+5*wave;gold+=b;toast('early call +'+b+'g');}
@@ -996,7 +1073,7 @@ function aiDig(){
   const path=pathCellsList(),cands=[];
   for(const pi of path){
     for(const j of ADJ[pi]){
-      if(!ACTIVE[faceOf(j)]||TWR[j]||DEC[j]||HMAP[j]<=CFG.digDepth+1||PORTALS.includes(j)||j===CRYSTAL||creepOn(j))continue;
+      if(!ACTIVE[faceOf(j)]||TWR[j]||DEC[j]||WATER[j]||HMAP[j]<=CFG.digDepth+1||PORTALS.includes(j)||j===CRYSTAL||creepOn(j))continue;
       if(path.includes(j))continue;
       cands.push(j);
     }
@@ -1021,7 +1098,7 @@ function mazeWall(){
   for(const i of path){
     if(PORTALS.includes(i)||i===CRYSTAL)continue;
     if(n++>16)break;
-    if(TWR[i]||DEC[i]||HMAP[i]!==0||creepOn(i))continue;
+    if(TWR[i]||DEC[i]||WATER[i]||HMAP[i]!==0||creepOn(i))continue;
     HMAP[i]=1;
     computeField(FIELDS.walk);
     let ok=true;for(const p of PORTALS)if(FIELDS.walk.dist[p]===INF){ok=false;break;}
@@ -1061,7 +1138,7 @@ function director(dt){
   const path=pathCellsList(),pathSet=new Set(path),cands=[];
   for(let k=0;k<140;k++){
     const i=(rnd()*N)|0;
-    if(!ACTIVE[faceOf(i)]||TWR[i]||DEC[i]||HMAP[i]!==0||PORTALS.includes(i)||i===CRYSTAL||creepOn(i)||pathSet.has(i))continue;
+    if(!ACTIVE[faceOf(i)]||TWR[i]||DEC[i]||WATER[i]||HMAP[i]!==0||PORTALS.includes(i)||i===CRYSTAL||creepOn(i)||pathSet.has(i))continue;
     const p=cellTop(i);let cov=0;
     for(const pi of path)if(p.distanceTo(cellTop(pi))<range)cov++;
     for(const t2 of towers)if(p.distanceTo(t2.g.position)<1.3)cov-=3;
@@ -1109,7 +1186,7 @@ const golemTmp=new THREE.Vector3(),heroTmp=new THREE.Vector3();
    (auto-shoots nearby creeps); V flies you into it wherever it stands; the pilot
    ability (one-time shard cost) lets it auto-roam and hunt like a drone. */
 let heroSpawned=false;
-const hero={cool:0,auto:false,aiOwned:false,kills:0,dmgDealt:0};
+const hero={cool:0,auto:false,aiOwned:false,kills:0,dmgDealt:0,fwd:new THREE.Vector3()};
 function updateHero(dt){
   if(!heroSpawned)return;
   hero.cool-=dt;
@@ -1122,7 +1199,10 @@ function updateHero(dt){
       heroTmp.copy(best.g.position).sub(walker.pos);
       heroTmp.addScaledVector(F.n,-heroTmp.dot(F.n));
       if(heroTmp.lengthSq()>.001){
-        walker.pos.addScaledVector(heroTmp.normalize(),2.6*heroSpeed()*dt);
+        heroMove=.15;
+        heroTmp.normalize();
+        hero.fwd.copy(heroTmp); /* face where you're going */
+        walker.pos.addScaledVector(heroTmp,2.6*heroSpeed()*dt);
         const nf=faceBasisAt(walker.pos);
         if(nf!==walker.face&&ACTIVE[nf])walker.face=nf;
         const FF=FACES[walker.face];
@@ -1136,6 +1216,11 @@ function updateHero(dt){
     for(const c of creeps){const d=c.g.position.distanceTo(avatar.position);if(d<bd){bd=d;best=c;}}
     if(best){
       hero.cool=.85*heroRate();
+      const F2=FACES[walker.face];
+      heroTmp.copy(best.g.position).sub(avatar.position);
+      heroTmp.addScaledVector(F2.n,-heroTmp.dot(F2.n));
+      if(heroTmp.lengthSq()>.001)hero.fwd.copy(heroTmp.normalize()); /* square up to the target */
+      avatar.userData.shootT=.22; /* raise the sidearm */
       boltFx(avatar.position.clone().addScaledVector(FACES[walker.face].n,.6),best.g.position,0x2de0c8);
       const d2=heroDmg();
       dmgNum(best.g.position,Math.round(d2),'#2de0c8');
@@ -1261,6 +1346,7 @@ function chop(i){
 function dig(i){
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(chop(i))return;
+  if(WATER[i]){toast(WATER[i]===3?'that is lava':'water — fill it with dirt or go around');return;}
   if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');beep(90,.2,'sawtooth',.06);return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
   const kit=freeDigs>0; /* surveyor's kit: opening digs are free and never crumble */
@@ -1289,6 +1375,15 @@ function dig(i){
 }
 function placeDirt(i){
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
+  if(WATER[i]){ /* reclamation: a block of dirt turns water back into land */
+    if(!FREE&&dirt<1){toast('no dirt — dig to carry blocks');return;}
+    if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
+    WATER[i]=0;if(!FREE)dirt--;
+    refreshTile(i);bfs();refreshPathDots();
+    puff(cellTop(i),0x3b7bd4,6);
+    toast('land reclaimed');beep(210,.12,'square',.05);
+    return;
+  }
   chop(i); /* scenery auto-chops (+1 dirt) before the block lands */
   if(!FREE&&dirt<=0){toast('no dirt — dig to carry blocks');return;}
   if(HMAP[i]>=2){toast('max height');return;}
@@ -1307,20 +1402,35 @@ let camYaw=.7,camPitch=.45,camDist=26,autoSpin=true,downBtn=0;
 const camPan=new THREE.Vector3(); /* middle-drag strafe offset */
 let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='fp';
 const walker={face:0,pos:new THREE.Vector3(),fwd:new THREE.Vector3(1,0,0)};
-const avatar=(function(){ /* visible body for third-person walk */
+const avatar=(function(){ /* the hero, v2: arms, visor (no creep eyes!), backpack, swinging limbs */
   const g=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color:0x2de0c8,roughness:.6});
-  const M=(geo,x,y)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,0);m.castShadow=true;g.add(m);return m;};
-  M(new THREE.BoxGeometry(.26,.34,.18),0,.42);
-  const hd=M(new THREE.BoxGeometry(.18,.16,.16),0,.68);
-  M(new THREE.BoxGeometry(.09,.3,.09),-.08,.15);
-  M(new THREE.BoxGeometry(.09,.3,.09),.08,.15);
-  eyes(hd,.02,.09,.045);
+  const suit=new THREE.MeshStandardMaterial({color:0x2de0c8,roughness:.55});
+  const dark=new THREE.MeshStandardMaterial({color:0x17434b,roughness:.7});
+  const visorM=new THREE.MeshStandardMaterial({color:0x0b2030,roughness:.2,emissive:0x9bf2e6,emissiveIntensity:.5});
+  const M=(geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z||0);m.castShadow=true;g.add(m);return m;};
+  M(new THREE.BoxGeometry(.26,.3,.16),suit,0,.44);            /* torso */
+  M(new THREE.BoxGeometry(.22,.07,.17),dark,0,.27);           /* belt */
+  const hd=M(new THREE.BoxGeometry(.2,.17,.18),suit,0,.7);    /* head */
+  const vz=new THREE.Mesh(new THREE.BoxGeometry(.15,.07,.02),visorM);
+  vz.position.set(0,.01,.095);hd.add(vz);                     /* visor — the face */
+  M(new THREE.BoxGeometry(.14,.18,.07),dark,0,.48,-.13);      /* backpack */
+  const ant=M(new THREE.CylinderGeometry(.008,.008,.16,4),dark,.05,.62,-.13);
+  const antTip=new THREE.Mesh(new THREE.SphereGeometry(.02,6,6),visorM);antTip.position.y=.09;ant.add(antTip);
+  const limb=(w,h,x,y)=>{ /* origin at the joint so rotation swings naturally */
+    const geo=new THREE.BoxGeometry(w,h,w);geo.translate(0,-h/2,0);
+    const m=new THREE.Mesh(geo,suit);m.position.set(x,y,0);m.castShadow=true;g.add(m);return m;
+  };
+  const armL=limb(.07,.26,-.17,.56),armR=limb(.07,.26,.17,.56);
+  const legL=limb(.09,.28,-.07,.3),legR=limb(.09,.28,.07,.3);
+  const gun=new THREE.Mesh(new THREE.BoxGeometry(.05,.06,.2),dark); /* sidearm in the right hand */
+  gun.position.set(0,-.24,.09);gun.castShadow=true;armR.add(gun);
+  g.userData.limbs={armL,armR,legL,legR};
   const tag=new THREE.Mesh(new THREE.OctahedronGeometry(.07),new THREE.MeshBasicMaterial({color:0x2de0c8}));
-  tag.position.y=1.0;g.add(tag);g.userData.tag=tag; /* bobbing marker so the hero reads from orbit */
+  tag.position.y=1.05;g.add(tag);g.userData.tag=tag; /* bobbing marker so the hero reads from orbit */
   g.visible=false;scene.add(g);
   return g;
 })();
+let heroMove=0; /* >0 while the hero is travelling — drives the limb swing */
 /* ===== hero skill tree: spend gold+iron, click the hero to open ===== */
 const HSK={
   dmg:{label:'firepower',lv:0,max:3,d:'+30% hero damage'},
@@ -1431,7 +1541,7 @@ document.addEventListener('mousemove',e=>{
   const mx=locked?e.movementX:e.clientX-fbX;
   const my=locked?e.movementY:e.clientY-fbY;
   if(!locked){fbX=e.clientX;fbY=e.clientY;if(Math.abs(mx)+Math.abs(my)>2)fbMoved=true;}
-  fpYaw-=mx*sens;
+  fpYaw+=mx*sens; /* mouse right = look right (was mirrored) */
   const dy=my*(SETT.invert?-1:1);
   fpPitch=Math.min(.6,Math.max(-1.1,fpPitch-dy*sens));
 });
@@ -1499,7 +1609,7 @@ function ghostAt(e,type){
       }
       ghostRing.visible=false;return -1;
     }
-    if(ACTIVE[faceOf(i)]&&!TWR[i]&&HMAP[i]>=0&&!PORTALS.includes(i)&&i!==CRYSTAL){ /* deco cells OK — build auto-chops */
+    if(ACTIVE[faceOf(i)]&&!TWR[i]&&!WATER[i]&&HMAP[i]>=0&&!PORTALS.includes(i)&&i!==CRYSTAL){ /* deco cells OK — build auto-chops */
       const F=FACES[faceOf(i)];
       ghostRing.scale.setScalar(TT[type].range*(HMAP[i]>0?CFG.wallRangeBonus:1));
       ghostRing.position.copy(cellTop(i)).addScaledVector(F.n,.04);
@@ -1515,6 +1625,7 @@ function tryBuy(i,type){
   if(!towerUnlocked(type)){toast(type+' unlocks with the '+BIOMES[TT[type].biome].name+' biome');return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(PORTALS.includes(i)||i===CRYSTAL)return;
+  if(WATER[i]){toast(WATER[i]===3?'lava — nothing builds there':"can't build on water — fill it (1 dirt)");return;}
   chop(i); /* the build crew clears scenery for free (+1 dirt) */
   if(HMAP[i]<0){toast('fill the pit first');return;}
   if(creepOn(i)){toast('creep in the way');return;}
@@ -1854,6 +1965,7 @@ function unlockNextFace(){
   PORTALS.push(np);PORTAL_BORN.push(wave);
   const pm=addPortalMesh(f);
   orientOnFace(pm,np,.04);
+  clearFaceDecos(f); /* the dormant silhouettes wake into the real biome */
   bfs();markRoad(np);decorateFace(f);
   bfs();refreshPathDots();
   const wb=$('wavebanner');wb.textContent=BIOMES[f].name.toUpperCase()+' AWAKENS';
@@ -1883,13 +1995,14 @@ function resetGame(diff,demo){
   for(const k in ABIL)ABIL[k].t=0;
   TWR.fill(null);HMAP.fill(0);
   for(let i=0;i<N;i++)if(DEC[i]){scene.remove(DEC[i]);DEC[i]=null;}
-  facesUnlocked=1;nextUnlockWave=4;clearTelegraph();ROAD.fill(0);applyFaces();
+  facesUnlocked=1;nextUnlockWave=4;clearTelegraph();ROAD.fill(0);WATER.fill(0);applyFaces();
   for(let k=portalMeshes.length-1;k>=1;k--){scene.remove(portalMeshes[k]);portalMeshes.splice(k,1);}
   CRYSTAL=0*FCELLS+(S-2)*S+(S>>1); /* crystal: middle of the opposite edge — a clean lane across the face */
   PORTALS=[farCellOnFace(0)];
   orientOnFace(portal,PORTALS[0],.04);
   orientOnFace(crystal,CRYSTAL,.7);
   bfs();markRoad(PORTALS[0]);decorateFace(0);
+  for(let f=0;f<FN;f++)if(!ACTIVE[f])decorateDormant(f);
   bfs();refreshPathDots();
   wave=0;kills=0;prestige=0;goldMult=1;playSec=0;waveTotal=0;mineXp=0;
   score=0;leaksThisWave=0;totalLeaks=0;perfectWaves=0;surgeT=0;leakLog.length=0;
@@ -1959,7 +2072,7 @@ function sim(dt){
       beep(300,.3,'sawtooth',.08);setTimeout(()=>beep(180,.35,'sawtooth',.08),120);
       toast('crystal hit — '+lives+' lives');
       if(lives<=0){
-        addScore(-400);
+        addScore(-400);recordScore();
         prestige++;goldMult=1+prestige*.3;lives=DIFF.lives;wave=Math.max(0,wave-6);
         spawnQueue=[];toast('OVERRUN — prestige '+prestige+' (+'+Math.round((goldMult-1)*100)+'% gold)');
       }
@@ -1990,6 +2103,10 @@ function sim(dt){
       if(hz.pitSlow&&HMAP[c.cell]<0)sp/=hz.pitSlow; /* desert quicksand: pits are death-slow */
       if(hz.dpsPct){damageCreep(c,c.maxHp*hz.dpsPct*dt);if(c.hp<=0)continue;}
     }
+    const w2=WATER[c.cell]; /* water wades · ice slides · lava burns */
+    if(w2===1)sp*=.45;
+    else if(w2===2)sp*=1.35;
+    else if(w2===3){sp*=.6;damageCreep(c,c.maxHp*.025*dt);if(!creeps.includes(c))continue;}
     const dh=Math.abs(HMAP[target]-HMAP[c.cell]);
     if(dh>0&&c.tt.cls!=='jump')sp*=c.tt.climbMul;
     if(crawling)sp*=.35;
@@ -2088,12 +2205,15 @@ function updateWalk(dt){
   const F=FACES[walker.face];
   /* forward in tangent plane from fpYaw */
   const fwd=F.r.clone().multiplyScalar(Math.sin(fpYaw)).addScaledVector(F.u,Math.cos(fpYaw));
-  const right=fwd.clone().cross(F.n).negate();
+  const right=fwd.clone().cross(F.n); /* fwd × n = screen-right (the old negate mirrored A/D) */
   const mv=new THREE.Vector3();
   if(keys['w'])mv.add(fwd);if(keys['s'])mv.sub(fwd);
   if(keys['d'])mv.add(right);if(keys['a'])mv.sub(right);
   if(mv.lengthSq()>0){
-    mv.normalize().multiplyScalar(3.2*heroSpeed()*dt);
+    heroMove=.15;
+    const wi0=cellAtWorld(walker.pos);
+    const wmul=wi0>=0?(WATER[wi0]===1?.5:WATER[wi0]===2?1.3:WATER[wi0]===3?.6:1):1;
+    mv.normalize().multiplyScalar(3.2*heroSpeed()*wmul*dt);
     const prevPos=walker.pos.clone(),pi=cellAtWorld(walker.pos);
     walker.pos.add(mv);
     /* the world is solid: towers, scenery, and 2-high walls block you */
@@ -2173,11 +2293,25 @@ function tick(){
 
   /* the hero is always on the field once spawned (hidden only in first-person — you're inside it) */
   avatar.visible=heroSpawned&&(mode!=='walk'||walkView==='tp');
-  if(avatar.visible){const tg=avatar.userData.tag;tg.position.y=1.0+Math.sin(t*3.5)*.08;tg.rotation.y+=raw*2;}
+  if(avatar.visible){
+    const ud=avatar.userData,tg=ud.tag;
+    tg.position.y=1.05+Math.sin(t*3.5)*.08;tg.rotation.y+=raw*2;
+    if(heroMove>0)heroMove-=raw;
+    if(ud.shootT>0)ud.shootT-=raw;
+    const sw=heroMove>0?Math.sin(t*11)*.7:0;
+    const L=ud.limbs;
+    L.armL.rotation.x=sw;
+    L.armR.rotation.x=ud.shootT>0?-1.45:-sw; /* aim pose while firing */
+    L.legL.rotation.x=-sw*.8;L.legR.rotation.x=sw*.8;
+  }
+  matLava.emissiveIntensity=.8+Math.sin(t*2.6)*.25;
+  matWater.emissiveIntensity=.25+Math.sin(t*1.6)*.1;
   if(heroSpawned&&mode!=='walk'){
     const HF=FACES[walker.face];
     avatar.position.copy(walker.pos).addScaledVector(HF.n,groundLift(walker.pos));
-    avatar.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(V3(0,1,0),HF.n),Math.min(raw*8,1));
+    const fw=hero.fwd.lengthSq()>.01?hero.fwd:HF.u; /* face movement/target, not just "up" */
+    const am=new THREE.Matrix4().lookAt(avatar.position.clone().add(fw),avatar.position,HF.n);
+    avatar.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(am),Math.min(raw*10,1));
   }
 
   /* camera */
@@ -2288,6 +2422,7 @@ window.GameAPI={
     towers:towers.map(t=>({type:t.type,cell:t.cell,tier:t.tier,onWall:t.onWall,home:!!t.home,hp:Math.round(t.hp),branch:t.branch||null,prio:t.prio,kills:t.kills,dmgDealt:Math.round(t.dmgDealt)})),
     unlockedTowers:Object.keys(TT).filter(towerUnlocked),
     hmap:Array.from(HMAP),
+    water:Array.from(WATER),
     path:pathCellsList(),
   };},
   start(diffIdx,free,seed){if(diffIdx==null)diffIdx=1;startGame(diffIdx,!!free,seed);return{ok:true,diff:DIFF.name,free:FREE,seed:rngSeed};},
@@ -2365,7 +2500,7 @@ window.GameAPI={
   expandCost:()=>expandCost(),
   /* the benchmark blob — one call, everything a model comparison needs */
   scorecard(){return{
-    score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,seed:rngSeed,
+    player:playerName,score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,seed:rngSeed,
     wave,kills,lives,prestige,totalLeaks,perfectWaves,
     faces:facesUnlocked,miningLevel:mineLvl(),
     heroKills:hero.kills,heroDmg:Math.round(hero.dmgDealt),
@@ -2375,6 +2510,8 @@ window.GameAPI={
   };},
   ability(k){return useAbility(k)?{ok:true,cooldown:ABIL[k].cd}:{ok:false,why:ABIL[k]?(ABIL[k].t>0?'on cooldown':'cannot afford'):'unknown ability'};},
   heroSkill(k){return buyHeroSkill(k);},
+  player(n){playerName=String(n||'anon').slice(0,24);return{ok:true,player:playerName};},
+  leaderboard(){return getLeaderboard();},
   branch(i,idx){const tw=TWR[i];
     if(!tw)return{ok:false,why:'no tower there'};
     if(tw.tier<CFG.maxTier)return{ok:false,why:'reach tier '+CFG.maxTier+' first'};
@@ -2403,7 +2540,12 @@ window.GameAPI={
 document.querySelectorAll('[data-ic]').forEach(el=>{el.innerHTML=IC[el.dataset.ic]||'';});
 $('biostrip').innerHTML=BIOMES.map(B=>'<div class="bio"><i style="background:#'+B.a.toString(16).padStart(6,'0')+'"></i>'+B.name+'</div>').join('');
 $('hud').addEventListener('click',e=>{if(e.target.closest('#nextbio'))expandNow();});
-if(bestScore>0){$('bestline').style.display='block';$('bestline').textContent='BEST SCORE · '+bestScore;}
+(function(){
+  const lead=getLeaderboard();
+  if(lead.length){$('bestline').style.display='block';
+    $('bestline').textContent='LEADERBOARD · '+lead.slice(0,3).map(e=>e.name+' '+e.score).join(' · ');}
+  else if(bestScore>0){$('bestline').style.display='block';$('bestline').textContent='BEST SCORE · '+bestScore;}
+})();
 (function(){const sg=document.querySelectorAll('#segSpeed div');
   sg[0].innerHTML=IC.pause;sg[1].innerHTML=IC.play;sg[2].innerHTML=IC.ff;sg[3].innerHTML=IC.ff2;sg[4].innerHTML=IC.ff3;})();
 $('btnWalk').innerHTML=IC.pick;$('btnPath').innerHTML=IC.path;
