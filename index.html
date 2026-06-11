@@ -669,7 +669,7 @@ function pathCellsList(){
     while(i!==-1&&i!==CRYSTAL&&g++<N){o.push(i);i=FIELDS.walk.next[i];}
   }
   o.push(CRYSTAL);return o;}
-function tryEdit(fn,undo){fn();if(!bfs()){undo();bfs();return false;}refreshPathDots();return true;}
+function tryEdit(fn,undo){fn();if(!bfs()){undo();bfs();return false;}refreshPathDots();NET.dirtyStatic=true;return true;}
 let pathDots=new THREE.Group();scene.add(pathDots);
 const dotGeo=new THREE.CircleGeometry(.1,8);
 /* dot color = how fast creeps cross that square: green normal, yellow slowed, red crawling */
@@ -995,10 +995,12 @@ function buildTower(i,typeName,byPlayer){
   if(onWall)tw.tt.range*=CFG.wallRangeBonus;
   if(faceOf(i)===tt.biome){tw.home=true;tw.tt.dmg*=1.25;} /* native biome boost */
   g.userData.tw=tw;TWR[i]=tw;towers.push(tw);
-  ringFx(i,tw.tt.range,tt.color);
-  puff(g.position,0xbfc8da,8);
-  if(byPlayer)toast('built '+typeName+(onWall?' on wall':'')+(tw.home?' · home biome +25%':''));
-  else logEvent('AI built '+typeName+' on '+FACES[faceOf(i)].name.toLowerCase());
+  if(!NET.silent){
+    ringFx(i,tw.tt.range,tt.color);
+    puff(g.position,0xbfc8da,8);
+    if(byPlayer)toast('built '+typeName+(onWall?' on wall':'')+(tw.home?' · home biome +25%':''));
+    else logEvent('AI built '+typeName+' on '+FACES[faceOf(i)].name.toLowerCase());
+  }
   return tw;
 }
 const upgradeCost=tw=>TT[tw.type].cost*tw.tier;
@@ -1043,7 +1045,7 @@ function upgradeTower(tw){
   tw.tt.dmg*=1.7;tw.tt.range*=1.1;tw.tt.rate*=1.2;
   tw.g.scale.setScalar(1+(tw.tier-1)*.18);
   tw.headMat.emissiveIntensity=.4+tw.tier*.35;
-  ringFx(tw.cell,tw.tt.range,tw.headMat.color.getHex());
+  if(!NET.silent)ringFx(tw.cell,tw.tt.range,tw.headMat.color.getHex());
 }
 function sellTower(tw){
   gold+=Math.round(tw.invested*.75);
@@ -1233,7 +1235,7 @@ function updateHero(dt){
     let best=null,bd=1e9;
     for(const c of creeps){const d=c.g.position.distanceTo(avatar.position);if(d<bd){bd=d;best=c;}}
     if(best&&bd>2.2){ /* roam toward the action, golem-style */
-      const f=faceBasisAt(walker.pos),F=FACES[f];
+      const f=walker.face,F=FACES[f];
       heroTmp.copy(best.g.position).sub(walker.pos);
       heroTmp.addScaledVector(F.n,-heroTmp.dot(F.n));
       if(heroTmp.lengthSq()>.001){
@@ -1242,10 +1244,15 @@ function updateHero(dt){
         hero.fwd.copy(heroTmp); /* face where you're going */
         walker.pos.addScaledVector(heroTmp,2.6*heroSpeed()*dt);
         const nf=faceBasisAt(walker.pos);
-        if(nf!==walker.face&&ACTIVE[nf])walker.face=nf;
+        /* same corner protection as the player: transition cooldown */
+        hero.swapT=(hero.swapT||0)-dt;
+        if(nf!==walker.face&&ACTIVE[nf]&&hero.swapT<=0){walker.face=nf;hero.swapT=.3;}
         const FF=FACES[walker.face];
         const nd=walker.pos.dot(FF.n);
         walker.pos.addScaledVector(FF.n,HCUBE-nd);
+        const t1=Math.max(-HCUBE,Math.min(HCUBE,walker.pos.dot(FF.r)));
+        const t2=Math.max(-HCUBE,Math.min(HCUBE,walker.pos.dot(FF.u)));
+        walker.pos.copy(FF.n.clone().multiplyScalar(HCUBE)).addScaledVector(FF.r,t1).addScaledVector(FF.u,t2);
       }
     }
   }
@@ -1382,6 +1389,7 @@ function chop(i){
   return true;
 }
 function dig(i){
+  if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'dig',cell:i});return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(chop(i))return;
   if(WATER[i]){toast(WATER[i]===3?'that is lava':'water — fill it with dirt or go around');return;}
@@ -1412,6 +1420,7 @@ function dig(i){
   else{if(r<.28){INV.shard++;dmgNum(cellTop(i),'shard','#2de0c8');}else if(r<.45){gold+=30;dmgNum(cellTop(i),'gem +30','#2de0c8');}}
 }
 function placeDirt(i){
+  if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'place',cell:i});return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(WATER[i]){ /* reclamation: a block of dirt turns water back into land */
     if(!FREE&&dirt<1){toast('no dirt — dig to carry blocks');return;}
@@ -1438,7 +1447,7 @@ function placeDirt(i){
 let mode='overview',menuOpen=false;
 let camYaw=.7,camPitch=.45,camDist=26,autoSpin=true,downBtn=0;
 const camPan=new THREE.Vector3(); /* middle-drag strafe offset */
-let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='fp';
+let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='fp',lockToastT=0,faceSwapT=0;
 const walker={face:0,pos:new THREE.Vector3(),fwd:new THREE.Vector3(1,0,0)};
 const avatar=(function(){ /* the hero, v2: arms, visor (no creep eyes!), backpack, swinging limbs */
   const g=new THREE.Group();
@@ -1660,6 +1669,7 @@ function ghostAt(e,type){
   ghostRing.visible=false;return -1;
 }
 function tryBuy(i,type){
+  if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'build',cell:i,type});return;}
   if(!towerUnlocked(type)){toast(type+' unlocks with the '+BIOMES[TT[type].biome].name+' biome');return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(PORTALS.includes(i)||i===CRYSTAL)return;
@@ -1873,7 +1883,10 @@ $('segSpeed').addEventListener('click',e=>{
   if(sv===0)paused=!paused;else{paused=false;simSpeed=sv;}
   document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===(paused?0:simSpeed)));
 });
-$('breakbar').onclick=()=>{if(breakT>0&&!DEMO)callWave(true);};
+$('breakbar').onclick=()=>{
+  if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'wave'});return;}
+  if(breakT>0&&!DEMO)callWave(true);
+};
 let pickedDiff=1;
 document.querySelectorAll('#diffrow .lvl').forEach(d=>d.onclick=()=>{
   pickedDiff=+d.dataset.d;
@@ -2262,12 +2275,16 @@ function updateWalk(dt){
       walker.pos.copy(prevPos);
       return;
     }
-    /* face transition: dominant axis changed? */
+    /* face transition: dominant axis changed? A short cooldown + seam nudge stops corner flip-flop */
+    faceSwapT-=dt;
     const nf=faceBasisAt(walker.pos);
-    if(nf!==walker.face){
+    if(nf!==walker.face&&faceSwapT<=0){
       if(!ACTIVE[nf]){
-        walker.pos.sub(mv); /* locked face: blocked */
+        walker.pos.copy(prevPos); /* locked face: blocked — and say so */
+        if((lockToastT-=dt)<0){lockToastT=2.5;toast(BIOMES[nf].name+' is still asleep — survive or breach to wake it');}
+        return;
       }else{
+        faceSwapT=.3;
         /* re-express yaw in new basis */
         const oldN=FACES[walker.face].n;
         const wf=fwd.clone();
@@ -2277,6 +2294,7 @@ function updateWalk(dt){
         if(wf.lengthSq()<.01)wf.copy(oldN).negate(); /* head-on crossing: forward = away from the old face, not back at the rim */
         wf.normalize();
         fpYaw=Math.atan2(wf.dot(NF.r),wf.dot(NF.u));
+        walker.pos.addScaledVector(wf,.15); /* step cleanly off the seam so the corner can't reclaim you */
         toast('FACE: '+NF.name);
         $('facetag').textContent='FACE: '+NF.name;
         beep(440,.12,'triangle',.05);
@@ -2304,6 +2322,7 @@ function tick(){
   if(!paused)playSec+=raw;
   if(mode==='walk')updateWalk(raw);
   updateDmgNums(raw);
+  netHostPump(raw);netGuestLerp(raw);
   if(!paused)for(let k=0;k<simSpeed;k++)sim(raw);
   updateFx(raw);
 
@@ -2401,7 +2420,8 @@ function tick(){
     /* top strip: battle state. bottom cluster: spendable resources, next to where you spend them */
     const lowLives=lives<=4;
     /* who's at the controls — so there's never any doubt */
-    const who=DEMO?['#a86bff','DEMO · AI']:autopilot?['#2de0c8','AI PLAYING']:['#ffd24a','HUMAN'];
+    const who=NET.on?(NET.role==='host'?['#ff8c2d','HOST · '+(NET.guests.size+1)+'P']:['#4dd8ff','GUEST · '+(NET.myFace>=0?BIOMES[NET.myFace].name:'spec')]):
+      DEMO?['#a86bff','DEMO · AI']:autopilot?['#2de0c8','AI PLAYING']:['#ffd24a','HUMAN'];
     const hudHtml=
       '<div class="chip" style="color:'+who[0]+'" title="who is playing right now">'+IC.bot+' <b style="color:'+who[0]+'">'+who[1]+(FREE?' · SANDBOX':'')+'</b></div>'+
       (DEMO?'':'<div class="chip" title="score — best '+bestScore+'">'+IC.star+' <b>'+score+'</b></div>')+
@@ -2433,6 +2453,157 @@ function tick(){
   }
   renderer.render(scene,camera);
 }
+/* ============ MULTIPLAYER · host-authoritative over the dumb relay ============
+   Join with ?ws=ws://host:8090&room=name&name=you — first in is HOST (runs the
+   real sim), everyone after is a GUEST: joining WAKES the next biome, which is
+   theirs to defend. Guests mirror the host's world and their actions are
+   validated + executed host-side (own biome only). */
+const NET={on:false,role:null,sock:null,id:0,name:'p',guests:new Map(),myFace:-1,
+  dirtyStatic:false,silent:false,mGroups:[],towerCache:''};
+function netSend(o){if(NET.sock&&NET.sock.readyState===1)NET.sock.send(JSON.stringify(o));}
+(function(){
+  const q=new URLSearchParams(location.search);
+  const ws=q.get('ws');if(!ws)return;
+  NET.name=(q.get('name')||'player').slice(0,16);
+  const room=q.get('room')||'main';
+  let sock;
+  try{sock=new WebSocket(ws+(ws.includes('?')?'&':'?')+'room='+encodeURIComponent(room)+'&name='+encodeURIComponent(NET.name));}
+  catch(e){showErr('ws: '+(e.message||e));return;}
+  NET.sock=sock;
+  sock.onmessage=ev=>{let m;try{m=JSON.parse(ev.data);}catch(e){return;}netMsg(m);};
+  sock.onclose=()=>{if(NET.on)toast('connection lost');NET.on=false;};
+  sock.onerror=()=>showErr('relay unreachable: '+ws);
+})();
+function netMsg(m){
+  if(m.t==='role'){
+    NET.on=true;NET.role=m.role;NET.id=m.id;
+    playerName=NET.name;
+    if(m.role==='host'){
+      startGame(1,false);
+      toast('HOSTING — room is open');
+    }else{
+      DEMO=false;FREE=false;autopilot=false;autoSpin=false;
+      $('splash').style.display='none';$('demoTag').style.display='none';
+      resetGame(DIFFS[1],false);
+      paused=true; /* guests render the host's truth, they don't simulate */
+      renderBar();
+      toast('joined — waiting for the host\'s world');
+    }
+    return;
+  }
+  if(NET.role==='host')hostMsg(m);else guestMsg(m);
+}
+function hostMsg(m){
+  if(m.t==='join'){
+    let face=-1;
+    if(facesUnlocked<DIFF.maxFaces){
+      face=UNLOCK_ORDER[facesUnlocked-1];
+      unlockNextFace();
+      nextUnlockWave=wave+DIFF.unlockEvery;
+    }
+    NET.guests.set(m.id,{name:m.name,face});
+    toast(m.name+' joined'+(face>=0?' — the '+BIOMES[face].name+' is theirs':' — spectating'));
+    netSend({to:m.id,t:'welcome',face});
+    NET.dirtyStatic=true;
+  }
+  else if(m.t==='leave'){const g=NET.guests.get(m.id);NET.guests.delete(m.id);if(g)toast(g.name+' left');}
+  else if(m.t==='act'){
+    const g=NET.guests.get(m.from);if(!g)return;
+    if(m.cell!=null&&g.face>=0&&faceOf(m.cell)!==g.face&&faceOf(m.cell)!==0){
+      netSend({to:m.from,t:'deny',why:'not your biome — yours is the '+BIOMES[g.face].name});return;
+    }
+    let r={ok:false,why:'unknown action'};
+    const A=window.GameAPI;
+    if(m.k==='build')r=A.build(m.cell,m.type);
+    else if(m.k==='dig')r=A.dig(m.cell);
+    else if(m.k==='place')r=A.place(m.cell);
+    else if(m.k==='upgrade')r=A.upgrade(m.cell);
+    else if(m.k==='sell')r=A.sell(m.cell);
+    else if(m.k==='wave')r=A.callWave();
+    if(r&&r.ok===false&&r.why)netSend({to:m.from,t:'deny',why:r.why});
+  }
+}
+function sendStatic(){
+  const decs=[];for(let i=0;i<N;i++)if(DEC[i])decs.push(i);
+  netSend({t:'static',hmap:Array.from(HMAP),water:Array.from(WATER),road:Array.from(ROAD),
+    active:Array.from(ACTIVE),decs,portals:PORTALS.slice(),crystal:CRYSTAL});
+}
+let netT=0;
+function netHostPump(dt){
+  if(!NET.on||NET.role!=='host'||!NET.guests.size)return;
+  netT-=dt;
+  if(netT>0)return;
+  netT=.12;
+  if(NET.dirtyStatic){NET.dirtyStatic=false;sendStatic();}
+  netSend({t:'snap',w:wave,g:gold,l:lives,b:breakT>0&&breakT<900?Math.ceil(breakT):0,
+    cr:creeps.map(c=>({y:c.type,x:+c.g.position.x.toFixed(2),z:+c.g.position.y.toFixed(2),q:+c.g.position.z.toFixed(2),h:+(c.hp/c.maxHp).toFixed(2)})),
+    tw:towers.map(t2=>({y:t2.type,c:t2.cell,t:t2.tier}))});
+}
+function guestMsg(m){
+  if(m.t==='welcome'){NET.myFace=m.face;toast(m.face>=0?'YOUR BIOME: '+BIOMES[m.face].name.toUpperCase():'spectator');}
+  else if(m.t==='deny')toast(m.why);
+  else if(m.t==='hostgone'){toast('host left — game over');}
+  else if(m.t==='static'){
+    for(let i=0;i<N;i++){HMAP[i]=m.hmap[i];WATER[i]=m.water[i];ROAD[i]=m.road[i];}
+    ACTIVE.set(m.active);
+    facesUnlocked=m.active.reduce((a,b)=>a+b,0);
+    PORTALS=m.portals.slice();CRYSTAL=m.crystal;
+    for(let i=0;i<N;i++)refreshTile(i);
+    const dset=new Set(m.decs);
+    for(let i=0;i<N;i++)if(DEC[i]&&!dset.has(i)){scene.remove(DEC[i]);DEC[i]=null;}
+    NET.silent=true;
+    for(const i of m.decs)if(!DEC[i]){const g=buildDeco(BIOMES[faceOf(i)].deco);orientOnFace(g,i,0);scene.add(g);DEC[i]=g;}
+    NET.silent=false;
+    while(portalMeshes.length<PORTALS.length){
+      const idx=portalMeshes.length;
+      const pm=addPortalMesh(faceOf(PORTALS[idx]));
+      orientOnFace(pm,PORTALS[idx],.04);
+    }
+    orientOnFace(portal,PORTALS[0],.04);
+    orientOnFace(crystal,CRYSTAL,.7);
+    bfs();refreshPathDots();
+  }
+  else if(m.t==='snap'){
+    wave=m.w;gold=m.g;lives=m.l;
+    if(m.b>0){$('breakwrap').style.display='block';$('breakbar').textContent='CALL WAVE · '+m.b+'s';}
+    else $('breakwrap').style.display='none';
+    /* creep mirror: reconcile by index */
+    while(NET.mGroups.length>m.cr.length){const e=NET.mGroups.pop();scene.remove(e.g);}
+    m.cr.forEach((c,i)=>{
+      let e=NET.mGroups[i];
+      if(!e||e.type!==c.y){
+        if(e)scene.remove(e.g);
+        const mat=new THREE.MeshStandardMaterial({color:CT[c.y].color,roughness:.7});
+        const g=buildCreepBody(c.y,mat);
+        g.scale.setScalar(CT[c.y].s);
+        e={type:c.y,g,tgt:new THREE.Vector3(c.x,c.z,c.q)};
+        g.position.copy(e.tgt);
+        scene.add(g);NET.mGroups[i]=e;
+      }
+      e.tgt.set(c.x,c.z,c.q);
+      e.g.quaternion.setFromUnitVectors(V3(0,1,0),e.tgt.clone().normalize());
+    });
+    /* tower mirror: rebuild on change */
+    const tc=JSON.stringify(m.tw);
+    if(tc!==NET.towerCache){
+      NET.towerCache=tc;
+      NET.silent=true;
+      for(const t2 of towers)scene.remove(t2.g);
+      towers.length=0;TWR.fill(null);
+      for(const t2 of m.tw){
+        const tw=buildTower(t2.c,t2.y,false);
+        if(tw)for(let k=1;k<t2.t;k++)upgradeTower(tw);
+      }
+      NET.silent=false;
+    }
+  }
+}
+function netGuestLerp(dt){
+  if(NET.role!=='guest')return;
+  const k=Math.min(dt*9,1);
+  for(const e of NET.mGroups)e.g.position.lerp(e.tgt,k);
+}
+
 /* ============ AI / AUTOMATION API ============
    window.GameAPI — drive the game programmatically (browser console,
    Playwright/CDP `evaluate`, or any MCP browser tool). All cell args are

@@ -35,6 +35,20 @@ python3 -m http.server 8765 --directory .
 | space, 1/2/3 | pause, speed ×1/×2/×4 |
 | R | auto-rotate cube |
 
+## Multiplayer — each player owns a biome
+
+Host-authoritative co-op over a dumb WebSocket relay (no game logic server-side):
+
+```sh
+npm install && node relay.js        # relay on :8090 (PORT=... to change)
+# host (first to join — runs the real sim):
+http://yourserver/index.html?ws=ws://yourserver:8090&room=garage&name=thomas
+# friends (each join WAKES the next biome, which is theirs to defend):
+http://yourserver/index.html?ws=ws://yourserver:8090&room=garage&name=dale
+```
+
+Rules: the host plays normally. Each guest's arrival wakes the next biome **and assigns it to them** — they build, dig, and wall on their own face (plus the shared meadow); actions are validated and executed host-side, the world streams back at ~8Hz. Guests can request early waves; host controls speed/pause. Host leaving ends the room. The HUD badge shows your role (`HOST · 3P` / `GUEST · desert`). For internet play put the relay behind TLS (wss://) on any $5 VPS.
+
 ## CLI play (terminal / AI agents)
 
 ```sh
