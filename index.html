@@ -510,7 +510,7 @@ let DIFF=DIFFS[1];
 let DEMO=true,FREE=false,MODE='classic'; /* classic: ONE portal, maze the whole cube · siege: every biome opens one */
 const CFG={startGold:150,startDirt:10,freeDigs:10,maxTier:3,digCost:3,digDepth:-3,reach:4.4,
   breakTime:14,earlyBonus:20,dayLen:240,wallRangeBonus:1.15};
-const SETT={sens:1,invert:false,sfx:true,vol:.7,music:true,alwaysDay:false,bob:true};
+const SETT={sens:1,invert:false,sfx:true,vol:.7,music:false,alwaysDay:false,bob:true};
 /* seeded PRNG (mulberry32) for everything gameplay-affecting: waves, loot, AI dice,
    decoration layout. Same seed => same scenario, so model runs compare fairly.
    (Frame-timing still adds small combat variance — movement integrates real dt.) */
@@ -1258,22 +1258,32 @@ function creepOn(i){for(const c of creeps)if(c.cell===i)return true;return false
 
 /* ============ AUDIO ============ */
 /* AudioEngine: everything synthesized — no asset files. Graph: voice → master gain
-   (SETT.vol, zeroed by SETT.sfx) → compressor → destination. Lazy-init on the first
-   user gesture (autoplay policy); headless/agent runs never touch WebAudio at all. */
+   (SETT.vol, zeroed by SETT.sfx) → highshelf (-3dB @ 6k, takes the digital edge off)
+   → compressor → destination. Lazy-init on the first user gesture (autoplay policy);
+   headless/agent runs never touch WebAudio at all. */
 let AC=null;
-const AU={master:null,comp:null,noise:null,voices:0,last:{},amb:null};
+const AU={master:null,comp:null,shelf:null,noise:null,pink:null,voices:0,last:{},amb:null};
 function audioCtx(){
   if(AC)return AC;
   try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return null;}
   AU.master=AC.createGain();AU.master.gain.value=SETT.sfx?SETT.vol:0;
+  AU.shelf=AC.createBiquadFilter();
+  AU.shelf.type='highshelf';AU.shelf.frequency.value=6000;AU.shelf.gain.value=-3;
   AU.comp=AC.createDynamicsCompressor();
   AU.comp.threshold.value=-18;AU.comp.knee.value=12;AU.comp.ratio.value=6;
   AU.comp.attack.value=.003;AU.comp.release.value=.25;
-  AU.master.connect(AU.comp).connect(AC.destination);
-  /* one second of white noise, generated once — shared by every percussive layer */
+  AU.master.connect(AU.shelf).connect(AU.comp).connect(AC.destination);
+  /* one second each of white + pink noise, generated once — shared by every layer.
+     Pink (-3dB/oct, Paul Kellet 3-pole) reads as weight; white reads as air/crack. */
   const len=AC.sampleRate|0,buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0);
   for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
   AU.noise=buf;
+  const pbuf=AC.createBuffer(1,len,AC.sampleRate),p=pbuf.getChannelData(0);
+  let b0=0,b1=0,b2=0;
+  for(let i=0;i<len;i++){const w=Math.random()*2-1;
+    b0=.99765*b0+w*.0990460;b1=.96300*b1+w*.2965164;b2=.57000*b2+w*1.0526913;
+    p[i]=(b0+b1+b2+w*.1848)*.18;}
+  AU.pink=pbuf;
   return AC;
 }
 function auVol(){if(AU.master&&AC)AU.master.gain.setTargetAtTime(SETT.sfx?SETT.vol:0,AC.currentTime,.03);}
@@ -1305,10 +1315,13 @@ function tone(t0,{type='sine',f=440,f1=0,dur=.2,vol=.08,a=.005,det=10,filter='',
   node.connect(g).connect(AU.master);
   o.start(t0);o.stop(t0+dur+.05);vReg(o,g);
 }
-/* noise voice: shared buffer → biquad → envelope; playbackRate jitter keeps repeats organic */
-function nz(t0,{dur=.15,vol=.08,a=.003,filter='lowpass',fq=1000,fq1=0,Q=1,rate=1}={}){
+/* sub-layer helper: low sine body thump, pitch always falls — the "weight" under hits */
+function sub(t0,o={}){tone(t0,Object.assign({type:'sine',f:80,f1:34,dur:.25,vol:.15,a:.004,det:4},o));}
+/* noise voice: shared buffer → biquad → envelope; playbackRate jitter keeps repeats organic;
+   pink:true swaps in the pink buffer for darker, weightier texture */
+function nz(t0,{dur=.15,vol=.08,a=.003,filter='lowpass',fq=1000,fq1=0,Q=1,rate=1,pink=false}={}){
   if(AU.voices>=24)return;
-  const s=AC.createBufferSource();s.buffer=AU.noise;s.loop=true;
+  const s=AC.createBufferSource();s.buffer=pink?AU.pink:AU.noise;s.loop=true;
   s.playbackRate.value=rate*(1+(Math.random()*2-1)*.06);
   const bi=AC.createBiquadFilter();bi.type=filter;
   bi.frequency.setValueAtTime(fq,t0);
@@ -4313,6 +4326,7 @@ window.GameAPI={
     unlockedTowers:Object.keys(TT).filter(towerUnlocked),
     hmap:Array.from(HMAP),
     water:Array.from(WATER),
+    decs:DEC.reduce((a,d,i)=>(d&&a.push(i),a),[]), /* scenery-occupied cells */
     path:pathCellsList(),
     fp:mode==='walk'?{view:walkView,tool,buildType:walkBuildType(),aimCell:aimWireCell}:null,
   };},
@@ -4402,6 +4416,18 @@ window.GameAPI={
     towers:towers.map(tw=>{const b=acquire(tw);return{type:tw.type,cool:+tw.cool.toFixed(2),
       acquired:b?b.type:null,nearest:creeps.length?Math.min(...creeps.map(c=>tw.g.position.distanceTo(c.g.position))).toFixed(2):null,range:tw.tt.range};})}),
   unlock(){const b=facesUnlocked;unlockNextFace();return{ok:facesUnlocked>b,faces:facesUnlocked};},
+  cam(yaw,pitch,dist){ /* testing tool: park the orbit camera (screenshots, agents) */
+    autoSpin=false;camPan.set(0,0,0);
+    if(yaw!=null)camYaw=+yaw;
+    if(pitch!=null)camPitch=Math.max(-1.35,Math.min(1.35,+pitch));
+    if(dist!=null)camDist=Math.max(14,Math.min(50,+dist));
+    return{ok:true,yaw:+camYaw.toFixed(2),pitch:+camPitch.toFixed(2),dist:camDist};
+  },
+  face(f){ /* aim the orbit camera square at face f */
+    f|=0;if(!(f>=0&&f<FN))return{ok:false,why:'face 0-5'};
+    const n=FACES[f].n;
+    return GameAPI.cam(Math.atan2(n.x,n.z),Math.asin(Math.max(-.92,Math.min(.92,n.y)))||.35,19);
+  },
   warp(n){ /* testing tool (like unlock): jump the wave counter during a break —
               the NEXT called wave composes as wave n+1 (warp(19) => Warden next) */
     n=+n;if(!(n>=0&&n<999))return{ok:false,why:'wave 0-998'};
