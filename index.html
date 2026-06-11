@@ -178,7 +178,8 @@
     <b>PATH DOTS</b> read the route's speed: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling. Reroute them through red.<br><br>
     <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1, nothing from nowhere (the AI obeys too). Walkers climb 1 (slow), <b style="color:#e8b833">jumpers</b> hop walls, <b style="color:#8a5dd8">crawlers</b> scale anything.<br><br>
     <b>GUNS, NOT WALLS</b> — towers never block the route. Only <b>terrain</b> bends it: dig trenches, raise walls, reroute through your kill zones. A tower standing on the route gets <b style="color:#ff5e8a">trampled</b> (towers have HP) — building in the highway is a greedy gamble. The route can never be fully sealed.<br><br>
-    <span class="kbd">drag</span> tower from bar · <span class="kbd">click</span> tower = upgrade/sell · <span class="kbd">V</span> walk the cube · <span class="kbd">C</span> 1st/3rd person · hold <span class="kbd">LMB</span> to keep mining · <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom<br>
+    <b>YOUR HERO</b> is always on the field: unmanned it <b style="color:#2de0c8">sentries</b> (auto-shoots nearby creeps); <span class="kbd">V</span> flies you into it wherever it stands; the <b>pilot</b> ability (2 shards, once) gives it AI — it roams the cube hunting creeps on its own. Dig and wall tools live in the build bar too, so you can terraform from god view.<br><br>
+    <span class="kbd">drag</span> tower from bar · <span class="kbd">click</span> tower = upgrade/sell · <span class="kbd">V</span> man the hero · <span class="kbd">C</span> 1st/3rd person · hold <span class="kbd">LMB</span> to keep mining · <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom<br>
     Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% success (+5% per mining level — practice pays). Failures crumble; chop trees free, and chop before digging under them. 3 layers → bedrock: gold, then iron, then shards · <span class="kbd">N</span> calls waves early for gold · <span class="kbd">space</span> pause · <span class="kbd">1/2/3/4</span> speed up to ×8
   </div>
   <button class="mbtn" id="hClose" style="margin-top:16px"><span data-ic="play"></span>got it</button>
@@ -249,6 +250,7 @@ const IC=(function(){
     up:w('<path d="M12 19V5M6 11l6-6 6 6"/>'),
     cube:w('<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 2v10M12 12l9-5M12 12L3 7" opacity=".5"/>'),
     golem:w('<rect x="8" y="3" width="8" height="5" rx="1"/><rect x="5" y="9" width="14" height="8" rx="2"/><path d="M9 17v4M15 17v4"/><circle cx="10.5" cy="5.5" r=".9" fill="currentColor"/><circle cx="13.5" cy="5.5" r=".9" fill="currentColor"/>'),
+    bot:w('<rect x="5" y="7" width="14" height="11" rx="2"/><circle cx="9.5" cy="12" r="1.2" fill="currentColor"/><circle cx="14.5" cy="12" r="1.2" fill="currentColor"/><path d="M12 7V4M8 4h8M9 18v2M15 18v2"/>'),
     freeze:w('<path d="M12 2v20M4 6l16 12M20 6L4 18"/><circle cx="12" cy="12" r="2.6"/>'),
     strike:w('<path d="M12 2v6M12 8L9 5M12 8l3-3"/><circle cx="12" cy="15" r="4.5"/><path d="M12 12.5v5M9.5 15h5"/>'),
   };
@@ -1014,9 +1016,53 @@ const ABIL={
   golem:{label:'golem',icon:'golem',cd:30,t:0,cost:()=>'120g·3 iron',can:()=>FREE||(gold>=120&&INV.iron>=3),pay:()=>{if(!FREE){gold-=120;INV.iron-=3;}},cast:()=>castGolem()},
   freeze:{label:'freeze',icon:'freeze',cd:25,t:0,cost:()=>'1 shard',can:()=>FREE||INV.shard>=1,pay:()=>{if(!FREE)INV.shard--;},cast:()=>castFreeze()},
   strike:{label:'strike',icon:'strike',cd:20,t:0,cost:()=>'100g',can:()=>FREE||gold>=100,pay:()=>{if(!FREE)gold-=100;},cast:()=>castAirstrike()},
+  pilot:{label:'pilot',icon:'bot',cd:1,t:0,
+    cost:()=>hero.aiOwned?(hero.auto?'ON':'OFF'):'2 shards',
+    can:()=>hero.aiOwned||FREE||INV.shard>=2,
+    pay:()=>{if(!hero.aiOwned&&!FREE)INV.shard-=2;},
+    cast:()=>{hero.aiOwned=true;hero.auto=!hero.auto;toast('hero autopilot '+(hero.auto?'engaged':'standby'));}},
 };
 const golems=[],strikes=[];
-const golemTmp=new THREE.Vector3();
+const golemTmp=new THREE.Vector3(),heroTmp=new THREE.Vector3();
+/* the HERO: your avatar lives on the field for the whole run. Unmanned it sentries
+   (auto-shoots nearby creeps); V flies you into it wherever it stands; the pilot
+   ability (one-time shard cost) lets it auto-roam and hunt like a drone. */
+let heroSpawned=false;
+const hero={cool:0,auto:false,aiOwned:false,kills:0,dmgDealt:0};
+function updateHero(dt){
+  if(!heroSpawned)return;
+  hero.cool-=dt;
+  if(mode==='walk')return; /* manned: the human is driving */
+  if(hero.auto&&creeps.length){
+    let best=null,bd=1e9;
+    for(const c of creeps){const d=c.g.position.distanceTo(avatar.position);if(d<bd){bd=d;best=c;}}
+    if(best&&bd>2.2){ /* roam toward the action, golem-style */
+      const f=faceBasisAt(walker.pos),F=FACES[f];
+      heroTmp.copy(best.g.position).sub(walker.pos);
+      heroTmp.addScaledVector(F.n,-heroTmp.dot(F.n));
+      if(heroTmp.lengthSq()>.001){
+        walker.pos.addScaledVector(heroTmp.normalize(),2.6*dt);
+        const nf=faceBasisAt(walker.pos);
+        if(nf!==walker.face&&ACTIVE[nf])walker.face=nf;
+        const FF=FACES[walker.face];
+        const nd=walker.pos.dot(FF.n);
+        walker.pos.addScaledVector(FF.n,HCUBE-nd);
+      }
+    }
+  }
+  if(hero.cool<=0){ /* sentry fire */
+    let best=null,bd=3.5;
+    for(const c of creeps){const d=c.g.position.distanceTo(avatar.position);if(d<bd){bd=d;best=c;}}
+    if(best){
+      hero.cool=.85;
+      boltFx(avatar.position.clone().addScaledVector(FACES[walker.face].n,.6),best.g.position,0x2de0c8);
+      const d2=10+wave*.6;
+      dmgNum(best.g.position,Math.round(d2),'#2de0c8');
+      damageCreep(best,d2,hero);
+      beep(700,.05,'sine',.03);
+    }
+  }
+}
 function buildGolemBody(){
   const g=new THREE.Group();
   const mat=new THREE.MeshStandardMaterial({color:0x9aa3b5,roughness:.9});
@@ -1224,8 +1270,11 @@ function cellAtWorld(p){
 function groundLift(p){const i=cellAtWorld(p);return i<0?0:HMAP[i]*HSTEP;}
 function enterWalk(){
   mode='walk';
-  walker.face=0;
-  walker.pos.copy(cellTop(0*FCELLS+(S>>1)*S+1)); /* on the shell — the camera adds eye height itself */
+  if(!heroSpawned){
+    walker.face=0;
+    walker.pos.copy(cellTop(0*FCELLS+(S>>1)*S+1)); /* on the shell — the camera adds eye height itself */
+    heroSpawned=true;
+  } /* otherwise: fly into the hero wherever it's standing */
   fpYaw=0;fpPitch=-.15;
   tryLock();startFly();
   showFPUI(true);
@@ -1235,8 +1284,7 @@ function enterWalk(){
 }
 function exitMode(){
   if(mode==='overview')return;
-  mode='overview';fpFiring=false;fpMining=false;
-  avatar.visible=false;
+  mode='overview';fpFiring=false;fpMining=false; /* the hero stays on the field as a sentry */
   showFPUI(false);
   $('btnWalk').classList.remove('on');
   if(document.pointerLockElement)document.exitPointerLock();
@@ -1299,7 +1347,7 @@ function fpFire(){
   boltFx(camera.position.clone().addScaledVector(dir,.4),end,0x2de0c8);
   if(hit){let o=hit.object;while(o&&!o.userData.creep)o=o.parent;
     if(o){const c=o.userData.creep;const d=10+wave*.6;
-      dmgNum(c.g.position,Math.round(d),'#ffd24a');damageCreep(c,d);
+      dmgNum(c.g.position,Math.round(d),'#ffd24a');damageCreep(c,d,hero);
       beep(960,.05,'sine',.04);}}
 }
 function fpAction(btn){
@@ -1330,6 +1378,18 @@ function ghostAt(e,type){
   const hit=castAt(e,tiles,false);
   if(hit){
     const i=hit.object.userData.i;
+    if(type==='__dig'||type==='__wall'){ /* terraform cursor: small tinted ring */
+      if(ACTIVE[faceOf(i)]&&!TWR[i]&&!PORTALS.includes(i)&&i!==CRYSTAL){
+        const F=FACES[faceOf(i)];
+        ghostRing.scale.setScalar(.55);
+        ghostRing.position.copy(cellTop(i)).addScaledVector(F.n,.04);
+        ghostRing.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
+        ghostRing.material.color.setHex(type==='__dig'?0xc9925a:0x8ee8d8);
+        ghostRing.visible=true;
+        return i;
+      }
+      ghostRing.visible=false;return -1;
+    }
     if(ACTIVE[faceOf(i)]&&!TWR[i]&&HMAP[i]>=0&&!PORTALS.includes(i)&&i!==CRYSTAL){ /* deco cells OK — build auto-chops */
       const F=FACES[faceOf(i)];
       ghostRing.scale.setScalar(TT[type].range*(HMAP[i]>0?CFG.wallRangeBonus:1));
@@ -1385,7 +1445,10 @@ renderer.domElement.addEventListener('pointerup',e=>{
   if(th){let o=th.object;while(o&&!o.userData.tw)o=o.parent;if(o){showPanel(o.userData.tw);return;}}
   const hit=castAt(e,tiles,false);
   if(hit&&selectedType){
-    tryBuy(hit.object.userData.i,selectedType);
+    const i=hit.object.userData.i;
+    if(selectedType==='__dig'){dig(i);return;}      /* tools stay armed for painting */
+    if(selectedType==='__wall'){placeDirt(i);return;}
+    tryBuy(i,selectedType);
     selectedType=null;renderBar();return;
   }
   if(selectedType){selectedType=null;renderBar();}
@@ -1433,6 +1496,10 @@ $('buildbar').addEventListener('pointerdown',e=>{
   const b=e.target.closest('.bb');if(!b)return;
   const t=b.dataset.t;if(!t)return; /* locked tower card */
   if(t==='__auto'){autopilot=!autopilot;toast('autopilot '+(autopilot?'on':'off'));renderBar();hidePanel();return;}
+  if(t==='__dig'||t==='__wall'){ /* terraform tools work from god view too — click tiles, Esc to put away */
+    selectedType=(selectedType===t?null:t);
+    hidePanel();renderBar();return;
+  }
   dragType=t;dragMoved=false;dragSX=e.clientX;dragSY=e.clientY;
 });
 
@@ -1448,6 +1515,8 @@ function renderBar(){
     html+='<div class="bb'+(selectedType===k?' sel':'')+((gold<TT[k].cost&&!FREE)?' poor':'')+'" data-t="'+k+
       '" style="color:#'+TT[k].color.toString(16).padStart(6,'0')+'"><span class="ico">'+IC[k]+'</span><span style="color:#cfd6e4">'+k+'</span><br><span class="c">'+TT[k].cost+'g</span></div>';
   }
+  html+='<div class="bb'+(selectedType==='__dig'?' sel':'')+'" data-t="__dig" style="color:#c9925a"><span class="ico">'+IC.pick+'</span><span style="color:#cfd6e4">dig</span><br><span class="c">'+(freeDigs>0&&!FREE?freeDigs+' free':CFG.digCost+'g roll')+'</span></div>';
+  html+='<div class="bb'+(selectedType==='__wall'?' sel':'')+((dirt<1&&!FREE)?' poor':'')+'" data-t="__wall" style="color:#8ee8d8"><span class="ico">'+IC.dirt+'</span><span style="color:#cfd6e4">wall</span><br><span class="c">1 dirt</span></div>';
   html+='<div class="bb'+(autopilot?' sel':'')+'" data-t="__auto" style="color:#8a93ab"><span class="ico">'+IC.cube+'</span><span style="color:#cfd6e4">auto</span><br><span class="c">'+(autopilot?'ON':'OFF')+'</span></div>';
   if(html===barCache)return; /* skip DOM churn when nothing changed */
   barCache=html;
@@ -1696,6 +1765,7 @@ function resetGame(diff,demo){
   bfs();refreshPathDots();
   wave=0;kills=0;prestige=0;goldMult=1;playSec=0;waveTotal=0;mineXp=0;
   LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];freeDigs=CFG.freeDigs;
+  heroSpawned=false;hero.cool=0;hero.auto=false;hero.aiOwned=false;hero.kills=0;hero.dmgDealt=0;avatar.visible=false;
   spawnQueue=[];pendingQueue=[];breakT=-1;
   INV.iron=FREE?99:0;INV.shard=FREE?99:0;
   lives=DIFF.lives;
@@ -1707,6 +1777,9 @@ function startGame(diffIdx,free){
   $('splash').style.display='none';$('demoTag').style.display='none';
   resetGame(DIFFS[diffIdx],false);
   if(FREE)while(facesUnlocked<DIFF.maxFaces)unlockNextFace(); /* sandbox = the whole cube, awake */
+  walker.face=0;
+  walker.pos.copy(cellTop(0*FCELLS+(S>>1)*S+1));
+  heroSpawned=true; /* the hero takes the field from wave zero */
   gold=FREE?99999:CFG.startGold;dirt=FREE?999:CFG.startDirt;
   renderBar();
   startBreak();breakT=999;
@@ -1859,6 +1932,7 @@ function sim(dt){
     s2.m.position.add(tmp);
   }
   updateAbilities(dt);
+  updateHero(dt);
   director(dt);
 }
 
@@ -1956,6 +2030,14 @@ function tick(){
   pring.rotation.z+=raw*1.4;pdisc.rotation.z-=raw*.9;
   if(autoSpin&&mode==='overview'&&!held)camYaw+=raw*.07;
 
+  /* the hero is always on the field once spawned (hidden only in first-person — you're inside it) */
+  avatar.visible=heroSpawned&&!DEMO&&(mode!=='walk'||walkView==='tp');
+  if(heroSpawned&&mode!=='walk'){
+    const HF=FACES[walker.face];
+    avatar.position.copy(walker.pos).addScaledVector(HF.n,groundLift(walker.pos));
+    avatar.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(V3(0,1,0),HF.n),Math.min(raw*8,1));
+  }
+
   /* camera */
   let toPos,toQ;
   if(mode==='walk'){
@@ -1964,7 +2046,6 @@ function tick(){
     toPos=walker.pos.clone().addScaledVector(F.n,.55+lift);
     const fwd=F.r.clone().multiplyScalar(Math.sin(fpYaw)).addScaledVector(F.u,Math.cos(fpYaw));
     const lookDir=fwd.clone().multiplyScalar(Math.cos(fpPitch)).addScaledVector(F.n,Math.sin(fpPitch));
-    avatar.visible=walkView==='tp';
     if(walkView==='tp'){ /* third person: camera trails behind and above, same controls and HUD */
       avatar.position.copy(walker.pos).addScaledVector(F.n,lift);
       const am=new THREE.Matrix4().lookAt(avatar.position.clone().add(fwd),avatar.position,F.n);
@@ -2040,6 +2121,7 @@ window.GameAPI={
     demo:DEMO,free:FREE,paused,simSpeed,autopilot,mode,
     wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
     mining:{xp:mineXp,level:mineLvl(),chance:+mineChance().toFixed(2),freeDigs},
+    hero:heroSpawned?{face:walker.face,faceName:FACES[walker.face].name,auto:hero.auto,aiOwned:hero.aiOwned,kills:hero.kills,dmgDealt:Math.round(hero.dmgDealt)}:null,
     facesUnlocked,activeFaces:Array.from(ACTIVE),
     breakSec:breakT>0&&breakT<900?Math.ceil(breakT):0,waitingForStart:breakT>=900,
     crystal:CRYSTAL,portals:[...PORTALS],
