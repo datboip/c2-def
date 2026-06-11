@@ -1334,84 +1334,143 @@ function nz(t0,{dur=.15,vol=.08,a=.003,filter='lowpass',fq=1000,fq1=0,Q=1,rate=1
   s.connect(bi).connect(g).connect(AU.master);
   s.start(t0);s.stop(t0+dur+.05);vReg(s,g);
 }
-/* named sound design — each is 2-3 layered voices */
+/* named sound design — modern/textural, not chiptune. House rules: noise carries
+   the energy, oscillators only as sub-300Hz body or brief transients; pitch and
+   filter sweeps always FALL (rising chirp = coin); no square waves; saw only
+   heavily lowpassed. Layer grammar: transient click + filtered noise body + sub. */
 const SFX={
-  shot_cannon:t=>{nz(t,{dur:.12,vol:.15,fq:900,fq1:120});tone(t,{f:130,f1:48,dur:.18,vol:.18});},
-  shot_frost:t=>{tone(t,{f:1450,f1:2150,dur:.1,vol:.05,det:25});nz(t,{dur:.12,vol:.05,filter:'highpass',fq:3600});},
-  shot_laser:t=>{tone(t,{type:'sawtooth',f:340,f1:1600,dur:.1,vol:.05,filter:'lowpass',fq:2600});tone(t,{type:'square',f:680,f1:2500,dur:.08,vol:.02});},
-  shot_mortar:t=>{nz(t,{dur:.3,vol:.18,fq:500,fq1:60});tone(t,{f:90,f1:34,dur:.35,vol:.2});
-    tone(t+.12,{f:1500,f1:550,dur:.4,vol:.02,a:.12});}, /* delayed shell whistle */
-  shot_tesla:t=>{for(let i=0;i<3;i++)nz(t+i*.024,{dur:.04,vol:.09,filter:'bandpass',fq:1700+Math.random()*1700,Q:7});},
-  shot_sniper:t=>{nz(t,{dur:.05,vol:.18,filter:'highpass',fq:1500,a:.001});tone(t,{f:220,f1:58,dur:.26,vol:.11});},
-  kill:t=>{nz(t,{dur:.07,vol:.07,filter:'bandpass',fq:900,Q:2});tone(t+.02,{f:880,f1:1320,dur:.13,vol:.045});},
-  bosskill:t=>{nz(t,{dur:.4,vol:.2,fq:700,fq1:80});tone(t,{f:110,f1:40,dur:.45,vol:.18});
-    tone(t+.08,{type:'triangle',f:660,f1:990,dur:.3,vol:.06});},
-  dig:t=>{nz(t,{dur:.18,vol:.11,fq:700,fq1:250,rate:.7});nz(t+.05,{dur:.1,vol:.05,fq:480,rate:.55});},
-  crumble:t=>{nz(t,{dur:.22,vol:.11,fq:380,fq1:90});tone(t,{f:80,f1:44,dur:.2,vol:.07});},
-  place:t=>{nz(t,{dur:.06,vol:.11,fq:900,a:.001});tone(t,{f:160,f1:90,dur:.12,vol:.11});},
-  chop:t=>{nz(t,{dur:.05,vol:.11,filter:'bandpass',fq:720,Q:1.5,a:.001});tone(t,{type:'triangle',f:240,f1:130,dur:.1,vol:.08});},
-  horn:t=>{ /* two-note brass: detuned saw pairs through an opening lowpass + sub */
-    for(const[f,d0,dur]of[[196,0,.35],[261.6,.16,.55]]){
-      tone(t+d0,{type:'sawtooth',f,dur,vol:.05,det:16,a:.03,filter:'lowpass',fq:750,fq1:1500});
-      tone(t+d0,{type:'sawtooth',f:f*1.006,dur,vol:.05,det:16,a:.03,filter:'lowpass',fq:750,fq1:1500});
-      tone(t+d0,{f:f/2,dur,vol:.05,a:.03});
+  shot_cannon:t=>{ /* chest thump: muzzle crack + pink body + deep sub */
+    nz(t,{dur:.012,vol:.14,fq:1800,a:.001});
+    nz(t,{dur:.16,vol:.17,fq:750,fq1:90,pink:true});
+    sub(t,{f:120,f1:42,dur:.22,vol:.2});},
+  shot_frost:t=>{ /* icy shimmer: pure highpassed air, no melody */
+    nz(t,{dur:.01,vol:.06,filter:'highpass',fq:5200,a:.001});
+    nz(t,{dur:.16,vol:.07,filter:'highpass',fq:5800,fq1:2800,a:.01});
+    nz(t+.02,{dur:.13,vol:.04,filter:'bandpass',fq:7400,fq1:4200,Q:3});},
+  shot_laser:t=>{ /* resonant falling sweep: lowpassed saw body + matching noise sweep */
+    tone(t,{type:'sawtooth',f:240,f1:90,dur:.12,vol:.07,filter:'lowpass',fq:1500,fq1:300,Q:8});
+    nz(t,{dur:.09,vol:.05,filter:'bandpass',fq:1900,fq1:500,Q:6});},
+  shot_mortar:t=>{ /* heavy launch, long tail; shell whistle is bandpassed noise now */
+    nz(t,{dur:.015,vol:.17,fq:1400,a:.001});
+    nz(t,{dur:.45,vol:.2,fq:520,fq1:55,pink:true});
+    sub(t,{f:85,f1:30,dur:.5,vol:.22});
+    nz(t+.15,{dur:.5,vol:.035,filter:'bandpass',fq:1600,fq1:480,Q:12,a:.1});},
+  shot_tesla:t=>{ /* crackle burst: descending random arcs + ionized hiss bed */
+    for(let i=0;i<4;i++)nz(t+i*.018+Math.random()*.008,{dur:.03,vol:.08,filter:'bandpass',fq:2400-i*350+Math.random()*900,Q:9,a:.001});
+    nz(t,{dur:.1,vol:.05,fq:900,fq1:200});},
+  shot_sniper:t=>{ /* whipcrack + echo tail */
+    nz(t,{dur:.008,vol:.2,filter:'highpass',fq:2500,a:.0005});
+    nz(t,{dur:.07,vol:.14,fq:1600,fq1:300});
+    sub(t,{f:160,f1:50,dur:.12,vol:.1});
+    nz(t+.09,{dur:.35,vol:.05,fq:700,fq1:120,pink:true,a:.02});},
+  kill:t=>{ /* soft body thud + exhale, no pop-ping */
+    nz(t,{dur:.05,vol:.07,fq:600,fq1:200,pink:true});
+    sub(t,{f:140,f1:60,dur:.09,vol:.06});
+    nz(t+.03,{dur:.14,vol:.04,fq:900,fq1:250,pink:true,a:.02});},
+  bosskill:t=>{ /* big slab collapse, long dust tail */
+    nz(t,{dur:.02,vol:.18,fq:1200,a:.001});
+    nz(t,{dur:.6,vol:.2,fq:650,fq1:60,pink:true});
+    sub(t,{f:95,f1:28,dur:.7,vol:.2});
+    nz(t+.2,{dur:.7,vol:.06,fq:400,fq1:90,pink:true,a:.1});},
+  dig:t=>{nz(t,{dur:.012,vol:.09,fq:1500,a:.001});
+    nz(t,{dur:.18,vol:.11,fq:700,fq1:220,rate:.7,pink:true});
+    nz(t+.05,{dur:.12,vol:.05,fq:450,fq1:180,rate:.55,pink:true});},
+  crumble:t=>{nz(t,{dur:.25,vol:.12,fq:420,fq1:80,rate:.8,pink:true});
+    sub(t,{f:75,f1:36,dur:.22,vol:.08});
+    nz(t+.08,{dur:.16,vol:.05,fq:300,fq1:90,rate:.5});},
+  place:t=>{nz(t,{dur:.01,vol:.12,fq:1600,a:.001});
+    nz(t,{dur:.07,vol:.1,fq:800,fq1:250,pink:true});
+    sub(t,{f:150,f1:80,dur:.1,vol:.09});},
+  chop:t=>{nz(t,{dur:.008,vol:.12,fq:2200,a:.001});
+    nz(t,{dur:.07,vol:.1,filter:'bandpass',fq:850,fq1:350,Q:1.6});
+    sub(t,{f:180,f1:90,dur:.08,vol:.06});},
+  horn:t=>{ /* war horn, darker + longer: falling two-note F3→C3, closing lowpass, breath noise */
+    for(const[f,d0,dur]of[[174.6,0,.5],[130.8,.22,.9]]){
+      tone(t+d0,{type:'sawtooth',f,dur,vol:.05,det:14,a:.05,filter:'lowpass',fq:520,fq1:300});
+      tone(t+d0,{type:'sawtooth',f:f*1.007,dur,vol:.05,det:14,a:.05,filter:'lowpass',fq:520,fq1:300});
+      tone(t+d0,{f:f/2,dur,vol:.06,a:.05});
+      nz(t+d0,{dur,vol:.02,filter:'bandpass',fq:f*4,fq1:f*2.5,Q:2,a:.06});
     }},
-  alarm:t=>{tone(t,{type:'square',f:660,dur:.13,vol:.055,filter:'lowpass',fq:1900});
-    tone(t+.14,{type:'square',f:440,dur:.16,vol:.055,filter:'lowpass',fq:1600});
-    nz(t,{dur:.25,vol:.035,filter:'highpass',fq:2600});},
-  fanfare:t=>{[523.25,659.25,783.99].forEach((f,i)=>{
-      tone(t+i*.13,{type:'triangle',f,dur:.3,vol:.065,a:.01});
-      tone(t+i*.13,{type:'sawtooth',f,dur:.3,vol:.02,a:.01,filter:'lowpass',fq:1900});});
-    tone(t+.39,{type:'triangle',f:1046.5,dur:.5,vol:.055,a:.01});},
-  tick:t=>{nz(t,{dur:.03,vol:.045,filter:'highpass',fq:3000,a:.001});tone(t,{f:1250,f1:880,dur:.04,vol:.03,a:.001});},
-  branch:t=>{tone(t,{type:'triangle',f:520,f1:780,dur:.22,vol:.07,a:.01});
-    nz(t,{dur:.08,vol:.05,filter:'bandpass',fq:2400,Q:5,a:.002});
-    tone(t+.1,{f:130,f1:70,dur:.2,vol:.09});},
-  twdie:t=>{nz(t,{dur:.3,vol:.14,fq:600,fq1:90,rate:.8});tone(t,{f:140,f1:42,dur:.3,vol:.12});
-    nz(t+.12,{dur:.18,vol:.06,fq:350,fq1:120,rate:.5});},
-  repair:t=>{for(let i=0;i<2;i++)tone(t+i*.09,{type:'triangle',f:620+i*180,f1:980+i*180,dur:.09,vol:.05,a:.004});
-    nz(t,{dur:.2,vol:.025,filter:'bandpass',fq:1900,Q:3,rate:1.4});},
-  surgecast:t=>{tone(t,{type:'sawtooth',f:190,f1:880,dur:.4,vol:.06,a:.04,filter:'lowpass',fq:600,fq1:2600});
-    nz(t+.08,{dur:.3,vol:.045,filter:'bandpass',fq:2100,Q:6,rate:1.3});},
-  golem:t=>{tone(t,{f:72,f1:38,dur:.45,vol:.16});nz(t,{dur:.4,vol:.1,fq:300,fq1:60,rate:.45});
-    nz(t+.2,{dur:.2,vol:.05,fq:200,rate:.4});},
-  golemslam:t=>{nz(t,{dur:.16,vol:.13,fq:420,fq1:70,a:.001});tone(t,{f:95,f1:38,dur:.2,vol:.13});},
-  freeze:t=>{tone(t,{f:1900,f1:640,dur:.5,vol:.05,det:30,a:.02});
-    tone(t+.05,{f:2533,f1:850,dur:.45,vol:.03,det:30,a:.02});
-    nz(t,{dur:.5,vol:.04,filter:'highpass',fq:4200,a:.05});},
-  strikecall:t=>{tone(t,{type:'sawtooth',f:520,f1:240,dur:.3,vol:.055,filter:'lowpass',fq:1700});
-    nz(t,{dur:.3,vol:.03,filter:'bandpass',fq:2800,Q:2,rate:1.6});},
-  strikehit:t=>{nz(t,{dur:.25,vol:.16,fq:800,fq1:70});tone(t,{f:105,f1:36,dur:.3,vol:.15});},
-  deny:t=>{tone(t,{f:130,f1:78,dur:.12,vol:.08});nz(t,{dur:.07,vol:.05,fq:420,a:.002,rate:.6});},
-  skillup:t=>{[660,880].forEach((f,i)=>tone(t+i*.09,{type:'triangle',f,f1:f*1.25,dur:.14,vol:.055,a:.006}));},
-  heroshot:t=>{tone(t,{type:'square',f:470,f1:230,dur:.07,vol:.04,filter:'lowpass',fq:2400});
-    nz(t,{dur:.04,vol:.06,filter:'highpass',fq:2200,a:.001});},
-  herohit:t=>{tone(t,{f:980,f1:1460,dur:.07,vol:.04,a:.002});nz(t,{dur:.03,vol:.03,filter:'highpass',fq:3400,a:.001});},
-  order:t=>{tone(t,{f:640,f1:900,dur:.07,vol:.04,a:.003});tone(t+.05,{f:900,f1:1100,dur:.05,vol:.03,a:.002});},
-  jump:t=>{nz(t,{dur:.2,vol:.08,fq:900,fq1:200,rate:1.2});tone(t,{f:300,f1:95,dur:.18,vol:.05});},
-  step0:t=>{nz(t,{dur:.045,vol:.028,filter:'bandpass',fq:430,Q:1.4,a:.002,rate:.75});}, /* footsteps alternate two pitches */
-  step1:t=>{nz(t,{dur:.045,vol:.028,filter:'bandpass',fq:560,Q:1.4,a:.002,rate:.9});},
-  land:t=>{nz(t,{dur:.14,vol:.1,fq:520,fq1:110,a:.002,rate:.7});tone(t,{f:130,f1:58,dur:.16,vol:.08});},
-  stirs:t=>{tone(t,{type:'triangle',f:108,dur:.7,vol:.07,a:.12});tone(t,{type:'triangle',f:162,dur:.7,vol:.04,a:.15});
-    nz(t,{dur:.7,vol:.03,fq:260,a:.2,rate:.4});},
-  trample:t=>{nz(t,{dur:.18,vol:.1,fq:500,fq1:140,rate:.7});tone(t,{type:'sawtooth',f:210,f1:88,dur:.22,vol:.07,filter:'lowpass',fq:900});},
-  sabo:t=>{for(let i=0;i<3;i++)nz(t+i*.05,{dur:.05,vol:.08,filter:'bandpass',fq:1500+i*900,Q:8});
-    tone(t,{type:'square',f:300,f1:95,dur:.25,vol:.05,filter:'lowpass',fq:1100});},
-  whoosh:t=>{nz(t,{dur:.22,vol:.05,fq:600,fq1:2200,a:.06,rate:1.1});},
+  alarm:t=>{ /* two falling siren pulses: bandpassed noise over a low triangle */
+    for(const[f,d0]of[[620,0],[470,.16]]){
+      tone(t+d0,{type:'triangle',f:f/2.2,f1:f/2.6,dur:.14,vol:.06,filter:'lowpass',fq:900});
+      nz(t+d0,{dur:.13,vol:.07,filter:'bandpass',fq:f*2.4,fq1:f*1.6,Q:6,a:.004});}},
+  fanfare:t=>{ /* wave-clear: one layered swell, no arpeggio */
+    nz(t,{dur:.7,vol:.05,filter:'bandpass',fq:1200,fq1:600,Q:1.2,a:.18,pink:true});
+    [130.8,196].forEach(f=>tone(t,{type:'triangle',f,dur:.8,vol:.04,a:.2,det:6,filter:'lowpass',fq:800,fq1:400}));
+    sub(t+.25,{f:98,f1:55,dur:.6,vol:.07,a:.05});},
+  tick:t=>{nz(t,{dur:.025,vol:.05,filter:'highpass',fq:4000,a:.001});}, /* pitchless UI click */
+  branch:t=>{ /* spec unlock: forge swell + low seat */
+    nz(t,{dur:.06,vol:.06,fq:1200,a:.002});
+    nz(t,{dur:.25,vol:.07,filter:'bandpass',fq:1800,fq1:700,Q:3,a:.03,pink:true});
+    sub(t+.08,{f:120,f1:62,dur:.22,vol:.1});},
+  twdie:t=>{nz(t,{dur:.35,vol:.15,fq:600,fq1:80,rate:.8,pink:true});
+    sub(t,{f:130,f1:38,dur:.32,vol:.12});
+    nz(t+.12,{dur:.22,vol:.06,fq:330,fq1:100,rate:.5});},
+  repair:t=>{ /* two metallic taps (falling) over a tool-scrape bed */
+    for(let i=0;i<2;i++)nz(t+i*.09,{dur:.04,vol:.06,filter:'bandpass',fq:2300-i*400,fq1:1400-i*300,Q:8,a:.002});
+    nz(t,{dur:.2,vol:.03,filter:'bandpass',fq:1700,fq1:1100,Q:3,rate:1.3});},
+  surgecast:t=>{ /* energy discharge: noise swell falling into a low thump */
+    nz(t,{dur:.35,vol:.07,filter:'bandpass',fq:2600,fq1:600,Q:4,a:.06,pink:true});
+    nz(t+.1,{dur:.3,vol:.05,fq:1100,fq1:200,a:.04});
+    sub(t+.3,{f:110,f1:50,dur:.25,vol:.12});},
+  golem:t=>{nz(t,{dur:.45,vol:.12,fq:320,fq1:55,rate:.45,pink:true});
+    sub(t,{f:70,f1:34,dur:.5,vol:.18});
+    nz(t+.2,{dur:.25,vol:.06,fq:200,fq1:90,rate:.4,pink:true});},
+  golemslam:t=>{nz(t,{dur:.012,vol:.13,fq:1100,a:.001});
+    nz(t,{dur:.18,vol:.13,fq:430,fq1:65,pink:true,a:.001});
+    sub(t,{f:90,f1:34,dur:.24,vol:.15});},
+  freeze:t=>{ /* flash-freeze: falling icy air, all noise */
+    nz(t,{dur:.5,vol:.06,filter:'highpass',fq:6000,fq1:2600,a:.03});
+    nz(t+.04,{dur:.45,vol:.045,filter:'bandpass',fq:7500,fq1:3200,Q:4,a:.04});
+    nz(t,{dur:.4,vol:.03,filter:'bandpass',fq:3400,fq1:1500,Q:8,a:.02});},
+  strikecall:t=>{tone(t,{type:'sawtooth',f:280,f1:110,dur:.35,vol:.05,filter:'lowpass',fq:900,fq1:400});
+    nz(t,{dur:.35,vol:.05,filter:'bandpass',fq:2400,fq1:800,Q:2,rate:1.5,a:.03});},
+  strikehit:t=>{nz(t,{dur:.015,vol:.17,fq:1500,a:.001});
+    nz(t,{dur:.35,vol:.18,fq:750,fq1:60,pink:true});
+    sub(t,{f:100,f1:30,dur:.4,vol:.18});},
+  deny:t=>{nz(t,{dur:.09,vol:.07,fq:420,fq1:180,rate:.6,pink:true});
+    sub(t,{f:120,f1:70,dur:.13,vol:.08});}, /* dull low thud, reads "no" */
+  skillup:t=>{ /* soft warm swell, no rising arpeggio */
+    nz(t,{dur:.02,vol:.03,filter:'highpass',fq:4500,a:.001});
+    nz(t,{dur:.3,vol:.05,filter:'bandpass',fq:2200,fq1:1100,Q:2,a:.05,pink:true});
+    tone(t,{type:'triangle',f:220,f1:165,dur:.3,vol:.05,a:.04,filter:'lowpass',fq:900});},
+  heroshot:t=>{nz(t,{dur:.006,vol:.09,fq:2000,a:.0005});
+    nz(t,{dur:.06,vol:.08,fq:1100,fq1:300});
+    sub(t,{f:170,f1:70,dur:.08,vol:.07});},
+  herohit:t=>{nz(t,{dur:.03,vol:.06,filter:'bandpass',fq:1800,fq1:900,Q:3,a:.001});
+    nz(t,{dur:.015,vol:.04,filter:'highpass',fq:3500,a:.001});},
+  order:t=>{nz(t,{dur:.03,vol:.05,filter:'bandpass',fq:2000,Q:4,a:.002});
+    nz(t+.05,{dur:.025,vol:.04,filter:'bandpass',fq:1500,Q:4,a:.002});}, /* two pitchless ticks, second lower */
+  jump:t=>{nz(t,{dur:.18,vol:.07,fq:850,fq1:200,rate:1.1,pink:true});
+    sub(t,{f:170,f1:80,dur:.12,vol:.04});},
+  step0:t=>{nz(t,{dur:.05,vol:.028,filter:'bandpass',fq:420,Q:1.2,a:.002,rate:.75,pink:true});}, /* footsteps alternate two scuffs */
+  step1:t=>{nz(t,{dur:.05,vol:.028,filter:'bandpass',fq:540,Q:1.2,a:.002,rate:.9,pink:true});},
+  land:t=>{nz(t,{dur:.16,vol:.1,fq:520,fq1:100,a:.002,rate:.7,pink:true});
+    sub(t,{f:110,f1:50,dur:.18,vol:.09});},
+  stirs:t=>{tone(t,{type:'triangle',f:108,f1:88,dur:.8,vol:.06,a:.15});
+    tone(t,{type:'triangle',f:162,f1:130,dur:.8,vol:.035,a:.18});
+    nz(t,{dur:.8,vol:.04,fq:300,fq1:140,a:.25,rate:.4,pink:true});},
+  trample:t=>{nz(t,{dur:.2,vol:.11,fq:520,fq1:120,rate:.7,pink:true});
+    tone(t,{type:'sawtooth',f:190,f1:80,dur:.22,vol:.06,filter:'lowpass',fq:700,fq1:350});},
+  sabo:t=>{ /* electrical short: descending arc snaps + low seat */
+    for(let i=0;i<3;i++)nz(t+i*.05,{dur:.05,vol:.08,filter:'bandpass',fq:2600-i*700+Math.random()*300,Q:8,a:.001});
+    sub(t,{f:150,f1:70,dur:.22,vol:.06});},
+  whoosh:t=>{nz(t,{dur:.25,vol:.05,fq:2200,fq1:500,a:.05,rate:1.1,pink:true});},
   stomp:t=>{ /* the Warden's foot: deep slab + ground rumble + debris hiss */
-    tone(t,{f:62,f1:26,dur:.5,vol:.22});
-    nz(t,{dur:.32,vol:.2,fq:420,fq1:50,a:.002});
-    nz(t+.1,{dur:.3,vol:.07,fq:240,fq1:80,rate:.5});},
-  victory:t=>{ /* rising triad + crown note + air — the cube holds */
-    [392,523.25,659.25,783.99].forEach((f,i)=>{
-      tone(t+i*.15,{type:'triangle',f,dur:.45,vol:.06,a:.012});
-      tone(t+i*.15,{type:'sawtooth',f,dur:.45,vol:.018,a:.012,filter:'lowpass',fq:2100});});
-    tone(t+.6,{type:'triangle',f:1046.5,dur:.85,vol:.06,a:.02});
-    nz(t+.6,{dur:.55,vol:.03,filter:'highpass',fq:3200,a:.12});},
-  splash:t=>{nz(t,{dur:.25,vol:.1,fq:1400,fq1:300,rate:1.3});tone(t,{f:300,f1:120,dur:.2,vol:.06});
-    tone(t+.06,{f:520,f1:210,dur:.12,vol:.04});},
-  confirm:t=>{tone(t,{type:'triangle',f:740,f1:1110,dur:.16,vol:.055,a:.005});
-    nz(t,{dur:.03,vol:.03,filter:'highpass',fq:3000,a:.001});},
+    sub(t,{f:60,f1:25,dur:.55,vol:.22});
+    nz(t,{dur:.35,vol:.2,fq:420,fq1:48,a:.002,pink:true});
+    nz(t+.1,{dur:.4,vol:.07,fq:240,fq1:70,rate:.5,pink:true});},
+  victory:t=>{ /* the cube holds: staggered low fifth-stack swells + sub bloom + air, no arpeggio */
+    nz(t,{dur:1.4,vol:.06,filter:'bandpass',fq:900,fq1:450,Q:1,a:.4,pink:true});
+    [98,147,196].forEach((f,i)=>tone(t+i*.1,{type:'triangle',f,dur:1.6,vol:.05,a:.35,det:5,filter:'lowpass',fq:700,fq1:380}));
+    sub(t+.5,{f:65,f1:42,dur:1.2,vol:.1,a:.1});
+    nz(t+.7,{dur:1.1,vol:.035,filter:'highpass',fq:3000,fq1:1600,a:.3});},
+  splash:t=>{nz(t,{dur:.02,vol:.08,fq:2500,a:.001});
+    nz(t,{dur:.3,vol:.1,fq:1500,fq1:280,rate:1.3});
+    nz(t+.06,{dur:.25,vol:.05,fq:900,fq1:300,pink:true,a:.03});},
+  confirm:t=>{nz(t,{dur:.03,vol:.05,filter:'highpass',fq:3500,a:.001});
+    nz(t,{dur:.06,vol:.04,filter:'bandpass',fq:1600,fq1:1000,Q:3,a:.003});}, /* pitchless click */
 };
 /* throttled, voice-capped dispatcher — at x8 speed shots can spam; same sound max
    once per 50ms and ~16 simultaneous voices so it never clips or machine-guns */
