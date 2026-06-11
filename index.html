@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>C² DEFENSE · CUBE SQUARED</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;overflow:hidden;background:#07080f;font-family:ui-monospace,Menlo,Consolas,monospace}
@@ -123,6 +125,75 @@
   #biostrip{display:flex;gap:5px;margin-bottom:14px}
   .bio{flex:1;text-align:center;font-size:8.5px;color:#6b7385;letter-spacing:.04em}
   .bio i{display:block;height:13px;border-radius:4px;margin-bottom:3px;border:1px solid rgba(255,255,255,.14)}
+
+  /* ====== design language v2 — cockpit, not candy ======
+     one frame, hairline sections, a single accent, square corners.
+     appended last so it wins the cascade over the old bubble styles. */
+  :root{--panel:#12151d;--panel2:#181c27;--line:#262b36;--ink2:#6b7385;--val:#e8edf6;--acc:#e8b73a;--teal:#2de0c8}
+  #hud{height:50px;background:rgba(10,12,18,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);gap:0;padding:0 10px}
+  .chip{background:none;border:none;box-shadow:none;backdrop-filter:none;border-radius:0;border-right:1px solid var(--line);padding:4px 16px;gap:9px}
+  .chip:last-child{border-right:none}
+  .chip b{color:var(--val)}
+  .chip small{color:var(--ink2);text-transform:uppercase;letter-spacing:.14em}
+  .chip.canbreach{border:1px solid rgba(232,183,58,.45);border-radius:3px;background:rgba(232,183,58,.06);box-shadow:none;margin-left:6px}
+  .tbtn,.tbtn:active{border-radius:3px;transform:none}
+  .tbtn:hover{color:var(--val);background:rgba(255,255,255,.05)}
+  .tbtn.on{color:var(--teal);background:rgba(45,224,200,.06);box-shadow:inset 0 -2px 0 var(--teal)}
+  .seg{border-radius:3px;background:var(--panel);border:1px solid var(--line)}
+  .seg div.on{background:rgba(232,183,58,.12);color:var(--acc);box-shadow:none}
+  #buildbar{gap:0;padding:8px 0 10px}
+  .bb,.bb:hover,.bb:active,.bb.sel{transform:none;box-shadow:none;border-radius:0}
+  .bb{background:var(--panel);border:1px solid var(--line);border-right-width:0;padding:8px 13px 7px;transition:background .12s}
+  .bb:first-child{border-radius:3px 0 0 3px}
+  .bb:last-child{border-right-width:1px;border-radius:0 3px 3px 0}
+  .bb:hover{background:var(--panel2);border-color:var(--line)}
+  .bb.sel{background:var(--panel2);border-color:var(--line);box-shadow:inset 0 -2px 0 var(--acc)}
+  .bb .ico,.bb.sel .ico{filter:none}
+  .bb .c{color:var(--acc)}
+  .res{background:rgba(10,12,18,.85);border:1px solid var(--line);border-radius:3px;box-shadow:none}
+  .res small{color:var(--ink2)}
+  .ab,.ab:hover{transform:none;box-shadow:none}
+  .ab{background:var(--panel);border:1px solid var(--line);border-radius:3px}
+  .ab:hover{border-color:var(--acc)}
+  .ab .ic{filter:none}
+  #panel{background:var(--panel);border:1px solid var(--line);border-radius:3px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  #panel::before{background:var(--acc)}
+  #panel button{border-radius:3px;background:var(--panel2);border:1px solid var(--line)}
+  #panel button:hover{border-color:var(--acc)}
+  .menu .card{background:var(--panel);border:1px solid var(--line);border-radius:4px}
+  .menu .card::before{background:var(--acc)}
+  .menu h2{color:var(--val);letter-spacing:.2em;font-size:14px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .mbtn,.mbtn:active{transform:none}
+  .mbtn{background:var(--panel2);border:1px solid var(--line);border-radius:3px;letter-spacing:.1em;font-size:12px;text-transform:uppercase}
+  .mbtn::after{display:none}
+  .mbtn:hover{border-color:var(--acc);background:#1b202c}
+  #breakbar{animation:none;background:rgba(10,12,18,.9);border:1px solid var(--acc);border-radius:3px;color:var(--acc);letter-spacing:.14em;text-transform:uppercase;font-size:12px;box-shadow:none}
+  #breakbar:hover{background:var(--panel2)}
+  .wp{border-radius:3px;background:var(--panel);border:1px solid var(--line)}
+  #splash .inner{background:var(--panel);border:1px solid var(--line);border-radius:4px}
+  #splash h1{animation:none;background:none;-webkit-text-fill-color:var(--val);color:var(--val);text-shadow:none;letter-spacing:.16em;font-size:24px}
+  #splash h1 span{animation:none;background:none;-webkit-text-fill-color:var(--teal);color:var(--teal)}
+  .lvl,.lvl:hover{transform:none;box-shadow:none}
+  .lvl{background:var(--panel2);border:1px solid var(--line);border-radius:3px}
+  .lvl:hover{border-color:var(--acc);background:#1b202c}
+  .hist{background:rgba(10,12,18,.72);border-radius:0;border-left:2px solid var(--line)}
+  .hist.ai{border-left-color:var(--teal)}
+  .slot{border-radius:3px;background:var(--panel);border:2px solid var(--line)}
+  .slot.on{border-color:var(--acc);box-shadow:none}
+  #uirestore{border-radius:3px}
+  #demoTag{animation:none;opacity:.7}
+  /* type system: Oxanium for display numbers/titles, Inter for UI text (research pick) */
+  #hud,#panel,#buildbar,#resbar,#toast,#histpanel,#tut,.menu,#breakwrap{font-family:'Inter',ui-monospace,monospace}
+  .chip b,.res span,#wavebanner,#breakbar,.menu h2,#splash h1,#splash .sub,.bb .c,#facetag{font-family:'Oxanium',ui-monospace,monospace}
+  #htabs{display:flex;margin-bottom:12px;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .htab{flex:1;text-align:center;padding:7px 0;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#6b7385;cursor:pointer;background:var(--panel2)}
+  .htab:not(:last-child){border-right:1px solid var(--line)}
+  .htab.on{color:var(--acc);background:rgba(232,183,58,.08);box-shadow:inset 0 -2px 0 var(--acc)}
+  .hsec{display:none}
+  .hsec.on{display:block}
+  #tut{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(10,12,18,.95);border:1px solid var(--teal);border-radius:3px;padding:10px 16px;font:12px/1.6 ui-monospace,monospace;color:#cfd6e4;max-width:540px}
+  #tut b{color:var(--teal);margin-right:8px;letter-spacing:.1em}
+  #tut u{color:#6b7385;cursor:pointer;margin-left:10px;pointer-events:auto}
   #histpanel{position:fixed;left:14px;top:52px;width:215px;max-height:46vh;overflow:hidden;display:none;flex-direction:column;gap:3px;z-index:9;pointer-events:none;font:10px/1.5 ui-monospace,monospace;color:#8a93ab}
   .hist{background:rgba(13,15,23,.78);border-left:2px solid #2a2f42;border-radius:4px;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hist.ai{border-left-color:#2de0c8;color:#9fc9c2}
@@ -182,22 +253,35 @@
   <button class="mbtn danger" id="mQuit"><span data-ic="home"></span>quit to title</button>
 </div></div>
 <div class="menu" id="helpmenu"><div class="card">
-  <h2>HOW TO PLAY · C² DEFENSE</h2>
-  <div class="hl">
-    The world is a <b>cube</b>; each face is a <b>biome</b>, gravity points at the core. Creeps pour from <b style="color:#a86bff">portals</b> — one per awake biome, tinted to match it — and all march to your single <b style="color:#2de0c8">crystal</b>. One way in per biome, one way out.<br><br>
-    <b>WAKING THE CUBE</b> — you start on the meadow. Biomes wake in order: <b>forest → desert → tundra → volcanic → caverns</b>, on a schedule set by difficulty — or <b>breach early</b> by clicking the countdown chip (costs gold, comes with an expedition cache + the biome's native tower). Every portal sits at its face's <b>far edge</b>: the invasion marches the full face, over the rim, and onward — one continuous front.<br><br>
-    <b>NATIVE TOWERS</b> — cannon starts with you (meadow). tesla→forest · sniper→desert · frost→tundra · mortar→volcanic · laser→caverns. A tower on its home biome hits <b style="color:#ffd24a">+25%</b>.<br><br>
-    <b>HAZARDS</b> — forest undergrowth slows creeps · desert quicksand makes pits lethal-slow · tundra ice speeds them up but frost slows stick longer · volcanic embers and cavern static burn HP over time.<br><br>
-    <b>KNOW YOUR ENEMY</b> — <b style="color:#d4533b">grunt</b> basic fodder · <b style="color:#3b7bd4">runner</b> fast but fragile, slows wreck it · <b style="color:#9b59c9">tank</b> 2.8× hp, nearly stops on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-high walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) pulses heals, kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor, big single hits beat it · <b style="color:#ffb020">boss</b> (every 5th) regenerates — focus fire, freeze, burn.<br><br>
-    <b>PATH DOTS</b> read the route's speed: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling. Reroute them through red.<br><br>
-    <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1, nothing from nowhere (the AI obeys too). Walkers climb 1 (slow), <b style="color:#e8b833">jumpers</b> hop walls, <b style="color:#8a5dd8">crawlers</b> scale anything.<br><br>
-    <b>GUNS, NOT WALLS</b> — towers never block the route. Only <b>terrain</b> bends it: dig trenches, raise walls, reroute through your kill zones. A tower standing on the route gets <b style="color:#ff5e8a">trampled</b> (towers have HP) — building in the highway is a greedy gamble. The route can never be fully sealed.<br><br>
-    <b>YOUR HERO</b> is always on the field: unmanned it <b style="color:#2de0c8">sentries</b> (auto-shoots nearby creeps); <span class="kbd">V</span> flies you into it wherever it stands; the <b>pilot</b> ability (2 shards, once) gives it AI — it roams the cube hunting creeps on its own. Dig and wall tools live in the build bar too, so you can terraform from god view.<br><br>
-    <span class="kbd">drag</span> tower from bar · <span class="kbd">click</span> tower = upgrade/sell · <span class="kbd">V</span> man the hero · <span class="kbd">C</span> 1st/3rd person · hold <span class="kbd">LMB</span> to keep mining · <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom<br>
-    Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% success (+5% per mining level — practice pays). Failures crumble; chop trees free, and chop before digging under them. 3 layers → bedrock: gold, then iron, then shards · <span class="kbd">N</span> calls waves early for gold · <span class="kbd">space</span> pause · <span class="kbd">1/2/3/4</span> speed up to ×8
+  <h2>HOW TO PLAY</h2>
+  <div id="htabs">
+    <div class="htab on" data-h="0">basics</div><div class="htab" data-h="1">terrain</div><div class="htab" data-h="2">enemies</div><div class="htab" data-h="3">controls</div>
+  </div>
+  <div class="hl hsec on">
+    The world is a <b>cube</b> — each face a <b>biome</b>, gravity at the core. Creeps pour from <b style="color:#a86bff">portals</b> (one per awake biome, tinted to match) toward your single <b style="color:#2de0c8">crystal</b>.<br><br>
+    <b>WAKING THE CUBE</b> — biomes wake on a schedule, or <b>breach early</b>: click the countdown chip (costs gold, grants a cache + that biome's <b>native tower</b>). Native towers hit <b style="color:#ffd24a">+25%</b> at home: cannon·meadow, tesla·forest, sniper·desert, frost·tundra, mortar·volcanic, laser·caverns.<br><br>
+    <b>YOUR HERO</b> is always fielded — it sentries when unmanned, levels up from kills, <span class="kbd">V</span> possesses it, <b>click it</b> for the skill tree, the <b>pilot</b> ability gives it AI.<br><br>
+    <b>SCORE</b>: +5/kill · +100+10w per wave (+50 perfect) · +150/biome · −25/leak · −400 overrun.
+  </div>
+  <div class="hl hsec">
+    <b>GUNS, NOT WALLS</b> — towers never bend the route; only <b>terrain</b> does. Towers standing on the route get <b style="color:#ff5e8a">trampled</b>.<br><br>
+    <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1. Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% +5%/level; your first 10 digs are free and guaranteed. Layers drop gold → iron → shards, bedrock at 3.<br><br>
+    <b>WATER</b> slows creeps to 45% (they prefer dry routes) · <b>ice</b> speeds them up · <b>lava</b> burns. Place dirt on water to reclaim it as land.<br><br>
+    <b>PATH DOTS</b>: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling — reroute them through red. 1-deep pits slow walkers, 2-deep stop them. The route can never be fully sealed.
+  </div>
+  <div class="hl hsec">
+    <b style="color:#d4533b">grunt</b> fodder · <b style="color:#3b7bd4">runner</b> fast, fragile — slow it · <b style="color:#9b59c9">tank</b> 2.8× hp, stalls on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor — big hits · <b style="color:#ffb020">boss</b> (every 5th) regenerates — burn + freeze + focus fire.<br><br>
+    <b>HAZARDS</b>: forest undergrowth slows · desert quicksand makes pits lethal · tundra ice speeds creeps but frost sticks 1.5× · volcanic embers &amp; cavern static burn hp. Night = all creeps +15%, red eyes.
+  </div>
+  <div class="hl hsec">
+    <span class="kbd">drag</span> tower from bar · <span class="kbd">click</span> tower = upgrade/sell · <span class="kbd">click</span> hero = skill tree<br>
+    <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom · <span class="kbd">N</span> call wave early · <span class="kbd">space</span> pause · <span class="kbd">1/2/3/4</span> speed to ×8<br>
+    <span class="kbd">V</span> man the hero · <span class="kbd">C</span> 1st/3rd person · <span class="kbd">WASD</span> move · hold <span class="kbd">LMB</span> mine · <span class="kbd">RMB</span> place · <span class="kbd">Q/E</span> tools<br>
+    <span class="kbd">H</span> history · <span class="kbd">U</span> hide all UI · <span class="kbd">R</span> auto-rotate · <span class="kbd">Esc</span> menu / cancel
   </div>
   <button class="mbtn" id="hClose" style="margin-top:16px"><span data-ic="play"></span>got it</button>
 </div></div>
+<div id="tut" style="display:none"><b id="tutStep"></b> <span id="tutText"></span> <u id="tutSkip">skip tutorial</u></div>
 <div id="splash"><div class="inner">
   <h1>C² DEFENSE<br><span>CUBE SQUARED</span></h1>
   <div class="sub">ONE WORLD · SIX BIOMES · GRAVITY AT THE CORE</div>
@@ -209,6 +293,7 @@
     <div class="lvl" data-d="2"><b style="color:#ff5e8a">III</b>planetfall<br><small style="color:#6b7385">all 6 · every 4 waves</small></div>
   </div>
   <div style="font-size:10px;color:#6b7385;margin:-4px 0 12px;letter-spacing:.04em">each biome that wakes adds a portal, its hazard, and unlocks its native tower</div>
+  <button class="mbtn" id="spTut" style="text-align:center;border-color:#2de0c8;color:#2de0c8">FIRST TIME? — GUIDED TUTORIAL</button>
   <button class="mbtn" id="spPlay" style="text-align:center;border-color:#ffd24a;color:#ffd24a">PLAY</button>
   <button class="mbtn" id="spFree" style="text-align:center;border-color:#2de0c8;color:#2de0c8">FREE PLAY — sandbox, everything unlocked</button>
   <button class="mbtn" id="spHelp"><span data-ic="help"></span>how to play</button>
@@ -414,10 +499,10 @@ const ADJ=[];
 const BIOMES=[ /* obs = the obstacle each biome drops ON the road — dig/chop it or detour */
   {name:'meadow', a:0x6f9a4e,b:0x638c45,deco:'tree',   obs:'boulder', pc:0xa86bff,hz:null,wtr:{w:1,shape:'blob',n:4}}, /* bright spring green — must NOT read like the dark forest face */
   {name:'caverns',a:0x2c2440,b:0x251e38,deco:'shard',  obs:'shard',   pc:0xc89bff,hz:{label:'crystal static',dpsPct:.012},wtr:{w:1,shape:'blob',n:3}},
-  {name:'desert', a:0x9c8458,b:0x8f794e,deco:'cactus', obs:'cactus',  pc:0xffd24a,hz:{label:'quicksand',pitSlow:2},wtr:{w:1,shape:'blob',n:2}},
+  {name:'desert', a:0x9c8458,b:0x8f794e,deco:'cactus', obs:'cactus',  pc:0xffd24a,hz:{label:'quicksand',pitSlow:2},wtr:{w:4,shape:'blob',n:4}}, /* 4 = QUICKSAND */
   {name:'volcanic',a:0x4a3034,b:0x422a2e,deco:'spike', obs:'boulder', pc:0xff7a2d,hz:{label:'embers',dpsPct:.015},wtr:{w:3,shape:'stream',n:6}},
   {name:'forest', a:0x1f4434,b:0x1a3a2c,deco:'pine',   obs:'boulder', pc:0x4dff7a,hz:{label:'undergrowth',mul:.85},wtr:{w:1,shape:'stream',n:7}}, /* deep dark forest ≠ meadow */
-  {name:'tundra', a:0x8fa3b0,b:0x8298a6,deco:'snowpine',obs:'snowball',pc:0x9be8ff,hz:{label:'ice',mul:1.15,frostX:1.5},wtr:{w:2,shape:'blob',n:5}},
+  {name:'tundra', a:0x8fa3b0,b:0x8298a6,deco:'snowpine',obs:'snowball',pc:0x9be8ff,hz:{label:'ice',mul:1.15,frostX:1.5},wtr:{w:2,shape:'blob',n:7}},
 ];
 const matBio=BIOMES.map(B=>[
   new THREE.MeshStandardMaterial({color:B.a,roughness:.95}),
@@ -435,9 +520,32 @@ const matSide=new THREE.MeshStandardMaterial({color:0x6a543c,roughness:1}); /* p
 const ROAD=new Uint8Array(N);
 /* water is TERRAIN, full tiles: 1 water · 2 ice · 3 lava */
 const WATER=new Uint8Array(N);
-const matWater=new THREE.MeshStandardMaterial({color:0x2e6bc4,roughness:.2,emissive:0x1a4a8c,emissiveIntensity:.3});
+const matWater=new THREE.MeshStandardMaterial({color:0x14365e,roughness:.6}); /* dark bed under the surface */
 const matIce=new THREE.MeshStandardMaterial({color:0xcdeaf5,roughness:.12});
-const matLava=new THREE.MeshStandardMaterial({color:0xc4451c,roughness:.5,emissive:0xff5a1a,emissiveIntensity:.9});
+const matLava=new THREE.MeshStandardMaterial({color:0x6e2410,roughness:.8});
+const matQuick=new THREE.MeshStandardMaterial({color:0x8a734a,roughness:1});
+/* liquid surfaces: translucent planes that bob — THIS is what makes water read as water */
+const WSURF=new Map();
+const surfGeo=new THREE.PlaneGeometry(.98,.98);
+const surfWater=new THREE.MeshStandardMaterial({color:0x3b8fe8,roughness:.1,transparent:true,opacity:.55,emissive:0x1a5fb8,emissiveIntensity:.35});
+const surfLava=new THREE.MeshStandardMaterial({color:0xff7a2d,roughness:.4,transparent:true,opacity:.9,emissive:0xff5a1a,emissiveIntensity:1});
+const surfQuick=new THREE.MeshStandardMaterial({color:0xc2a368,roughness:.9,transparent:true,opacity:.75});
+function addWaterSurface(i){
+  const w=WATER[i];
+  if(!w||w===2||WSURF.has(i))return; /* ice is solid, no surface */
+  const F=FACES[faceOf(i)];
+  const m=new THREE.Mesh(surfGeo,w===3?surfLava:w===4?surfQuick:surfWater);
+  m.userData.base=cellBase(i).clone().addScaledVector(F.n,-.08);
+  m.userData.n=F.n;m.userData.ph=(i%9);
+  m.position.copy(m.userData.base);
+  m.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
+  scene.add(m);WSURF.set(i,m);
+}
+function rebuildWaterSurfaces(){
+  for(const m of WSURF.values())scene.remove(m);
+  WSURF.clear();
+  for(let i=0;i<N;i++)if(WATER[i])addWaterSurface(i);
+}
 const tileGeo=new THREE.BoxGeometry(.98,.98,4.4); /* +Z = outward; deep enough that a -3 dig still shows solid pit walls */
 const tiles=[];
 function topMat(i){
@@ -446,7 +554,7 @@ function topMat(i){
   const h=HMAP[i];
   if(h<0)return matD[-h];
   if(h>0)return matWall;
-  if(WATER[i])return WATER[i]===3?matLava:WATER[i]===2?matIce:matWater;
+  if(WATER[i])return WATER[i]===3?matLava:WATER[i]===2?matIce:WATER[i]===4?matQuick:matWater;
   if(ROAD[i])return matRoad;
   if(((i*2654435761)>>>0)%9===0)return matBio[faceOf(i)][2];
   return matBio[faceOf(i)][checker];
@@ -463,7 +571,7 @@ for(let i=0;i<N;i++){
 function setHeight(i,h){
   HMAP[i]=h;
   const F=FACES[faceOf(i)];
-  tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,-2.2+h*HSTEP);
+  tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,-2.2+h*HSTEP-((WATER[i]&&WATER[i]!==2)?.3:0));
   tiles[i].material[4]=topMat(i);
 }
 function refreshTile(i){setHeight(i,HMAP[i]);}
@@ -532,7 +640,7 @@ function waterFeature(f){
       u=Math.max(1,Math.min(S-2,u+((rnd()*3)|0)-1));
     }
   }
-  for(const i of cells){WATER[i]=cfg.w;refreshTile(i);}
+  for(const i of cells){WATER[i]=cfg.w;refreshTile(i);addWaterSurface(i);}
 }
 const dormantMat=new THREE.MeshStandardMaterial({color:0x23262f,roughness:1});
 function decorateDormant(f){ /* locked faces show dark, sleeping versions of their environment */
@@ -611,9 +719,9 @@ pring.rotation.x=Math.PI/2;            /* lies FLAT on the face like a pad */
 const pdisc=new THREE.Mesh(new THREE.CircleGeometry(.34,18),
   new THREE.MeshBasicMaterial({color:0x4a1a99,transparent:true,opacity:.75,side:THREE.DoubleSide}));
 pdisc.rotation.x=-Math.PI/2;pdisc.position.y=.02;
-const pbeam=new THREE.Mesh(new THREE.CylinderGeometry(.16,.3,1.6,12,1,true),
-  new THREE.MeshBasicMaterial({color:0x9a5dff,transparent:true,opacity:.22,side:THREE.DoubleSide,depthWrite:false}));
-pbeam.position.y=.8;
+const pbeam=new THREE.Mesh(new THREE.CylinderGeometry(.13,.24,.8,12,1,true),
+  new THREE.MeshBasicMaterial({color:0x9a5dff,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false}));
+pbeam.position.y=.4; /* short + faint: side-face beams used to read as broken protrusions from across the cube */
 portal.add(pring,pdisc,pbeam);scene.add(portal);
 const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.42),
   new THREE.MeshStandardMaterial({color:0x2de0c8,emissive:0x2de0c8,emissiveIntensity:1.3}));
@@ -635,6 +743,7 @@ const moveCost=i=>{
   let m=HMAP[i]<0?2-HMAP[i]:2;
   if(WATER[i]===1)m+=2;       /* creeps prefer dry routes */
   else if(WATER[i]===3)m+=5;  /* and really hate lava */
+  else if(WATER[i]===4)m+=4;  /* quicksand: nearly as bad */
   return m;
 };
 let PORTALS=[];
@@ -695,7 +804,7 @@ function refreshPathDots(){
       const hz=BIOMES[faceOf(i)].hz;
       if(hz&&hz.mul)f*=hz.mul;
       if(HMAP[i]<0)f*=(hz&&hz.pitSlow)?.4:.7;
-      if(WATER[i]===1)f*=.45;else if(WATER[i]===2)f*=1.35;else if(WATER[i]===3)f*=.5;
+      if(WATER[i]===1)f*=.45;else if(WATER[i]===2)f*=1.35;else if(WATER[i]===3)f*=.5;else if(WATER[i]===4)f*=.35;
       if(prev>=0&&ADJ[i].includes(prev)&&Math.abs(HMAP[i]-HMAP[prev])>0)f*=.55;
       const F=FACES[faceOf(i)];
       const d=new THREE.Mesh(dotGeo,f>=.99?dotMatF:f>=.6?dotMatM:dotMatS);
@@ -829,14 +938,13 @@ function buildCreepBody(typeName,mat){
     M(new THREE.ConeGeometry(.03,.12,4),-.06,.1,.26,boneMat).rotation.x=Math.PI/2;
     M(new THREE.ConeGeometry(.03,.12,4),.06,.1,.26,boneMat).rotation.x=Math.PI/2;
     eyes(g,.14,.21,.07);
-  }else if(typeName==='tank'){ /* armored slab on treads, smokestack */
-    M(new THREE.BoxGeometry(.4,.26,.48),0,.26,0);
-    M(new THREE.BoxGeometry(.14,.16,.55),-.24,.12,0,armorMat); /* treads */
-    M(new THREE.BoxGeometry(.14,.16,.55),.24,.12,0,armorMat);
-    M(new THREE.BoxGeometry(.44,.08,.3),0,.43,0,armorMat);
-    M(new THREE.CylinderGeometry(.035,.05,.16,6),-.12,.52,-.12,armorMat); /* stack */
-    M(new THREE.BoxGeometry(.4,.2,.05),0,.24,.27,boneMat); /* ram plate */
-    eyes(g,.34,.25,.1);
+  }else if(typeName==='tank'){ /* armored slab on treads with a low turret */
+    M(new THREE.BoxGeometry(.38,.24,.46),0,.25,0);
+    M(new THREE.BoxGeometry(.13,.15,.5),-.23,.11,0,armorMat); /* treads */
+    M(new THREE.BoxGeometry(.13,.15,.5),.23,.11,0,armorMat);
+    M(new THREE.BoxGeometry(.3,.12,.26),0,.42,-.02,armorMat); /* turret */
+    M(new THREE.BoxGeometry(.36,.16,.04),0,.22,.25,boneMat);  /* ram plate */
+    eyes(g,.33,.24,.1);
   }else if(typeName==='healer'){ /* serene orb under a double halo */
     M(new THREE.SphereGeometry(.17,10,10),0,.28,0);
     const h1=M(new THREE.TorusGeometry(.26,.02,6,18),0,.3,0,glowMat(0x4dff7a));h1.rotation.x=Math.PI/2;
@@ -1220,6 +1328,9 @@ const ABIL={
   golem:{label:'golem',icon:'golem',cd:30,t:0,cost:()=>'120g·3 iron',can:()=>FREE||(gold>=120&&INV.iron>=3),pay:()=>{if(!FREE){gold-=120;INV.iron-=3;}},cast:()=>castGolem()},
   freeze:{label:'freeze',icon:'freeze',cd:25,t:0,cost:()=>'1 shard',can:()=>FREE||INV.shard>=1,pay:()=>{if(!FREE)INV.shard--;},cast:()=>castFreeze()},
   strike:{label:'strike',icon:'strike',cd:20,t:0,cost:()=>'100g',can:()=>FREE||gold>=100,pay:()=>{if(!FREE)gold-=100;},cast:()=>castAirstrike()},
+  repair:{label:'repair',icon:'heart',cd:35,t:0,cost:()=>'60g',can:()=>FREE||gold>=60,pay:()=>{if(!FREE)gold-=60;},
+    cast:()=>{let n=0;for(const tw of towers)if(tw.hp<tw.maxHp){tw.hp=tw.maxHp;n++;puff(tw.g.position,0x4dff7a,4);}
+      toast(n?('repair drones out — '+n+' tower'+(n>1?'s':'')+' patched'):'all towers already pristine');beep(700,.25,'triangle',.06);}},
   pilot:{label:'pilot',icon:'bot',cd:1,t:0,
     cost:()=>hero.aiOwned?(hero.auto?'ON':'OFF'):'2 shards',
     can:()=>hero.aiOwned||FREE||INV.shard>=2,
@@ -1234,35 +1345,37 @@ const golemTmp=new THREE.Vector3(),heroTmp=new THREE.Vector3();
    (auto-shoots nearby creeps); V flies you into it wherever it stands; the pilot
    ability (one-time shard cost) lets it auto-roam and hunt like a drone. */
 let heroSpawned=false;
-const hero={cool:0,auto:false,aiOwned:false,kills:0,dmgDealt:0,fwd:new THREE.Vector3()};
+const hero={cool:0,auto:false,aiOwned:false,kills:0,dmgDealt:0,fwd:new THREE.Vector3(),moveTo:null,jumpT:0};
+function heroStep(target,dt,speed){ /* shared hero locomotion: solids, corners, shell clamp */
+  const F=FACES[walker.face];
+  heroTmp.copy(target).sub(walker.pos);
+  heroTmp.addScaledVector(F.n,-heroTmp.dot(F.n));
+  if(heroTmp.length()<.45)return true;
+  heroTmp.normalize();hero.fwd.copy(heroTmp);heroMove=.15;
+  const prev=walker.pos.clone(),pi=cellAtWorld(walker.pos);
+  walker.pos.addScaledVector(heroTmp,speed*dt);
+  const ni=cellAtWorld(walker.pos);
+  if(ni>=0&&ni!==pi&&(TWR[ni]||DEC[ni]||(pi>=0&&HMAP[ni]-HMAP[pi]>1))){walker.pos.copy(prev);return false;} /* the world is solid for him too */
+  hero.swapT=(hero.swapT||0)-dt;
+  const nf=faceBasisAt(walker.pos);
+  if(nf!==walker.face&&ACTIVE[nf]&&hero.swapT<=0){walker.face=nf;hero.swapT=.3;}
+  const FF=FACES[walker.face];
+  const nd=walker.pos.dot(FF.n);walker.pos.addScaledVector(FF.n,HCUBE-nd);
+  const t1=Math.max(-HCUBE,Math.min(HCUBE,walker.pos.dot(FF.r)));
+  const t2=Math.max(-HCUBE,Math.min(HCUBE,walker.pos.dot(FF.u)));
+  walker.pos.copy(FF.n.clone().multiplyScalar(HCUBE)).addScaledVector(FF.r,t1).addScaledVector(FF.u,t2);
+  return false;
+}
 function updateHero(dt){
   if(!heroSpawned)return;
   hero.cool-=dt;
   if(mode==='walk')return; /* manned: the human is driving */
-  if(hero.auto&&creeps.length){
+  if(hero.moveTo){ /* command link: ordered to a spot */
+    if(heroStep(hero.moveTo,dt,3.0*heroSpeed()))hero.moveTo=null;
+  }else if(hero.auto&&creeps.length){
     let best=null,bd=1e9;
     for(const c of creeps){const d=c.g.position.distanceTo(avatar.position);if(d<bd){bd=d;best=c;}}
-    if(best&&bd>2.2){ /* roam toward the action, golem-style */
-      const f=walker.face,F=FACES[f];
-      heroTmp.copy(best.g.position).sub(walker.pos);
-      heroTmp.addScaledVector(F.n,-heroTmp.dot(F.n));
-      if(heroTmp.lengthSq()>.001){
-        heroMove=.15;
-        heroTmp.normalize();
-        hero.fwd.copy(heroTmp); /* face where you're going */
-        walker.pos.addScaledVector(heroTmp,2.6*heroSpeed()*dt);
-        const nf=faceBasisAt(walker.pos);
-        /* same corner protection as the player: transition cooldown */
-        hero.swapT=(hero.swapT||0)-dt;
-        if(nf!==walker.face&&ACTIVE[nf]&&hero.swapT<=0){walker.face=nf;hero.swapT=.3;}
-        const FF=FACES[walker.face];
-        const nd=walker.pos.dot(FF.n);
-        walker.pos.addScaledVector(FF.n,HCUBE-nd);
-        const t1=Math.max(-HCUBE,Math.min(HCUBE,walker.pos.dot(FF.r)));
-        const t2=Math.max(-HCUBE,Math.min(HCUBE,walker.pos.dot(FF.u)));
-        walker.pos.copy(FF.n.clone().multiplyScalar(HCUBE)).addScaledVector(FF.r,t1).addScaledVector(FF.u,t2);
-      }
-    }
+    if(best&&bd>2.2)heroStep(best.g.position,dt,2.6*heroSpeed());
   }
   if(hero.cool<=0){ /* sentry fire */
     let best=null,bd=heroRange();
@@ -1400,7 +1513,7 @@ function dig(i){
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'dig',cell:i});return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(chop(i))return;
-  if(WATER[i]){toast(WATER[i]===3?'that is lava':'water — fill it with dirt or go around');return;}
+  if(WATER[i]){toast(WATER[i]===3?'that is lava':WATER[i]===4?'quicksand — fill it with dirt':'water — fill it with dirt or go around');return;}
   if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');beep(90,.2,'sawtooth',.06);return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
   const kit=freeDigs>0; /* surveyor's kit: opening digs are free and never crumble */
@@ -1434,6 +1547,7 @@ function placeDirt(i){
     if(!FREE&&dirt<1){toast('no dirt — dig to carry blocks');return;}
     if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
     WATER[i]=0;if(!FREE)dirt--;
+    const sm=WSURF.get(i);if(sm){scene.remove(sm);WSURF.delete(i);}
     refreshTile(i);bfs();refreshPathDots();
     puff(cellTop(i),0x3b7bd4,6);
     toast('land reclaimed');beep(210,.12,'square',.05);
@@ -1455,7 +1569,7 @@ function placeDirt(i){
 let mode='overview',menuOpen=false;
 let camYaw=.7,camPitch=.45,camDist=26,autoSpin=true,downBtn=0;
 const camPan=new THREE.Vector3(); /* middle-drag strafe offset */
-let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='fp',lockToastT=0,faceSwapT=0;
+let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='tp',lockToastT=0,faceSwapT=0;
 const walker={face:0,pos:new THREE.Vector3(),fwd:new THREE.Vector3(1,0,0)};
 const avatar=(function(){ /* the hero, v2: arms, visor (no creep eyes!), backpack, swinging limbs */
   const g=new THREE.Group();
@@ -1492,8 +1606,12 @@ const HSK={
   rate:{label:'trigger',lv:0,max:3,d:'+19% fire rate'},
   range:{label:'optics',lv:0,max:3,d:'+0.6 sentry range'},
   speed:{label:'servos',lv:0,max:3,d:'+15% move speed'},
+  command:{label:'command link',lv:0,max:1,d:'RIGHT-CLICK the map to send your hero there'},
+  jump:{label:'jump jets',lv:0,max:1,d:'SPACE to jump while walking — clears 2-high walls'},
 };
-const hskTotal=()=>HSK.dmg.lv+HSK.rate.lv+HSK.range.lv+HSK.speed.lv;
+const hskTotal=()=>Object.values(HSK).reduce((a,x)=>a+x.lv,0);
+const heroLvl=()=>Math.floor(Math.sqrt(hero.kills/3)); /* levels come from kills: 3,12,27,48... */
+const heroNextLvlKills=()=>3*(heroLvl()+1)*(heroLvl()+1);
 const hskCost=()=>({gold:50+hskTotal()*40,iron:1+(hskTotal()>>1)});
 const heroDmg=()=>(10+wave*.6)*(1+.3*HSK.dmg.lv);
 const heroRate=()=>Math.pow(.84,HSK.rate.lv);
@@ -1503,6 +1621,7 @@ function buyHeroSkill(k){
   const s=HSK[k];
   if(!s)return{ok:false,why:'firepower | trigger... use the key names: dmg rate range speed'};
   if(s.lv>=s.max)return{ok:false,why:'maxed'};
+  if(!FREE&&heroLvl()<hskTotal()+1)return{ok:false,why:'hero needs level '+(hskTotal()+1)+' — '+hero.kills+'/'+(3*(hskTotal()+1)*(hskTotal()+1))+' kills'};
   const c=hskCost();
   if(!FREE&&(gold<c.gold||INV.iron<c.iron))return{ok:false,why:'need '+c.gold+'g + '+c.iron+' iron'};
   if(!FREE){gold-=c.gold;INV.iron-=c.iron;}
@@ -1554,7 +1673,7 @@ function enterWalk(){
   showFPUI(true);
   hidePanel();selectedType=null;renderBar();
   $('btnWalk').classList.add('on');
-  toast('walk over an edge — gravity follows · wheel = tool');
+  toast('third person — C toggles first person · wheel = tool · edges carry you around');
 }
 function exitMode(){
   if(mode==='overview')return;
@@ -1681,7 +1800,7 @@ function tryBuy(i,type){
   if(!towerUnlocked(type)){toast(type+' unlocks with the '+BIOMES[TT[type].biome].name+' biome');return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(PORTALS.includes(i)||i===CRYSTAL)return;
-  if(WATER[i]){toast(WATER[i]===3?'lava — nothing builds there':"can't build on water — fill it (1 dirt)");return;}
+  if(WATER[i]){toast(WATER[i]===3?'lava — nothing builds there':WATER[i]===4?'quicksand swallows towers — fill it first':"can't build on water — fill it (1 dirt)");return;}
   chop(i); /* the build crew clears scenery for free (+1 dirt) */
   if(HMAP[i]<0){toast('fill the pit first');return;}
   if(creepOn(i)){toast('creep in the way');return;}
@@ -1716,6 +1835,16 @@ renderer.domElement.addEventListener('pointerup',e=>{
   held=false;ghostRing.visible=false;
   if(menuOpen||DEMO||dragType||mode!=='overview')return;
   if(e.button===1){if(!dragging){showPath=!showPath;refreshPathDots();$('btnPath').classList.toggle('on',showPath);$('mPath').checked=showPath;}return;}
+  if(e.button===2){ /* command link: right-click sends the hero */
+    if(!dragging&&heroSpawned&&HSK.command.lv>0){
+      const hit=castAt(e,tiles,false);
+      if(hit){const i=hit.object.userData.i;
+        if(ACTIVE[faceOf(i)]){hero.moveTo=cellTop(i).clone();ringFx(i,.55,0x2de0c8);beep(620,.07,'sine',.04);}}
+    }else if(!dragging&&heroSpawned&&HSK.command.lv===0&&!DEMO){
+      if((lockToastT-=0)<=0){lockToastT=2;toast('unlock COMMAND LINK in the hero skill tree to order him around');}
+    }
+    return;
+  }
   if(dragging||performance.now()-downAt>260)return;
   if(heroSpawned&&castAt(e,[avatar],true)){showHeroPanel();return;} /* click your hero for the skill tree */
   const th=castAt(e,towers.map(t=>t.g),true);
@@ -1803,7 +1932,7 @@ function renderBar(){
 function hidePanel(){$('panel').style.display='none';}
 function showHeroPanel(){
   const c=hskCost();
-  let html='<b style="color:#2de0c8">'+IC.bot+' HERO</b> · '+hero.kills+' kills · '+
+  let html='<b style="color:#2de0c8">'+IC.bot+' HERO · LEVEL '+heroLvl()+'</b> · '+hero.kills+' kills ('+heroNextLvlKills()+' for lv'+(heroLvl()+1)+') · '+
     (hero.dmgDealt>=1000?(hero.dmgDealt/1000).toFixed(1)+'k':Math.round(hero.dmgDealt))+' dmg'+
     (hero.aiOwned?(hero.auto?' · pilot ON':' · pilot off'):'')+'<br>'+
     'dmg '+heroDmg().toFixed(0)+' · rng '+heroRange().toFixed(1)+' · spd ×'+heroSpeed().toFixed(2)+'<br>';
@@ -1868,7 +1997,7 @@ function closeMenu(resume){
 }
 $('mResume').onclick=()=>closeMenu(true);
 $('mLeaveFP').onclick=()=>{closeMenu(false);exitMode();};
-$('mHelp').onclick=()=>{$('pausemenu').style.display='none';$('helpmenu').style.display='flex';};
+$('mHelp').onclick=()=>{$('pausemenu').style.display='none';$('helpmenu').style.display='flex';makePortraits();};
 $('hClose').onclick=()=>{$('helpmenu').style.display='none';if(menuOpen)$('pausemenu').style.display='flex';else if(!DEMO)paused=false;};
 $('mQuit').onclick=()=>{
   closeMenu(false);exitMode();
@@ -1882,7 +2011,7 @@ $('mSfx').onchange=e=>SETT.sfx=e.target.checked;
 $('mPath').onchange=e=>{showPath=e.target.checked;refreshPathDots();$('btnPath').classList.toggle('on',showPath);};
 $('mDay').onchange=e=>SETT.alwaysDay=e.target.checked;
 $('btnMenu').onclick=()=>menuOpen?closeMenu(true):openMenu();
-$('btnHelp').onclick=()=>{paused=true;$('helpmenu').style.display='flex';};
+$('btnHelp').onclick=()=>{paused=true;$('helpmenu').style.display='flex';makePortraits();};
 $('btnWalk').onclick=()=>{if(!DEMO)(mode==='walk'?exitMode():enterWalk());};
 $('btnPath').onclick=()=>{showPath=!showPath;refreshPathDots();$('btnPath').classList.toggle('on',showPath);};
 $('btnPath').classList.add('on');
@@ -1903,7 +2032,7 @@ document.querySelectorAll('#diffrow .lvl').forEach(d=>d.onclick=()=>{
 });
 $('spPlay').onclick=()=>startGame(pickedDiff,false);
 $('spFree').onclick=()=>startGame(2,true);
-$('spHelp').onclick=()=>{$('helpmenu').style.display='flex';};
+$('spHelp').onclick=()=>{$('helpmenu').style.display='flex';makePortraits();};
 addEventListener('keydown',e=>{
   if(DEMO)return;
   if(e.key==='1'){simSpeed=1;paused=false;}
@@ -1911,7 +2040,14 @@ addEventListener('keydown',e=>{
   if(e.key==='3'){simSpeed=4;paused=false;}
   if(e.key==='4'){simSpeed=8;paused=false;}
   if(['1','2','3','4'].includes(e.key))document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===simSpeed));
-  if(e.key===' '&&!menuOpen){paused=!paused;document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===(paused?0:simSpeed)));e.preventDefault();}
+  if(e.key===' '&&!menuOpen){
+    if(mode==='walk'){ /* in the field, space = jump jets (if unlocked) */
+      if(HSK.jump.lv>0&&hero.jumpT<=0){hero.jumpT=.55;beep(520,.14,'square',.05);}
+      else if(HSK.jump.lv===0)toast('unlock JUMP JETS in the hero skill tree');
+      e.preventDefault();return;
+    }
+    paused=!paused;document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===(paused?0:simSpeed)));e.preventDefault();
+  }
   if((e.key==='v'||e.key==='V')&&!menuOpen)(mode==='walk'?exitMode():enterWalk());
   if((e.key==='r'||e.key==='R')&&mode==='overview'){autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);}
   if((e.key==='n'||e.key==='N')&&breakT>0)callWave(true);
@@ -2056,7 +2192,9 @@ function resetGame(diff,demo){
   for(const k in ABIL)ABIL[k].t=0;
   TWR.fill(null);HMAP.fill(0);
   for(let i=0;i<N;i++)if(DEC[i]){scene.remove(DEC[i]);DEC[i]=null;}
-  facesUnlocked=1;nextUnlockWave=4;clearTelegraph();ROAD.fill(0);WATER.fill(0);applyFaces();
+  facesUnlocked=1;nextUnlockWave=4;clearTelegraph();ROAD.fill(0);WATER.fill(0);
+  for(const m of WSURF.values())scene.remove(m);WSURF.clear();
+  applyFaces();
   for(let k=portalMeshes.length-1;k>=1;k--){scene.remove(portalMeshes[k]);portalMeshes.splice(k,1);}
   CRYSTAL=0*FCELLS+(S-2)*S+(S>>1); /* crystal: middle of the opposite edge — a clean lane across the face */
   PORTALS=[farCellOnFace(0)];
@@ -2168,6 +2306,7 @@ function sim(dt){
     if(w2===1)sp*=.45;
     else if(w2===2)sp*=1.35;
     else if(w2===3){sp*=.6;damageCreep(c,c.maxHp*.025*dt);if(!creeps.includes(c))continue;}
+    else if(w2===4)sp*=.35; /* quicksand: the deepest slow in the game */
     const dh=Math.abs(HMAP[target]-HMAP[c.cell]);
     if(dh>0&&c.tt.cls!=='jump')sp*=c.tt.climbMul;
     if(crawling)sp*=.35;
@@ -2261,6 +2400,7 @@ function sim(dt){
 /* ============ WALK UPDATE ============ */
 function updateWalk(dt){
   fpCool-=dt;
+  if(hero.jumpT>0)hero.jumpT-=dt;
   if(fpFiring&&document.pointerLockElement&&tool===2&&!camTrans.active)fpFire();
   if(fpMining&&document.pointerLockElement&&tool!==2&&!camTrans.active){
     mineT-=dt;
@@ -2276,14 +2416,14 @@ function updateWalk(dt){
   if(mv.lengthSq()>0){
     heroMove=.15;
     const wi0=cellAtWorld(walker.pos);
-    const wmul=wi0>=0?(WATER[wi0]===1?.5:WATER[wi0]===2?1.3:WATER[wi0]===3?.6:1):1;
+    const wmul=wi0>=0?(WATER[wi0]===1?.5:WATER[wi0]===2?1.3:WATER[wi0]===3?.6:WATER[wi0]===4?.4:1):1;
     mv.normalize().multiplyScalar(3.2*heroSpeed()*wmul*dt);
     const prevPos=walker.pos.clone(),pi=cellAtWorld(walker.pos);
     walker.pos.add(mv);
     /* the world is solid: towers, scenery, and 2-high walls block you */
     const ni=cellAtWorld(walker.pos);
-    if(ni>=0&&ni!==pi&&(TWR[ni]||DEC[ni]||(pi>=0&&HMAP[ni]-HMAP[pi]>1))){
-      walker.pos.copy(prevPos);
+    if(ni>=0&&ni!==pi&&(TWR[ni]||DEC[ni]||(pi>=0&&HMAP[ni]-HMAP[pi]>(hero.jumpT>0?2:1)))){
+      walker.pos.copy(prevPos); /* jump jets clear 2-high mid-air */
       return;
     }
     /* face transition: dominant axis changed? A short cooldown + seam nudge stops corner flip-flop */
@@ -2375,8 +2515,10 @@ function tick(){
     L.armR.rotation.x=ud.shootT>0?-1.45:-sw; /* aim pose while firing */
     L.legL.rotation.x=-sw*.8;L.legR.rotation.x=sw*.8;
   }
-  matLava.emissiveIntensity=.8+Math.sin(t*2.6)*.25;
-  matWater.emissiveIntensity=.25+Math.sin(t*1.6)*.1;
+  surfLava.emissiveIntensity=.85+Math.sin(t*2.6)*.3;
+  surfWater.opacity=.5+Math.sin(t*1.7)*.08;
+  for(const m of WSURF.values())
+    m.position.copy(m.userData.base).addScaledVector(m.userData.n,Math.sin(t*1.6+m.userData.ph)*.045);
   if(heroSpawned&&mode!=='walk'){
     const HF=FACES[walker.face];
     avatar.position.copy(walker.pos).addScaledVector(HF.n,groundLift(walker.pos));
@@ -2389,7 +2531,7 @@ function tick(){
   let toPos,toQ;
   if(mode==='walk'){
     const F=FACES[walker.face];
-    const lift=groundLift(walker.pos);
+    const lift=groundLift(walker.pos)+(hero.jumpT>0?Math.sin((1-hero.jumpT/.55)*Math.PI)*.7:0);
     toPos=walker.pos.clone().addScaledVector(F.n,.55+lift);
     const fwd=F.r.clone().multiplyScalar(Math.sin(fpYaw)).addScaledVector(F.u,Math.cos(fpYaw));
     const lookDir=fwd.clone().multiplyScalar(Math.cos(fpPitch)).addScaledVector(F.n,Math.sin(fpPitch));
@@ -2444,6 +2586,7 @@ function tick(){
       C(IC.heart,lives,'lives',lowLives?'#ff5e8a':'#ffd24a',lowLives?'CRITICAL':'')+
       C(isNight?IC.moon:IC.sun,isNight?'night':'day',isNight?'creeps +15%':'cycle',isNight?'#a86bff':'#ffd24a')+
       C(IC.cube,facesUnlocked+'/6','biomes','#8a93ab')+
+      (heroSpawned&&!DEMO?C(IC.bot,'lv '+heroLvl(),hero.kills+' kills · click him','#2de0c8','your hero levels up from kills — click him on the field for the skill tree'):'')+
       (!DEMO&&facesUnlocked<DIFF.maxFaces?(()=>{
         const nf=UNLOCK_ORDER[facesUnlocked-1],left=Math.max(1,nextUnlockWave-wave),pc='#'+BIOMES[nf].pc.toString(16).padStart(6,'0');
         const afford=FREE||gold>=expandCost();
@@ -2467,6 +2610,7 @@ function tick(){
       if(histHtml!==histCache){histCache=histHtml;$('histpanel').innerHTML=histHtml;}
     }
     renderBar();renderAbil();
+    tutTick();
   }
   renderer.render(scene,camera);
 }
@@ -2576,6 +2720,7 @@ function guestMsg(m){
     for(let i=0;i<N;i++){HMAP[i]=m.hmap[i];WATER[i]=m.water[i];ROAD[i]=m.road[i];}
     ACTIVE.set(m.active);
     facesUnlocked=m.active.reduce((a,b)=>a+b,0);
+    rebuildWaterSurfaces();
     PORTALS=m.portals.slice();CRYSTAL=m.crystal;
     for(let i=0;i<N;i++)refreshTile(i);
     const dset=new Set(m.decs);
@@ -2769,6 +2914,9 @@ window.GameAPI={
   };},
   ability(k){return useAbility(k)?{ok:true,cooldown:ABIL[k].cd}:{ok:false,why:ABIL[k]?(ABIL[k].t>0?'on cooldown':'cannot afford'):'unknown ability'};},
   heroSkill(k){return buyHeroSkill(k);},
+  heroMove(i){if(HSK.command.lv<1)return{ok:false,why:'unlock command link first'};
+    if(!(i>=0&&i<N))return{ok:false,why:'bad cell'};
+    hero.moveTo=cellTop(i).clone();return{ok:true};},
   player(n){playerName=String(n||'anon').slice(0,24);return{ok:true,player:playerName};},
   net(){const first=NET.mirror.values().next().value;
     return{on:NET.on,role:NET.role,myFace:NET.myFace,
@@ -2800,6 +2948,60 @@ window.GameAPI={
   },
 };
 
+/* ===== help portraits: render each enemy so nobody has to guess ===== */
+let portraitsDone=false;
+function makePortraits(){
+  if(portraitsDone)return;portraitsDone=true;
+  try{
+    const pr=new THREE.WebGLRenderer({antialias:true,alpha:true});
+    pr.setSize(72,72);pr.setPixelRatio(1);
+    const ps=new THREE.Scene();
+    const pc=new THREE.PerspectiveCamera(38,1,.1,10);
+    pc.position.set(.95,.8,1.35);pc.lookAt(0,.3,0);
+    ps.add(new THREE.HemisphereLight(0xffffff,0x334,1.25));
+    const dl=new THREE.DirectionalLight(0xffffff,1.1);dl.position.set(2,3,2);ps.add(dl);
+    const cells=[];
+    for(const k of Object.keys(CT)){
+      const mat=new THREE.MeshStandardMaterial({color:CT[k].color,roughness:.7});
+      const g=buildCreepBody(k,mat);
+      ps.add(g);pr.render(ps,pc);
+      cells.push('<span style="display:inline-block;text-align:center;margin:0 3px 8px"><img src="'+pr.domElement.toDataURL()+
+        '" style="width:54px;height:54px;background:#0d1018;border:1px solid #262b36;border-radius:3px"><br><small style="color:#'+
+        CT[k].color.toString(16).padStart(6,'0')+'">'+k+'</small></span>');
+      ps.remove(g);
+    }
+    pr.dispose();
+    document.querySelectorAll('.hsec')[2].insertAdjacentHTML('afterbegin','<div style="text-align:center;margin-bottom:6px">'+cells.join('')+'</div>');
+  }catch(e){showErr('portraits: '+(e.message||e));}
+}
+
+/* ===== guided tutorial: watches what you do and advances ===== */
+const TUT={on:false,step:0,baseRoute:0};
+const TUTS=[
+  {t:'Drag a CANNON from the bottom bar onto the grass beside the gold road.',done:()=>towers.length>0},
+  {t:'Select the DIG tool and click a tile near the road — your first 10 digs are free and always succeed.',done:()=>freeDigs<CFG.freeDigs||dirt>CFG.startDirt},
+  {t:'Now bend their route: select WALL and click a tile ON the road. Watch the dots reroute around it.',done:()=>dirt<TUT.d3||pathCellsList().length>TUT.baseRoute},
+  {t:'Call the wave — the glowing bar at the top (or press N). Early calls pay bonus gold.',done:()=>wave>=1},
+  {t:'Survive! Your cyan HERO fights too — click him anytime to train his skills.',done:()=>wave>=1&&creeps.length===0&&spawnQueue.length===0},
+];
+function tutShow(){$('tutStep').textContent='TUTORIAL '+(TUT.step+1)+'/'+TUTS.length;$('tutText').textContent=TUTS[TUT.step].t;}
+function tutStart(){
+  startGame(0,false);
+  TUT.on=true;TUT.step=0;TUT.baseRoute=pathCellsList().length;
+  $('tut').style.display='block';tutShow();
+}
+function tutEnd(msg){TUT.on=false;$('tut').style.display='none';if(msg)toast(msg);}
+function tutTick(){
+  if(!TUT.on)return;
+  if(TUTS[TUT.step].done()){
+    TUT.step++;
+    if(TUT.step===2)TUT.d3=dirt; /* wall step: detect by dirt spent */
+    beep(740,.15,'triangle',.06);
+    if(TUT.step>=TUTS.length){tutEnd('tutorial complete — the cube is yours');return;}
+    tutShow();
+  }
+}
+
 /* boot */
 document.querySelectorAll('[data-ic]').forEach(el=>{el.innerHTML=IC[el.dataset.ic]||'';});
 $('biostrip').innerHTML=BIOMES.map(B=>'<div class="bio"><i style="background:#'+B.a.toString(16).padStart(6,'0')+'"></i>'+B.name+'</div>').join('');
@@ -2817,6 +3019,12 @@ $('btnHist').innerHTML=IC.list;
 $('btnHist').classList.add('on');
 $('btnHist').onclick=()=>{showHist=!showHist;$('btnHist').classList.toggle('on',showHist);};
 $('uirestore').onclick=()=>document.body.classList.remove('uihide');
+document.querySelectorAll('.htab').forEach(h=>h.onclick=()=>{
+  document.querySelectorAll('.htab').forEach(x=>x.classList.toggle('on',x===h));
+  document.querySelectorAll('.hsec').forEach((sec,i)=>sec.classList.toggle('on',i===+h.dataset.h));
+});
+$('spTut').onclick=()=>tutStart();
+$('tutSkip').onclick=()=>tutEnd('tutorial skipped');
 $('btnSpin').innerHTML=IC.cube;
 $('btnSpin').onclick=()=>{autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);};
 $('btnSpin').classList.toggle('on',true);
