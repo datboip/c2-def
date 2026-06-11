@@ -264,10 +264,10 @@ const DIFFS=[
 ];
 let DIFF=DIFFS[1];
 let DEMO=true,FREE=false;
-const CFG={startGold:150,startDirt:8,maxTier:3,digCost:3,digDepth:-3,reach:4.4,
+const CFG={startGold:150,startDirt:10,freeDigs:10,maxTier:3,digCost:3,digDepth:-3,reach:4.4,
   breakTime:14,earlyBonus:20,dayLen:240,wallRangeBonus:1.15};
 const SETT={sens:1,invert:false,sfx:true,alwaysDay:false};
-let gold=CFG.startGold,dirt=CFG.startDirt,lives=12,wave=0,kills=0,prestige=0,goldMult=1,mineXp=0;
+let gold=CFG.startGold,dirt=CFG.startDirt,lives=12,wave=0,kills=0,prestige=0,goldMult=1,mineXp=0,freeDigs=CFG.freeDigs;
 let simSpeed=1,paused=false,playSec=0,autopilot=true,selectedType=null,breakT=-1,waveTotal=0;
 const INV={iron:0,shard:0};
 const creeps=[],towers=[],shots=[],parts=[],fx=[];
@@ -633,7 +633,7 @@ const CT={
   crawler:{color:0x8a5dd8,speed:1.1,hp:1.3,bounty:17,s:1.05,cost:22,cls:'climb',climbMul:.5,minWave:7},
   healer:{color:0x4dd87a,speed:1.2,hp:1.2,bounty:18, s:1,   cost:30,cls:'walk', climbMul:.55,healer:true,minWave:6},
   shield:{color:0x8a93ab,speed:1.1,hp:1.6,bounty:18, s:1.1, cost:28,cls:'walk', climbMul:.55,armor:.35,minWave:9},
-  boss:  {color:0xffb020,speed:.75,hp:13, bounty:150,s:2,   cost:0, cls:'walk', climbMul:.7,boss:true,regen:.012},
+  boss:  {color:0xffb020,speed:.75,hp:15, bounty:150,s:2,   cost:0, cls:'walk', climbMul:.7,boss:true,regen:.012},
 };
 const eyeGeo=new THREE.BoxGeometry(.05,.05,.02);
 const eyeMat=new THREE.MeshBasicMaterial({color:0xffffff});
@@ -700,9 +700,15 @@ function spawnCreep(typeName){
   g.quaternion.setFromUnitVectors(V3(0,1,0),F2.n);
   g.userData.creep=c;creeps.push(c);scene.add(g);
 }
-function damageCreep(c,dmg){if(c.tt.armor)dmg*=(1-c.tt.armor);c.hp-=dmg;if(c.hp<=0)killCreep(c);}
-function killCreep(c){
+function damageCreep(c,dmg,src){
+  if(c.tt.armor)dmg*=(1-c.tt.armor);
+  if(src)src.dmgDealt+=Math.min(dmg,Math.max(c.hp,0)); /* credit what actually landed */
+  c.hp-=dmg;
+  if(c.hp<=0)killCreep(c,src);
+}
+function killCreep(c,src){
   const i=creeps.indexOf(c);if(i<0)return;
+  if(src)src.kills++;
   kills++;gold+=Math.round(c.bounty*goldMult*DIFF.bounty);
   puff(c.g.position,0xffd24a,c.tt.boss?24:7);
   scene.remove(c.g);creeps.splice(i,1);
@@ -711,7 +717,7 @@ function killCreep(c){
 /* waves */
 let spawnQueue=[],pendingQueue=[],spawnTimer=0;
 function composeQueue(){
-  const w=wave+1,budget=(14+w*8)*DIFF.budget,q=[];
+  const w=wave+1,budget=(16+w*9)*DIFF.budget,q=[]; /* retuned after the dangling-else fix made towers actually fire */
   if(w%5===0){q.push('boss');let b=budget*.5;while(b>0){q.push(Math.random()<.5?'grunt':'runner');b-=12;}}
   else{
     const avail=Object.keys(CT).filter(k=>!CT[k].boss&&(!CT[k].minWave||w>=CT[k].minWave));
@@ -789,7 +795,7 @@ function buildTower(i,typeName,byPlayer){
   scene.add(g);
   const onWall=HMAP[i]>0;
   const tw={g,head,headMat:hm,bar,warn,kick:0,tt:Object.assign({},tt),type:typeName,tier:1,cool:0,cell:i,invested:tt.cost,onWall,
-    hp:50,maxHp:50,prio:tt.tanky?'strong':'first',aim:new THREE.Object3D()};
+    hp:50,maxHp:50,prio:tt.tanky?'strong':'first',kills:0,dmgDealt:0,aim:new THREE.Object3D()};
   if(onWall)tw.tt.range*=CFG.wallRangeBonus;
   if(faceOf(i)===tt.biome){tw.home=true;tw.tt.dmg*=1.25;} /* native biome boost */
   g.userData.tw=tw;TWR[i]=tw;towers.push(tw);
@@ -879,7 +885,7 @@ function fire(tw,target){
     for(const c of hl){boltFx(prev,c.g.position,0xa89bff);prev=c.g.position.clone();}
     hl.forEach((c,i)=>{
       if(tw.tt.stun&&Math.random()<tw.tt.stun)c.stunT=.8;
-      damageCreep(c,tw.tt.dmg*Math.pow(.75,i));
+      damageCreep(c,tw.tt.dmg*Math.pow(.75,i),tw);
     });
     return;
   }
@@ -912,11 +918,13 @@ function aiDig(){
       cands.push(j);
     }
   }
-  if(!cands.length||gold<CFG.digCost)return false;
+  if(!cands.length)return false;
+  const kit=freeDigs>0;
+  if(!kit&&gold<CFG.digCost)return false;
   const i=cands[(Math.random()*cands.length)|0];
-  if(!rollMine()){gold-=CFG.digCost;puff(cellTop(i),0x8a8f9c,3);return false;} /* AI gambles on the same table */
+  if(!kit&&!rollMine()){gold-=CFG.digCost;puff(cellTop(i),0x8a8f9c,3);return false;} /* AI gambles on the same table */
   if(!tryEdit(()=>{HMAP[i]--;},()=>{HMAP[i]++;}))return false;
-  gold-=CFG.digCost;
+  if(kit)freeDigs--;else gold-=CFG.digCost;
   aiDirt++;setHeight(i,HMAP[i]);
   puff(cellTop(i),0xc9925a,5);
   return true;
@@ -1112,16 +1120,20 @@ function dig(i){
   if(chop(i))return;
   if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');beep(90,.2,'sawtooth',.06);return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
-  if(!FREE&&gold<CFG.digCost){toast('need '+CFG.digCost+'g to dig');return;}
-  if(!rollMine()){ /* failed roll: the block crumbles, the gold is spent anyway */
-    if(!FREE)gold-=CFG.digCost;
-    puff(cellTop(i),0x8a8f9c,4);
-    dmgNum(cellTop(i),'crumbled','#8a93ab');
-    beep(120,.15,'sawtooth',.05);
-    return;
+  const kit=freeDigs>0; /* surveyor's kit: opening digs are free and never crumble */
+  if(!kit){
+    if(!FREE&&gold<CFG.digCost){toast('need '+CFG.digCost+'g to dig');return;}
+    if(!rollMine()){ /* failed roll: the block crumbles, the gold is spent anyway */
+      if(!FREE)gold-=CFG.digCost;
+      puff(cellTop(i),0x8a8f9c,4);
+      dmgNum(cellTop(i),'crumbled','#8a93ab');
+      beep(120,.15,'sawtooth',.05);
+      return;
+    }
   }
   if(!tryEdit(()=>{HMAP[i]--;},()=>{HMAP[i]++;})){toast('would seal the route');return;}
-  if(!FREE)gold-=CFG.digCost; /* mining costs labor; what you find down there can pay it back */
+  if(kit){freeDigs--;mineXp+=2;if(freeDigs===0)toast('survey kit spent — digs are now '+CFG.digCost+'g gambles');}
+  else if(!FREE)gold-=CFG.digCost; /* mining costs labor; what you find down there can pay it back */
   dirt++;  /* conservation: a removed block is a carried block */
   setHeight(i,HMAP[i]);
   puff(cellTop(i),0xc9925a,7);
@@ -1433,6 +1445,7 @@ function showPanel(tw){
     (tw.branch?' · <b>'+tw.branch+'</b>':'')+
     ' · '+FACES[faceOf(tw.cell)].name+(tw.onWall?' · wall':'')+(tw.home?' · home +25%':'')+'<br>'+
     'dmg '+tt.dmg.toFixed(1)+' · '+tt.rate.toFixed(2)+'/s · rng '+tt.range.toFixed(1)+' · hp '+Math.round(tw.hp)+'/'+tw.maxHp+'<br>'+
+    '<span style="color:#8ee8d8">'+IC.skull+' '+tw.kills+' kills · '+(tw.dmgDealt>=1000?(tw.dmgDealt/1000).toFixed(1)+'k':Math.round(tw.dmgDealt))+' dmg dealt</span><br>'+
     '<button id="pPrio">target: '+tw.prio+'</button>';
   if(!maxed)html+='<button id="pUp" '+((gold<up&&!FREE)?'disabled':'')+'>'+IC.up+' upgrade '+up+'g</button>';
   else if(!tw.branch){
@@ -1651,7 +1664,7 @@ function resetGame(diff,demo){
   bfs();decorateFace(0);
   bfs();refreshPathDots();
   wave=0;kills=0;prestige=0;goldMult=1;playSec=0;waveTotal=0;mineXp=0;
-  LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];
+  LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];freeDigs=CFG.freeDigs;
   spawnQueue=[];pendingQueue=[];breakT=-1;
   INV.iron=FREE?99:0;INV.shard=FREE?99:0;
   lives=DIFF.lives;
@@ -1667,7 +1680,7 @@ function startGame(diffIdx,free){
   renderBar();
   startBreak();breakT=999;
   $('breakbar').textContent=FREE?'SPAWN WAVE (free mode)':'START — build, dig, then call the wave';
-  toast(FREE?'FREE MODE — everything unlocked':'the cube is yours — reroute them');
+  toast(FREE?'FREE MODE — everything unlocked':'the cube is yours — '+CFG.freeDigs+' free digs, sculpt before they come');
 }
 
 /* ============ SIM ============ */
@@ -1689,7 +1702,7 @@ function sim(dt){
     const c=creeps[ci];
     if(c.slowT>0)c.slowT-=dt;
     if(c.stunT>0)c.stunT-=dt;
-    if(c.burn){c.burn.t-=dt;damageCreep(c,c.burn.dps*dt);if(!creeps.includes(c))continue;if(c.burn&&c.burn.t<=0)c.burn=null;}
+    if(c.burn){c.burn.t-=dt;damageCreep(c,c.burn.dps*dt,c.burn.src);if(!creeps.includes(c))continue;if(c.burn&&c.burn.t<=0)c.burn=null;}
     if(c.tt.regen)c.hp=Math.min(c.maxHp,c.hp+c.maxHp*c.tt.regen*dt);
     if(c.tt.healer){c.healT-=dt;
       if(c.healT<=0){c.healT=2;
@@ -1800,12 +1813,13 @@ function sim(dt){
         c.slowT=tt.slow*durX;c.slowPow=tt.slowPow||.5;
         if(tt.slowSplash)for(const o of creeps)if(o!==c&&o.g.position.distanceTo(c.g.position)<tt.slowSplash){o.slowT=tt.slow*durX;o.slowPow=tt.slowPow||.5;}
       }
-      if(tt.splash)for(const cc of[...creeps])if(cc.g.position.distanceTo(c.g.position)<tt.splash)damageCreep(cc,tt.dmg);
-      else damageCreep(c,tt.dmg);
+      /* NB: braces matter — a dangling else here silently disabled ALL non-splash tower damage for the project's entire history */
+      if(tt.splash){for(const cc of[...creeps])if(cc.g.position.distanceTo(c.g.position)<tt.splash)damageCreep(cc,tt.dmg,s2.tw);}
+      else damageCreep(c,tt.dmg,s2.tw);
       if(creeps.includes(c)){ /* survivors can still pick up status effects */
-        if(tt.burn)c.burn={t:tt.burn,dps:tt.dmg*.4};
+        if(tt.burn)c.burn={t:tt.burn,dps:tt.dmg*.4,src:s2.tw};
         if(tt.stun&&Math.random()<tt.stun)c.stunT=.8;
-        if(tt.execute&&!c.tt.boss&&c.hp<c.maxHp*tt.execute){dmgNum(c.g.position,'EXECUTED','#ff5e8a');killCreep(c);}
+        if(tt.execute&&!c.tt.boss&&c.hp<c.maxHp*tt.execute){dmgNum(c.g.position,'EXECUTED','#ff5e8a');killCreep(c,s2.tw);}
       }
       puff(c.g.position,tt.shot,3);
       scene.remove(s2.m);shots.splice(i,1);continue;
@@ -1970,6 +1984,7 @@ function tick(){
         return '<div class="chip" style="color:'+pc+'" title="next biome — new portal incoming">'+IC.skull+' <b style="color:'+pc+'">'+BIOMES[nf].name+' '+left+'w</b></div>';})():'');
     if(hudHtml!==hudCache){hudCache=hudHtml;$('hud').innerHTML=hudHtml;}
     const resHtml=DEMO?'':
+      (freeDigs>0&&!FREE?'<div class="res" style="color:#8ee8d8">'+IC.pick+'<span>'+freeDigs+'<small>FREE DIGS</small></span></div>':'')+
       '<div class="res" style="color:#ffd24a">'+IC.gold+'<span>'+(FREE?'∞':gold)+'<small>GOLD</small></span></div>'+
       '<div class="res" style="color:#c9925a">'+IC.dirt+'<span>'+(FREE?'∞':dirt)+'<small>DIRT</small></span></div>'+
       (INV.iron?'<div class="res" style="color:#aab4c8">'+IC.iron+'<span>'+INV.iron+'<small>IRON</small></span></div>':'')+
@@ -1993,14 +2008,14 @@ window.GameAPI={
   state(){return{
     demo:DEMO,free:FREE,paused,simSpeed,autopilot,mode,
     wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
-    mining:{xp:mineXp,level:mineLvl(),chance:+mineChance().toFixed(2)},
+    mining:{xp:mineXp,level:mineLvl(),chance:+mineChance().toFixed(2),freeDigs},
     facesUnlocked,activeFaces:Array.from(ACTIVE),
     breakSec:breakT>0&&breakT<900?Math.ceil(breakT):0,waitingForStart:breakT>=900,
     crystal:CRYSTAL,portals:[...PORTALS],
     nextWave:pendingQueue.reduce((a,k)=>(a[k]=(a[k]||0)+1,a),{}),
     queuedSpawns:spawnQueue.length,
     creeps:creeps.map(c=>({type:c.type,cell:c.cell,hp:+c.hp.toFixed(1),maxHp:+c.maxHp.toFixed(1),cls:c.tt.cls})),
-    towers:towers.map(t=>({type:t.type,cell:t.cell,tier:t.tier,onWall:t.onWall,home:!!t.home,hp:Math.round(t.hp),branch:t.branch||null})),
+    towers:towers.map(t=>({type:t.type,cell:t.cell,tier:t.tier,onWall:t.onWall,home:!!t.home,hp:Math.round(t.hp),branch:t.branch||null,prio:t.prio,kills:t.kills,dmgDealt:Math.round(t.dmgDealt)})),
     unlockedTowers:Object.keys(TT).filter(towerUnlocked),
     hmap:Array.from(HMAP),
     path:pathCellsList(),
@@ -2027,6 +2042,12 @@ window.GameAPI={
   auto(b){autopilot=!!b;return{ok:true,autopilot};},
   logs:(n)=>LOGS.slice(-(n||30)),
   errors:()=>ERRLOG.slice(),
+  testDmg(){const c=creeps[0];if(!c||!towers[0])return null;
+    const h0=c.hp;damageCreep(c,1,towers[0]);
+    return{h0:+h0.toFixed(2),h1:+c.hp.toFixed(2),dealt:towers[0].dmgDealt,fnSrc:damageCreep.toString().slice(0,120)};},
+  debug:()=>({shots:shots.map(s2=>({d:+s2.m.position.distanceTo(s2.target.g.position).toFixed(2),life:+s2.life.toFixed(2)})),
+    towers:towers.map(tw=>{const b=acquire(tw);return{type:tw.type,cool:+tw.cool.toFixed(2),
+      acquired:b?b.type:null,nearest:creeps.length?Math.min(...creeps.map(c=>tw.g.position.distanceTo(c.g.position))).toFixed(2):null,range:tw.tt.range};})}),
   unlock(){const b=facesUnlocked;unlockNextFace();return{ok:facesUnlocked>b,faces:facesUnlocked};},
   ability(k){return useAbility(k)?{ok:true,cooldown:ABIL[k].cd}:{ok:false,why:ABIL[k]?(ABIL[k].t>0?'on cooldown':'cannot afford'):'unknown ability'};},
   branch(i,idx){const tw=TWR[i];

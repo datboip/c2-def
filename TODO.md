@@ -54,6 +54,8 @@ Verdicts: settler idle pacing is healthy (wave 8, no prestige, autopilot bought 
 
 ## Gotchas
 
+- **The dangling-else incident (fixed 2026-06-10, do not regress):** `if(tt.splash)for(...)if(near)damage(...); else damage(...)` — the else bound to the inner if, so **non-splash towers (cannon/frost/laser/sniper) dealt zero projectile damage for the project's entire history**. Only tesla chains, mortar splash, the crystal zap, and abilities ever killed anything; all pre-fix balance was unknowingly tuned around it. The fix is one set of braces in the shot-hit block (commented at the site). If kills/damage ever read zero on a working tower, check `GameAPI.testDmg()` and the shot-hit block first.
+
 - Tile heights: one logical level = `HSTEP` (0.98 world units, full Minecraft-style blocks). Tile boxes are 4.4 deep so 3-deep pits show solid walls.
 - `FACES[]` basis vectors define each face's tangent frame; walk-mode yaw is re-expressed when crossing edges (degenerate head-on case handled — don't simplify it away).
 - Pointer lock fails in sandboxed/embedded contexts; the drag-look fallback (~380ms timeout) is load-bearing. Never make FP depend on lock.
