@@ -185,6 +185,38 @@
   /* type system: Oxanium for display numbers/titles, Inter for UI text (research pick) */
   #hud,#panel,#buildbar,#resbar,#toast,#histpanel,#tut,.menu,#breakwrap{font-family:'Inter',ui-monospace,monospace}
   .chip b,.res span,#wavebanner,#breakbar,.menu h2,#splash h1,#splash .sub,.bb .c,#facetag{font-family:'Oxanium',ui-monospace,monospace}
+  /* ====== research checklist pass ====== */
+  /* inset-well build slots (4-layer: base < panel < well) */
+  .bb{position:relative;background:#0c0e15;border:1px solid #232834;box-shadow:inset 0 1px 3px rgba(0,0,0,.55);transition:background .1s ease-out,border-color .1s ease-out}
+  .bb:hover{background:#10131c}
+  /* selection = corner brackets, never glow */
+  .bb.sel{background:#10131c;box-shadow:inset 0 1px 3px rgba(0,0,0,.55)}
+  .bb.sel::before,.bb.sel::after{content:'';position:absolute;width:7px;height:7px;border:2px solid var(--acc);z-index:1}
+  .bb.sel::before{top:1px;left:1px;border-right:none;border-bottom:none}
+  .bb.sel::after{bottom:1px;right:1px;border-left:none;border-top:none}
+  /* disabled = desaturate + red cost, not ghosting */
+  .bb.poor{opacity:1;filter:saturate(.25) brightness(.72)}
+  .bb.poor .c{color:#c0524f}
+  /* hotkey badges */
+  .hk{position:absolute;top:2px;right:5px;font-size:8px;color:#5a6272;font-family:'Oxanium',monospace;letter-spacing:0}
+  .ab{position:relative}
+  /* one corner language: bevel two corners of KEY containers only */
+  .menu .card,#panel,#tut{clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);border-radius:0}
+  #breakbar{clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);border-radius:0}
+  /* subtle panel grain (panels only) */
+  .menu .card,#panel{background-image:repeating-linear-gradient(0deg,transparent 0 2px,rgba(255,255,255,.013) 2px 3px)}
+  /* motion tokens: fast ease-out, no bounce; menus settle in */
+  .tbtn,.mbtn,#panel button,.lvl,.htab{transition:background .1s ease-out,border-color .1s ease-out,color .1s ease-out}
+  .mbtn:active,#panel button:active{transform:translateY(1px)}
+  .menu .card{animation:menuin .18s cubic-bezier(.22,1,.36,1)}
+  @keyframes menuin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  /* wave banner: letterbox strip, no scale bounce */
+  #wavebanner{left:0;right:0;width:100%;transform:none;font-size:26px;letter-spacing:.34em;padding:13px 0;
+    background:rgba(10,12,18,.88);border-top:1px solid var(--line);border-bottom:1px solid var(--acc);
+    font-family:'Oxanium',monospace;text-shadow:none;color:var(--val)}
+  @keyframes wb{0%{opacity:0;transform:translateY(-10px)}12%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0}}
+  /* damage numbers: outlined, popped */
+  @keyframes dpop{from{transform:scale(1.25)}to{transform:scale(1)}}
   #htabs{display:flex;margin-bottom:12px;border:1px solid var(--line);border-radius:3px;overflow:hidden}
   .htab{flex:1;text-align:center;padding:7px 0;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#6b7385;cursor:pointer;background:var(--panel2)}
   .htab:not(:last-child){border-right:1px solid var(--line)}
@@ -277,7 +309,8 @@
     <span class="kbd">drag</span> tower from bar · <span class="kbd">click</span> tower = upgrade/sell · <span class="kbd">click</span> hero = skill tree<br>
     <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom · <span class="kbd">N</span> call wave early · <span class="kbd">space</span> pause · <span class="kbd">1/2/3/4</span> speed to ×8<br>
     <span class="kbd">V</span> man the hero · <span class="kbd">C</span> 1st/3rd person · <span class="kbd">WASD</span> move · hold <span class="kbd">LMB</span> mine · <span class="kbd">RMB</span> place · <span class="kbd">Q/E</span> tools<br>
-    <span class="kbd">H</span> history · <span class="kbd">U</span> hide all UI · <span class="kbd">R</span> auto-rotate · <span class="kbd">Esc</span> menu / cancel
+    <span class="kbd">Q/W/E/R/T/Y</span> select towers · <span class="kbd">G</span> dig · <span class="kbd">F</span> wall · <span class="kbd">Z/X/C/B/P/J</span> abilities<br>
+    <span class="kbd">H</span> history · <span class="kbd">U</span> hide all UI · <span class="kbd">O</span> auto-rotate · <span class="kbd">Esc</span> menu / cancel
   </div>
   <button class="mbtn" id="hClose" style="margin-top:16px"><span data-ic="play"></span>got it</button>
 </div></div>
@@ -510,13 +543,13 @@ const matBio=BIOMES.map(B=>[
   new THREE.MeshStandardMaterial({color:new THREE.Color(B.a).offsetHSL(.015,.04,.05),roughness:.95})]); /* the occasional odd tile breaks the checkerboard monotony */
 const matLockA=new THREE.MeshStandardMaterial({color:0x14161d,roughness:1});
 const matLockB=new THREE.MeshStandardMaterial({color:0x101218,roughness:1});
-const matD=[null, /* dug-pit floors: readable earth strata, not voids */
-  new THREE.MeshStandardMaterial({color:0x7a5f40,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x5c4c3a,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x474655,roughness:.9})];
+const matD=[null, /* pit floors darken with depth — the contrast IS the hole */
+  new THREE.MeshStandardMaterial({color:0x4a3826,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x32281c,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x232733,roughness:.9})];
 const matWall=new THREE.MeshStandardMaterial({color:0x7a6346,roughness:.95});
 const matRoad=new THREE.MeshStandardMaterial({color:0xa08e6a,roughness:.85}); /* the invasion's paved trail */
-const matSide=new THREE.MeshStandardMaterial({color:0x6a543c,roughness:1}); /* pit walls read as dug earth, not gray voids */
+const matSide=new THREE.MeshStandardMaterial({color:0x55422e,roughness:1}); /* pit walls: dug earth, darker than the surface so holes READ */
 const ROAD=new Uint8Array(N);
 /* water is TERRAIN, full tiles: 1 water · 2 ice · 3 lava */
 const WATER=new Uint8Array(N);
@@ -572,6 +605,8 @@ function setHeight(i,h){
   HMAP[i]=h;
   const F=FACES[faceOf(i)];
   tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,-2.2+h*HSTEP-((WATER[i]&&WATER[i]!==2)?.3:0));
+  const shrink=h<0?.9:1; /* pits pull in from the rim — the dark seam makes the hole unmistakable */
+  tiles[i].scale.set(shrink,shrink,1);
   tiles[i].material[4]=topMat(i);
 }
 function refreshTile(i){setHeight(i,HMAP[i]);}
@@ -878,7 +913,8 @@ function dmgNum(worldPos,txt,color){
   if(dmgNums.length>24)return;
   const el=document.createElement('div');
   el.textContent=txt;
-  el.style.cssText='position:absolute;font-size:13px;font-weight:700;pointer-events:none;text-shadow:0 1px 4px #000;color:'+color;
+  el.style.cssText='position:absolute;font-size:13px;font-weight:700;pointer-events:none;font-family:Oxanium,monospace;animation:dpop .12s ease-out;'+
+    'text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;color:'+color;
   $('dmgnums').appendChild(el);
   dmgNums.push({el,pos:worldPos.clone(),life:.8});
 }
@@ -891,7 +927,7 @@ function updateDmgNums(dt){
     if(v.z>1){d.el.style.display='none';continue;}
     d.el.style.display='block';
     d.el.style.left=((v.x+1)/2*W())+'px';
-    d.el.style.top=((1-v.y)/2*H())+'px';
+    d.el.style.top=(((1-v.y)/2*H())-(1-d.life/.8)*34)+'px'; /* drift upward as it fades */
     d.el.style.opacity=d.life;
   }
 }
@@ -1339,6 +1375,8 @@ const ABIL={
   surge:{label:'surge',icon:'tesla',cd:45,t:0,cost:()=>'80g',can:()=>FREE||gold>=80,pay:()=>{if(!FREE)gold-=80;},
     cast:()=>{surgeT=10;ringFx(CRYSTAL,5,0xffd24a);beep(550,.4,'sawtooth',.07);toast('SURGE — towers fire 50% faster for 10s');}},
 };
+const TKEY={cannon:'q',frost:'w',laser:'e',mortar:'r',tesla:'t',sniper:'y'};
+const AKEY={golem:'z',freeze:'x',strike:'c',repair:'b',pilot:'p',surge:'j'}; /* v=walk, n=wave — keep clear */
 const golems=[],strikes=[];
 const golemTmp=new THREE.Vector3(),heroTmp=new THREE.Vector3();
 /* the HERO: your avatar lives on the field for the whole run. Unmanned it sentries
@@ -1479,7 +1517,7 @@ function renderAbil(){
   let html='';
   for(const k in ABIL){
     const a=ABIL[k];
-    html+='<div class="ab'+((a.t>0||!a.can())?' dis':'')+'" data-a="'+k+'">'+IC[a.icon]+'<small>'+a.label+'</small><small style="color:#ffd24a">'+a.cost()+'</small>'+
+    html+='<div class="ab'+((a.t>0||!a.can())?' dis':'')+'" data-a="'+k+'" title="'+a.label+' — '+a.cost()+'"><span class="hk">'+AKEY[k].toUpperCase()+'</span>'+IC[a.icon]+'<small>'+a.label+'</small><small style="color:#ffd24a">'+a.cost()+'</small>'+
       (a.t>0?'<div class="cd">'+Math.ceil(a.t)+'</div>':'')+'</div>';
   }
   if(html!==abilCache){abilCache=html;$('abilbar').innerHTML=html;}
@@ -1920,10 +1958,10 @@ function renderBar(){
     }
     html+='<div class="bb'+(selectedType===k?' sel':'')+((gold<TT[k].cost&&!FREE)?' poor':'')+'" data-t="'+k+
       '" title="dmg '+TT[k].dmg+' · '+TT[k].rate+'/s · range '+TT[k].range+' · native: '+BIOMES[TT[k].biome].name+'"'+
-      ' style="color:#'+TT[k].color.toString(16).padStart(6,'0')+'"><span class="ico">'+IC[k]+'</span><span style="color:#cfd6e4">'+k+'</span><br><span class="c">'+TT[k].cost+'g</span></div>';
+      ' style="color:#'+TT[k].color.toString(16).padStart(6,'0')+'"><span class="hk">'+TKEY[k].toUpperCase()+'</span><span class="ico">'+IC[k]+'</span><span style="color:#cfd6e4">'+k+'</span><br><span class="c">'+TT[k].cost+'g</span></div>';
   }
-  html+='<div class="bb'+(selectedType==='__dig'?' sel':'')+'" data-t="__dig" style="color:#c9925a"><span class="ico">'+IC.pick+'</span><span style="color:#cfd6e4">dig</span><br><span class="c">'+(freeDigs>0&&!FREE?freeDigs+' free':CFG.digCost+'g roll')+'</span></div>';
-  html+='<div class="bb'+(selectedType==='__wall'?' sel':'')+((dirt<1&&!FREE)?' poor':'')+'" data-t="__wall" style="color:#8ee8d8"><span class="ico">'+IC.dirt+'</span><span style="color:#cfd6e4">wall</span><br><span class="c">1 dirt</span></div>';
+  html+='<div class="bb'+(selectedType==='__dig'?' sel':'')+'" data-t="__dig" style="color:#c9925a"><span class="hk">G</span><span class="ico">'+IC.pick+'</span><span style="color:#cfd6e4">dig</span><br><span class="c">'+(freeDigs>0&&!FREE?freeDigs+' free':CFG.digCost+'g roll')+'</span></div>';
+  html+='<div class="bb'+(selectedType==='__wall'?' sel':'')+((dirt<1&&!FREE)?' poor':'')+'" data-t="__wall" style="color:#8ee8d8"><span class="hk">F</span><span class="ico">'+IC.dirt+'</span><span style="color:#cfd6e4">wall</span><br><span class="c">1 dirt</span></div>';
   html+='<div class="bb'+(autopilot?' sel':'')+'" data-t="__auto" style="color:#8a93ab"><span class="ico">'+IC.cube+'</span><span style="color:#cfd6e4">auto</span><br><span class="c">'+(autopilot?'ON':'OFF')+'</span></div>';
   if(html===barCache)return; /* skip DOM churn when nothing changed */
   barCache=html;
@@ -2049,7 +2087,13 @@ addEventListener('keydown',e=>{
     paused=!paused;document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===(paused?0:simSpeed)));e.preventDefault();
   }
   if((e.key==='v'||e.key==='V')&&!menuOpen)(mode==='walk'?exitMode():enterWalk());
-  if((e.key==='r'||e.key==='R')&&mode==='overview'){autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);}
+  if((e.key==='o'||e.key==='O')&&mode==='overview'){autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);}
+  if(mode==='overview'&&!menuOpen){
+    const kk=e.key.toLowerCase();
+    for(const tk in TKEY)if(TKEY[tk]===kk&&towerUnlocked(tk)){selectedType=(selectedType===tk?null:tk);hidePanel();barCache='';renderBar();return;}
+    if(kk==='g'||kk==='f'){const tool2=kk==='g'?'__dig':'__wall';selectedType=(selectedType===tool2?null:tool2);hidePanel();barCache='';renderBar();return;}
+    for(const ak in AKEY)if(AKEY[ak]===kk){useAbility(ak);return;}
+  }
   if((e.key==='n'||e.key==='N')&&breakT>0)callWave(true);
   if((e.key==='q'||e.key==='Q')&&mode==='walk')setTool(tool-1);
   if((e.key==='e'||e.key==='E')&&mode==='walk')setTool(tool+1);
