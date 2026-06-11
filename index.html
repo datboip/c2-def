@@ -280,6 +280,8 @@
   <div class="row">sensitivity <input type="range" id="mSens" min="30" max="200" value="100"></div>
   <div class="row">invert look <input type="checkbox" id="mInv"></div>
   <div class="row">sound <input type="checkbox" id="mSfx" checked></div>
+  <div class="row">volume <input type="range" id="mVol" min="0" max="100" value="70"></div>
+  <div class="row">music <input type="checkbox" id="mMusic" checked></div>
   <div class="row">path preview <input type="checkbox" id="mPath" checked></div>
   <div class="row">always day <input type="checkbox" id="mDay"></div>
   <button class="mbtn danger" id="mQuit"><span data-ic="home"></span>quit to title</button>
@@ -407,7 +409,7 @@ let DIFF=DIFFS[1];
 let DEMO=true,FREE=false,MODE='classic'; /* classic: ONE portal, maze the whole cube · siege: every biome opens one */
 const CFG={startGold:150,startDirt:10,freeDigs:10,maxTier:3,digCost:3,digDepth:-3,reach:4.4,
   breakTime:14,earlyBonus:20,dayLen:240,wallRangeBonus:1.15};
-const SETT={sens:1,invert:false,sfx:true,alwaysDay:false};
+const SETT={sens:1,invert:false,sfx:true,vol:.7,music:true,alwaysDay:false};
 /* seeded PRNG (mulberry32) for everything gameplay-affecting: waves, loot, AI dice,
    decoration layout. Same seed => same scenario, so model runs compare fairly.
    (Frame-timing still adds small combat variance — movement integrates real dt.) */
@@ -858,16 +860,174 @@ function refreshPathDots(){
 function creepOn(i){for(const c of creeps)if(c.cell===i)return true;return false;}
 
 /* ============ AUDIO ============ */
+/* AudioEngine: everything synthesized — no asset files. Graph: voice → master gain
+   (SETT.vol, zeroed by SETT.sfx) → compressor → destination. Lazy-init on the first
+   user gesture (autoplay policy); headless/agent runs never touch WebAudio at all. */
 let AC=null;
-function beep(f,dur,type,vol){if(!SETT.sfx)return;try{
-  AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+const AU={master:null,comp:null,noise:null,voices:0,last:{},amb:null};
+function audioCtx(){
+  if(AC)return AC;
+  try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return null;}
+  AU.master=AC.createGain();AU.master.gain.value=SETT.sfx?SETT.vol:0;
+  AU.comp=AC.createDynamicsCompressor();
+  AU.comp.threshold.value=-18;AU.comp.knee.value=12;AU.comp.ratio.value=6;
+  AU.comp.attack.value=.003;AU.comp.release.value=.25;
+  AU.master.connect(AU.comp).connect(AC.destination);
+  /* one second of white noise, generated once — shared by every percussive layer */
+  const len=AC.sampleRate|0,buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  AU.noise=buf;
+  return AC;
+}
+function auVol(){if(AU.master&&AC)AU.master.gain.setTargetAtTime(SETT.sfx?SETT.vol:0,AC.currentTime,.03);}
+function auGesture(){const ac=audioCtx();if(ac&&ac.state==='suspended')ac.resume().catch(()=>{});}
+addEventListener('pointerdown',auGesture);addEventListener('keydown',auGesture);
+function auReady(){return SETT.sfx&&AC&&AC.state==='running';}
+function vReg(src,g){
+  AU.voices++;
+  src.onended=()=>{AU.voices--;try{g.disconnect();}catch(e){}};
+}
+/* oscillator voice: optional freq sweep, biquad, attack+exp-decay envelope, random detune */
+function tone(t0,{type='sine',f=440,f1=0,dur=.2,vol=.08,a=.005,det=10,filter='',fq=1200,fq1=0,Q=1}={}){
+  if(AU.voices>=24)return;
   const o=AC.createOscillator(),g=AC.createGain();
-  o.type=type||'square';o.frequency.setValueAtTime(f,AC.currentTime);
-  o.frequency.exponentialRampToValueAtTime(Math.max(40,f*.45),AC.currentTime+dur);
-  g.gain.setValueAtTime(vol||.05,AC.currentTime);
-  g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+dur);
-  o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+dur);
-}catch(e){}}
+  o.type=type;
+  o.frequency.setValueAtTime(Math.max(20,f*(1+(Math.random()*2-1)*.015)),t0);
+  if(f1)o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur*.9);
+  o.detune.value=(Math.random()*2-1)*det;
+  let node=o;
+  if(filter){
+    const bi=AC.createBiquadFilter();bi.type=filter;
+    bi.frequency.setValueAtTime(fq,t0);
+    if(fq1)bi.frequency.exponentialRampToValueAtTime(Math.max(20,fq1),t0+dur);
+    bi.Q.value=Q;o.connect(bi);node=bi;
+  }
+  g.gain.setValueAtTime(.0001,t0);
+  g.gain.linearRampToValueAtTime(vol,t0+a);
+  g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  node.connect(g).connect(AU.master);
+  o.start(t0);o.stop(t0+dur+.05);vReg(o,g);
+}
+/* noise voice: shared buffer → biquad → envelope; playbackRate jitter keeps repeats organic */
+function nz(t0,{dur=.15,vol=.08,a=.003,filter='lowpass',fq=1000,fq1=0,Q=1,rate=1}={}){
+  if(AU.voices>=24)return;
+  const s=AC.createBufferSource();s.buffer=AU.noise;s.loop=true;
+  s.playbackRate.value=rate*(1+(Math.random()*2-1)*.06);
+  const bi=AC.createBiquadFilter();bi.type=filter;
+  bi.frequency.setValueAtTime(fq,t0);
+  if(fq1)bi.frequency.exponentialRampToValueAtTime(Math.max(20,fq1),t0+dur);
+  bi.Q.value=Q;
+  const g=AC.createGain();
+  g.gain.setValueAtTime(.0001,t0);
+  g.gain.linearRampToValueAtTime(vol,t0+a);
+  g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  s.connect(bi).connect(g).connect(AU.master);
+  s.start(t0);s.stop(t0+dur+.05);vReg(s,g);
+}
+/* named sound design — each is 2-3 layered voices */
+const SFX={
+  shot_cannon:t=>{nz(t,{dur:.12,vol:.15,fq:900,fq1:120});tone(t,{f:130,f1:48,dur:.18,vol:.18});},
+  shot_frost:t=>{tone(t,{f:1450,f1:2150,dur:.1,vol:.05,det:25});nz(t,{dur:.12,vol:.05,filter:'highpass',fq:3600});},
+  shot_laser:t=>{tone(t,{type:'sawtooth',f:340,f1:1600,dur:.1,vol:.05,filter:'lowpass',fq:2600});tone(t,{type:'square',f:680,f1:2500,dur:.08,vol:.02});},
+  shot_mortar:t=>{nz(t,{dur:.3,vol:.18,fq:500,fq1:60});tone(t,{f:90,f1:34,dur:.35,vol:.2});
+    tone(t+.12,{f:1500,f1:550,dur:.4,vol:.02,a:.12});}, /* delayed shell whistle */
+  shot_tesla:t=>{for(let i=0;i<3;i++)nz(t+i*.024,{dur:.04,vol:.09,filter:'bandpass',fq:1700+Math.random()*1700,Q:7});},
+  shot_sniper:t=>{nz(t,{dur:.05,vol:.18,filter:'highpass',fq:1500,a:.001});tone(t,{f:220,f1:58,dur:.26,vol:.11});},
+  kill:t=>{nz(t,{dur:.07,vol:.07,filter:'bandpass',fq:900,Q:2});tone(t+.02,{f:880,f1:1320,dur:.13,vol:.045});},
+  bosskill:t=>{nz(t,{dur:.4,vol:.2,fq:700,fq1:80});tone(t,{f:110,f1:40,dur:.45,vol:.18});
+    tone(t+.08,{type:'triangle',f:660,f1:990,dur:.3,vol:.06});},
+  dig:t=>{nz(t,{dur:.18,vol:.11,fq:700,fq1:250,rate:.7});nz(t+.05,{dur:.1,vol:.05,fq:480,rate:.55});},
+  crumble:t=>{nz(t,{dur:.22,vol:.11,fq:380,fq1:90});tone(t,{f:80,f1:44,dur:.2,vol:.07});},
+  place:t=>{nz(t,{dur:.06,vol:.11,fq:900,a:.001});tone(t,{f:160,f1:90,dur:.12,vol:.11});},
+  chop:t=>{nz(t,{dur:.05,vol:.11,filter:'bandpass',fq:720,Q:1.5,a:.001});tone(t,{type:'triangle',f:240,f1:130,dur:.1,vol:.08});},
+  horn:t=>{ /* two-note brass: detuned saw pairs through an opening lowpass + sub */
+    for(const[f,d0,dur]of[[196,0,.35],[261.6,.16,.55]]){
+      tone(t+d0,{type:'sawtooth',f,dur,vol:.05,det:16,a:.03,filter:'lowpass',fq:750,fq1:1500});
+      tone(t+d0,{type:'sawtooth',f:f*1.006,dur,vol:.05,det:16,a:.03,filter:'lowpass',fq:750,fq1:1500});
+      tone(t+d0,{f:f/2,dur,vol:.05,a:.03});
+    }},
+  alarm:t=>{tone(t,{type:'square',f:660,dur:.13,vol:.055,filter:'lowpass',fq:1900});
+    tone(t+.14,{type:'square',f:440,dur:.16,vol:.055,filter:'lowpass',fq:1600});
+    nz(t,{dur:.25,vol:.035,filter:'highpass',fq:2600});},
+  fanfare:t=>{[523.25,659.25,783.99].forEach((f,i)=>{
+      tone(t+i*.13,{type:'triangle',f,dur:.3,vol:.065,a:.01});
+      tone(t+i*.13,{type:'sawtooth',f,dur:.3,vol:.02,a:.01,filter:'lowpass',fq:1900});});
+    tone(t+.39,{type:'triangle',f:1046.5,dur:.5,vol:.055,a:.01});},
+  tick:t=>{nz(t,{dur:.03,vol:.045,filter:'highpass',fq:3000,a:.001});tone(t,{f:1250,f1:880,dur:.04,vol:.03,a:.001});},
+};
+/* throttled, voice-capped dispatcher — at x8 speed shots can spam; same sound max
+   once per 50ms and ~16 simultaneous voices so it never clips or machine-guns */
+function sfx(name){
+  if(!auReady())return;
+  const fn=SFX[name];if(!fn)return;
+  const now=performance.now();
+  if(now-(AU.last[name]||0)<50)return;
+  AU.last[name]=now;
+  if(AU.voices>=16)return;
+  try{fn(AC.currentTime);}catch(e){}
+}
+/* compatibility shim: legacy beep(f,dur,type,vol) call sites route through the engine */
+function beep(f,dur,type,vol){
+  if(!auReady()||AU.voices>=16)return;
+  try{tone(AC.currentTime,{type:type||'square',f,f1:Math.max(40,f*.45),dur,vol:(vol||.05)*1.15,det:7});}catch(e){}
+}
+/* AMBIENT: quiet evolving pad (two detuned triangles + slow filter LFO) + a low
+   molten-core rumble. Runs only in a real game (not demo/splash); night pulls the
+   pad darker, creep pressure nudges intensity. */
+function ambStart(){
+  const a={};
+  a.gain=AC.createGain();a.gain.gain.value=0;a.gain.connect(AU.master);
+  a.filt=AC.createBiquadFilter();a.filt.type='lowpass';a.filt.frequency.value=520;a.filt.Q.value=.9;
+  a.filt.connect(a.gain);
+  a.o1=AC.createOscillator();a.o1.type='triangle';a.o1.frequency.value=55;a.o1.detune.value=-7;
+  a.o2=AC.createOscillator();a.o2.type='triangle';a.o2.frequency.value=82.5;a.o2.detune.value=9;
+  a.o1.connect(a.filt);a.o2.connect(a.filt);
+  a.lfo=AC.createOscillator();a.lfo.frequency.value=.06; /* slow filter sweep keeps the pad alive */
+  a.lfoG=AC.createGain();a.lfoG.gain.value=170;
+  a.lfo.connect(a.lfoG).connect(a.filt.frequency);
+  a.rs=AC.createBufferSource();a.rs.buffer=AU.noise;a.rs.loop=true; /* core rumble */
+  a.rf=AC.createBiquadFilter();a.rf.type='lowpass';a.rf.frequency.value=70;
+  a.rg=AC.createGain();a.rg.gain.value=0;
+  a.rs.connect(a.rf).connect(a.rg).connect(AU.master);
+  a.o1.start();a.o2.start();a.lfo.start();a.rs.start();
+  AU.amb=a;
+}
+function ambStop(){
+  const a=AU.amb;if(!a)return;AU.amb=null;
+  try{
+    a.gain.gain.setTargetAtTime(0,AC.currentTime,.3);
+    a.rg.gain.setTargetAtTime(0,AC.currentTime,.3);
+    setTimeout(()=>{[a.o1,a.o2,a.lfo,a.rs].forEach(o=>{try{o.stop();}catch(e){}});},900);
+  }catch(e){}
+}
+function ambUpdate(t,day){
+  if(!AC||AC.state!=='running')return;
+  if(DEMO){ambStop();return;}
+  if(!AU.amb)ambStart();
+  const a=AU.amb,ct=AC.currentTime;
+  const press=Math.min(1,creeps.length/25); /* creep pressure leans on the pad */
+  a.gain.gain.setTargetAtTime((.045+press*.035)*(paused?.35:1),ct,.5);
+  a.filt.frequency.setTargetAtTime(280+day*460+press*240,ct,1); /* night = darker pad */
+  a.rg.gain.setTargetAtTime((.038+Math.max(0,Math.sin(t*2))*.014)*(paused?.35:1),ct,.25); /* breathes with the molten core pulse */
+}
+/* MUSIC: minimal generative layer — a 2-bar bass arp in A minor pentatonic,
+   eighth notes scheduled just-in-time on the audio clock, BPM rising with the wave */
+const MUS={next:0,step:0};
+const MUS_SCALE=[0,3,5,7,10],MUS_PAT=[0,-1,3,-1,2,-1,1,-1,0,-1,3,-1,4,2,1,-1];
+function musUpdate(){
+  if(!auReady()||DEMO||!SETT.music||paused){MUS.next=0;return;}
+  const bpm=70+Math.min(40,wave*2),spb=60/bpm/2;
+  if(!MUS.next||MUS.next<AC.currentTime-.5){MUS.next=AC.currentTime+.1;MUS.step=0;}
+  while(MUS.next<AC.currentTime+.25){
+    const v=MUS_PAT[MUS.step&15];
+    if(v>=0&&AU.voices<16){
+      const f=55*Math.pow(2,MUS_SCALE[v]/12);
+      tone(MUS.next,{type:'triangle',f,dur:spb*1.7,vol:.045,a:.012,det:5,filter:'lowpass',fq:520});
+      if((MUS.step&7)===0)tone(MUS.next,{f:f*2,dur:spb*1.2,vol:.018,a:.012,det:5}); /* soft octave accent on the downbeats */
+    }
+    MUS.step++;MUS.next+=spb;
+  }
+}
 
 /* ============ FX ============ */
 const partGeo=new THREE.BoxGeometry(.07,.07,.07);
@@ -1050,6 +1210,7 @@ function killCreep(c,src){
   addScore(c.tt.boss?50:5);
   puff(c.g.position,c.tt.color,c.tt.boss?14:5); /* die in your own colors */
   puff(c.g.position,0xffd24a,c.tt.boss?12:3);
+  sfx(c.tt.boss?'bosskill':'kill');
   scene.remove(c.g);creeps.splice(i,1);
 }
 
@@ -1103,7 +1264,7 @@ function callWave(early){
   pendingQueue=[];waveTotal=spawnQueue.length;
   const wb=$('wavebanner');wb.textContent='WAVE '+wave;
   wb.classList.remove('show');void wb.offsetWidth;wb.classList.add('show');
-  beep(330,.18,'square',.06);setTimeout(()=>beep(440,.22,'square',.06),160);
+  sfx('horn');
 }
 
 /* ============ TOWERS ============ */
@@ -1159,6 +1320,7 @@ function buildTower(i,typeName,byPlayer){
   if(!NET.silent){
     ringFx(i,tw.tt.range,tt.color);
     puff(g.position,0xbfc8da,8);
+    sfx('place');
     if(byPlayer)toast('built '+typeName+(onWall?' on wall':'')+(tw.home?' · home biome +25%':''));
     else logEvent('AI built '+typeName+' on '+FACES[faceOf(i)].name.toLowerCase());
   }
@@ -1553,7 +1715,7 @@ function chop(i){
   bfs();refreshPathDots();
   puff(cellTop(i),0x6a8a5d,8);
   dmgNum(cellTop(i),'+1','#c9925a');
-  beep(190,.14,'sawtooth',.05);
+  sfx('chop');
   return true;
 }
 function dig(i){
@@ -1570,7 +1732,7 @@ function dig(i){
       if(!FREE)gold-=CFG.digCost;
       puff(cellTop(i),0x8a8f9c,4);
       dmgNum(cellTop(i),'crumbled','#8a93ab');
-      beep(120,.15,'sawtooth',.05);
+      sfx('crumble');
       return;
     }
   }
@@ -1580,7 +1742,7 @@ function dig(i){
   dirt++;  /* conservation: a removed block is a carried block */
   setHeight(i,HMAP[i]);
   puff(cellTop(i),0xc9925a,7);
-  beep(150,.12,'sawtooth',.05);
+  sfx('dig');
   if(HMAP[i]<0)dmgNum(cellTop(i),'depth '+(-HMAP[i]),'#c9925a');
   const depth=-HMAP[i],r=rnd();
   if(depth===1){if(r<.25){const g2=5+((rnd()*11)|0);gold+=g2;dmgNum(cellTop(i),'+'+g2,'#ffd24a');}}
@@ -1597,7 +1759,7 @@ function placeDirt(i){
     const sm=WSURF.get(i);if(sm){scene.remove(sm);WSURF.delete(i);}
     refreshTile(i);bfs();refreshPathDots();
     puff(cellTop(i),0x3b7bd4,6);
-    toast('land reclaimed');beep(210,.12,'square',.05);
+    toast('land reclaimed');sfx('place');
     return;
   }
   chop(i); /* scenery auto-chops (+1 dirt) before the block lands */
@@ -1609,7 +1771,7 @@ function placeDirt(i){
   if(!FREE)dirt--;
   setHeight(i,HMAP[i]);
   puff(cellTop(i),0x7a6346,7);
-  beep(220,.1,'square',.05);
+  sfx('place');
 }
 
 /* ============ MODES / CAMERA ============ */
@@ -2054,7 +2216,13 @@ $('mQuit').onclick=()=>{
 };
 $('mSens').oninput=e=>SETT.sens=e.target.value/100;
 $('mInv').onchange=e=>SETT.invert=e.target.checked;
-$('mSfx').onchange=e=>SETT.sfx=e.target.checked;
+$('mSfx').onchange=e=>{SETT.sfx=e.target.checked;auVol();};
+$('mVol').oninput=e=>{SETT.vol=e.target.value/100;auVol();};
+$('mMusic').onchange=e=>SETT.music=e.target.checked;
+/* tiny ui tick on any pressable control — buttons, bars, tabs, speed segments */
+document.addEventListener('pointerdown',e=>{
+  if(e.target.closest&&e.target.closest('button,.lvl,.htab,.bb,.ab,#segSpeed [data-s],#hotbar .slot'))sfx('tick');
+},true);
 $('mPath').onchange=e=>{showPath=e.target.checked;refreshPathDots();$('btnPath').classList.toggle('on',showPath);};
 $('mDay').onchange=e=>SETT.alwaysDay=e.target.checked;
 $('btnMenu').onclick=()=>menuOpen?closeMenu(true):openMenu();
@@ -2232,7 +2400,7 @@ function unlockNextFace(){
   if(nt)toast(TT[nt].starter?(nt+' is home here — +25% dmg'):(nt+' tower unlocked'));
   addScore(150);
   barCache='';renderBar();
-  beep(220,.4,'sawtooth',.07);setTimeout(()=>beep(330,.4,'sawtooth',.07),200);
+  sfx('fanfare');
   if(mode==='overview'){
     const c2=cellBase(np);
     camYaw=Math.atan2(c2.x,c2.z);
@@ -2330,7 +2498,7 @@ function sim(dt){
       leakLog.push({wave,type:c.type,portalBiome:pb});if(leakLog.length>30)leakLog.shift();
       logEvent('leak: '+c.type+' via '+pb+' portal');
       shakeT=.5;$('flash').style.opacity=.5;
-      beep(300,.3,'sawtooth',.08);setTimeout(()=>beep(180,.35,'sawtooth',.08),120);
+      sfx('alarm');
       toast('crystal hit — '+lives+' lives');
       if(lives<=0){
         addScore(-400);recordScore();
@@ -2417,7 +2585,7 @@ function sim(dt){
       tw.aim.quaternion.copy(tw.g.quaternion);
       tw.aim.lookAt(best.g.position);
       tw.head.quaternion.slerp(tw.g.quaternion.clone().invert().multiply(tw.aim.quaternion),Math.min(dt*9,1));
-      if(tw.cool<=0){tw.cool=1/(tw.tt.rate*(surgeT>0?1.5:1));tw.kick=1;fire(tw,best);}
+      if(tw.cool<=0){tw.cool=1/(tw.tt.rate*(surgeT>0?1.5:1));tw.kick=1;sfx('shot_'+tw.type);fire(tw,best);}
     }
   }
   crystalCool-=dt;
@@ -2560,6 +2728,7 @@ function tick(){
   fill.position.copy(camera.position).normalize().multiplyScalar(50);
   core.material.emissiveIntensity=1.2+Math.sin(t*2)*.3;
   core.rotation.y+=raw*.4;core.rotation.x+=raw*.13;
+  ambUpdate(t,day);musUpdate();
   crystal.material.emissiveIntensity=1.3+(1-day)*1.2;
   pring.rotation.z+=raw*1.4;pdisc.rotation.z-=raw*.9;
   if(autoSpin&&mode==='overview'&&!held)camYaw+=raw*.07;
