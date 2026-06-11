@@ -278,11 +278,24 @@ let DEMO=true,FREE=false;
 const CFG={startGold:150,startDirt:10,freeDigs:10,maxTier:3,digCost:3,digDepth:-3,reach:4.4,
   breakTime:14,earlyBonus:20,dayLen:240,wallRangeBonus:1.15};
 const SETT={sens:1,invert:false,sfx:true,alwaysDay:false};
+/* seeded PRNG (mulberry32) for everything gameplay-affecting: waves, loot, AI dice,
+   decoration layout. Same seed => same scenario, so model runs compare fairly.
+   (Frame-timing still adds small combat variance — movement integrates real dt.) */
+let rngSeed=0,rngState=0;
+function srand(seed){rngSeed=seed>>>0;rngState=rngSeed;}
+function rnd(){
+  rngState=rngState+0x6D2B79F5|0;
+  let t=Math.imul(rngState^rngState>>>15,1|rngState);
+  t=t+Math.imul(t^t>>>7,61|t)^t;
+  return((t^t>>>14)>>>0)/4294967296;
+}
+srand((Math.random()*2**31)|0);
 let gold=CFG.startGold,dirt=CFG.startDirt,lives=12,wave=0,kills=0,prestige=0,goldMult=1,mineXp=0,freeDigs=CFG.freeDigs;
 /* SCORE — the benchmark number, so humans and AI models can compare runs:
    +5/kill (+50 boss) · +100+10w per wave cleared (+50 if perfect) · +150 per biome
    +30 per mining level · −25 per leak · −400 per overrun. Best persists locally. */
-let score=0,leaksThisWave=0,totalLeaks=0,perfectWaves=0;
+let score=0,leaksThisWave=0,totalLeaks=0,perfectWaves=0,surgeT=0;
+const leakLog=[]; /* forensics: which portal each leak came through */
 let bestScore=0;try{bestScore=+(localStorage.getItem('c2best')||0);}catch(e){}
 function addScore(n){
   score+=n;
@@ -447,7 +460,7 @@ function decorateFace(f){
   const kind=BIOMES[f].deco;
   let placed=0,tries=0;
   while(placed<9&&tries++<160){
-    const u=1+((Math.random()*(S-2))|0),v=1+((Math.random()*(S-2))|0);
+    const u=1+((rnd()*(S-2))|0),v=1+((rnd()*(S-2))|0);
     const i=f*FCELLS+v*S+u;
     if(DEC[i]||TWR[i]||HMAP[i]!==0||PORTALS.includes(i)||i===CRYSTAL)continue;
     let nearPC=false;
@@ -456,7 +469,7 @@ function decorateFace(f){
     DEC[i]=true;
     if(!bfs()){DEC[i]=null;continue;}
     const g=buildDeco(kind);
-    g.scale.setScalar(.8+Math.random()*.6);
+    g.scale.setScalar(.8+rnd()*.6);
     orientOnFace(g,i,0);
     scene.add(g);DEC[i]=g;placed++;
   }
@@ -712,9 +725,9 @@ function spawnCreep(typeName){
   g.scale.setScalar(t.s);
   let sp=PORTALS[spawnIdx++%PORTALS.length];
   const bi=PORTALS.indexOf(sp);
-  if(bi>0&&wave-(PORTAL_BORN[bi]||0)<2&&Math.random()<.5)sp=PORTALS[0]; /* new portal: ~50% share its first 2 waves */
+  if(bi>0&&wave-(PORTAL_BORN[bi]||0)<2&&rnd()<.5)sp=PORTALS[0]; /* new portal: ~50% share its first 2 waves */
   const c={g,type:typeName,tt:t,hp,maxHp:hp,speed:t.speed*(1+wave*.008),bounty:t.bounty,bar,
-    cell:sp,prog:0,slowT:0,stunT:0,slowPow:.5,burn:null,healT:0,anim:Math.random()*9,
+    cell:sp,spawnPortal:sp,prog:0,slowT:0,stunT:0,slowPow:.5,burn:null,healT:0,anim:Math.random()*9,
     field:FIELDS[t.cls]};
   g.position.copy(cellTop(sp));
   const F2=FACES[faceOf(sp)];
@@ -740,13 +753,13 @@ function killCreep(c,src){
 let spawnQueue=[],pendingQueue=[],spawnTimer=0;
 function composeQueue(){
   const w=wave+1,budget=(16+w*9)*DIFF.budget,q=[]; /* retuned after the dangling-else fix made towers actually fire */
-  if(w%5===0){q.push('boss');let b=budget*.5;while(b>0){q.push(Math.random()<.5?'grunt':'runner');b-=12;}}
+  if(w%5===0){q.push('boss');let b=budget*.5;while(b>0){q.push(rnd()<.5?'grunt':'runner');b-=12;}}
   else{
     const avail=Object.keys(CT).filter(k=>!CT[k].boss&&(!CT[k].minWave||w>=CT[k].minWave));
     let b=budget;
-    while(b>0){const p=avail[(Math.random()*avail.length)|0];q.push(p);b-=CT[p].cost;}
+    while(b>0){const p=avail[(rnd()*avail.length)|0];q.push(p);b-=CT[p].cost;}
   }
-  return q.sort(()=>Math.random()-.5);
+  return q.sort(()=>rnd()-.5);
 }
 function renderWavePreview(){
   const counts={};for(const t of pendingQueue)counts[t]=(counts[t]||0)+1;
@@ -920,7 +933,7 @@ function fire(tw,target){
     let prev=tw.g.position.clone();
     for(const c of hl){boltFx(prev,c.g.position,0xa89bff);prev=c.g.position.clone();}
     hl.forEach((c,i)=>{
-      if(tw.tt.stun&&Math.random()<tw.tt.stun)c.stunT=.8;
+      if(tw.tt.stun&&rnd()<tw.tt.stun)c.stunT=.8;
       damageCreep(c,tw.tt.dmg*Math.pow(.75,i),tw);
     });
     return;
@@ -957,7 +970,7 @@ function aiDig(){
   if(!cands.length)return false;
   const kit=freeDigs>0;
   if(!kit&&gold<CFG.digCost)return false;
-  const i=cands[(Math.random()*cands.length)|0];
+  const i=cands[(rnd()*cands.length)|0];
   if(!kit&&!rollMine()){gold-=CFG.digCost;puff(cellTop(i),0x8a8f9c,3);return false;} /* AI gambles on the same table */
   if(!tryEdit(()=>{HMAP[i]--;},()=>{HMAP[i]++;}))return false;
   if(kit)freeDigs--;else gold-=CFG.digCost;
@@ -993,16 +1006,16 @@ function mazeWall(){
 function director(dt){
   if(!autopilot)return;
   directorTimer-=dt;if(directorTimer>0)return;
-  directorTimer=2.2+Math.random()*2.4;
+  directorTimer=2.2+rnd()*2.4;
   const bossSoon=pendingQueue.includes('boss')||spawnQueue.includes('boss');
   const haveSniper=towers.some(t=>t.type==='sniper');
   const types=Object.keys(TT).filter(towerUnlocked);
   /* banking: if a stronger tower exists than what we own, save toward it instead of impulse-buying cannons */
   const best=types.sort((a,b)=>TT[b].cost-TT[a].cost)[0];
   const ownBest=towers.some(t=>t.type===best);
-  if(!saveFor&&!ownBest&&types.length>1&&Math.random()<.6)saveFor=best;
+  if(!saveFor&&!ownBest&&types.length>1&&rnd()<.6)saveFor=best;
   if(saveFor&&!towerUnlocked(saveFor))saveFor=null;
-  let type=saveFor||types[(Math.random()*types.length)|0];
+  let type=saveFor||types[(rnd()*types.length)|0];
   if(bossSoon&&!haveSniper&&towerUnlocked('sniper'))type='sniper';
   if(saveFor&&gold<TT[saveFor].cost){ /* while banking, only free actions: mazing with carried dirt */
     if(aiDirt>0)mazeWall();
@@ -1013,7 +1026,7 @@ function director(dt){
   /* towers shoot from BESIDE the route; walls (mazeWall) are what extend it */
   const path=pathCellsList(),pathSet=new Set(path),cands=[];
   for(let k=0;k<140;k++){
-    const i=(Math.random()*N)|0;
+    const i=(rnd()*N)|0;
     if(!ACTIVE[faceOf(i)]||TWR[i]||DEC[i]||HMAP[i]!==0||PORTALS.includes(i)||i===CRYSTAL||creepOn(i)||pathSet.has(i))continue;
     const p=cellTop(i);let cov=0;
     for(const pi of path)if(p.distanceTo(cellTop(pi))<range)cov++;
@@ -1025,12 +1038,13 @@ function director(dt){
   /* upgrade the PROVEN killers first — the stats know who earns their keep */
   const ups=towers.filter(t=>t.tier<CFG.maxTier).sort((a,b)=>b.kills-a.kills);
   const upT=ups[0];
-  if(!saveFor&&towers.length>=1&&Math.random()<.6&&mazeWall()){
-    /* the director's prime directive: the longest possible route — every wall that stretches it is free damage */
-  }else if(upT&&towers.length>=4&&gold>=upgradeCost(upT)&&Math.random()<.65){
+  if(!saveFor&&towers.length>=1&&rnd()<.8&&(mazeWall()||mazeWall())){
+    /* the director's prime directive: the longest possible route — every wall that stretches it is free damage.
+       two attempts per decision: the first is often just digging spoil, the second places the wall */
+  }else if(upT&&towers.length>=4&&gold>=upgradeCost(upT)&&rnd()<.65){
     gold-=upgradeCost(upT);upgradeTower(upT);
     logEvent('AI upgraded '+upT.type+' to t'+upT.tier);
-  }else if(cands.length&&gold>=cost&&(saveFor||towers.length<5||Math.random()<.3)){
+  }else if(cands.length&&gold>=cost&&(saveFor||towers.length<5||rnd()<.3)){
     const tw=buildTower(cands[0].i,type,false);
     if(tw){gold-=cost;if(type===saveFor)saveFor=null;}
   }else if(upT&&gold>=upgradeCost(upT)){
@@ -1038,7 +1052,7 @@ function director(dt){
     logEvent('AI upgraded '+upT.type+' to t'+upT.tier);
   }else{
     const br=towers.find(t=>t.tier>=CFG.maxTier&&!t.branch&&t.kills>=12);
-    if(br&&gold>=branchCost(br)){gold-=branchCost(br);branchTower(br,(Math.random()*2)|0);}
+    if(br&&gold>=branchCost(br)){gold-=branchCost(br);branchTower(br,(rnd()*2)|0);}
   }
 }
 
@@ -1052,6 +1066,8 @@ const ABIL={
     can:()=>hero.aiOwned||FREE||INV.shard>=2,
     pay:()=>{if(!hero.aiOwned&&!FREE)INV.shard-=2;},
     cast:()=>{hero.aiOwned=true;hero.auto=!hero.auto;toast('hero autopilot '+(hero.auto?'engaged':'standby'));}},
+  surge:{label:'surge',icon:'tesla',cd:45,t:0,cost:()=>'80g',can:()=>FREE||gold>=80,pay:()=>{if(!FREE)gold-=80;},
+    cast:()=>{surgeT=10;ringFx(CRYSTAL,5,0xffd24a);beep(550,.4,'sawtooth',.07);toast('SURGE — towers fire 50% faster for 10s');}},
 };
 const golems=[],strikes=[];
 const golemTmp=new THREE.Vector3(),heroTmp=new THREE.Vector3();
@@ -1125,7 +1141,7 @@ function castFreeze(){
 }
 function castAirstrike(){
   const path=pathCellsList();
-  for(let k=0;k<6;k++)strikes.push({cell:path[(Math.random()*path.length)|0],t:.25+k*.22});
+  for(let k=0;k<6;k++)strikes.push({cell:path[(rnd()*path.length)|0],t:.25+k*.22});
   toast('airstrike inbound');beep(440,.3,'sawtooth',.06);
 }
 function useAbility(k){
@@ -1135,6 +1151,7 @@ function useAbility(k){
   return true;
 }
 function updateAbilities(dt){
+  if(surgeT>0)surgeT-=dt;
   for(const k in ABIL)if(ABIL[k].t>0)ABIL[k].t-=dt;
   for(let i=strikes.length-1;i>=0;i--){
     const s2=strikes[i];s2.t-=dt;
@@ -1193,7 +1210,7 @@ const mineLvl=()=>Math.floor(Math.sqrt(mineXp/5));
 const mineChance=()=>Math.min(.95,.6+mineLvl()*.05);
 function rollMine(){
   const lv=mineLvl();
-  const ok=FREE||Math.random()<mineChance();
+  const ok=FREE||rnd()<mineChance();
   mineXp+=ok?2:1;
   if(mineLvl()>lv){toast('mining level '+mineLvl()+' — '+Math.round(mineChance()*100)+'% success');addScore(30);}
   return ok;
@@ -1231,8 +1248,8 @@ function dig(i){
   puff(cellTop(i),0xc9925a,7);
   beep(150,.12,'sawtooth',.05);
   if(HMAP[i]<0)dmgNum(cellTop(i),'depth '+(-HMAP[i]),'#c9925a');
-  const depth=-HMAP[i],r=Math.random();
-  if(depth===1){if(r<.25){const g2=5+((Math.random()*11)|0);gold+=g2;dmgNum(cellTop(i),'+'+g2,'#ffd24a');}}
+  const depth=-HMAP[i],r=rnd();
+  if(depth===1){if(r<.25){const g2=5+((rnd()*11)|0);gold+=g2;dmgNum(cellTop(i),'+'+g2,'#ffd24a');}}
   else if(depth===2){if(r<.3){INV.iron++;dmgNum(cellTop(i),'iron','#aab4c8');}else if(r<.45){gold+=10;dmgNum(cellTop(i),'+10','#ffd24a');}}
   else{if(r<.28){INV.shard++;dmgNum(cellTop(i),'shard','#2de0c8');}else if(r<.45){gold+=30;dmgNum(cellTop(i),'gem +30','#2de0c8');}}
 }
@@ -1799,7 +1816,7 @@ function resetGame(diff,demo){
   bfs();decorateFace(0);
   bfs();refreshPathDots();
   wave=0;kills=0;prestige=0;goldMult=1;playSec=0;waveTotal=0;mineXp=0;
-  score=0;leaksThisWave=0;totalLeaks=0;perfectWaves=0;
+  score=0;leaksThisWave=0;totalLeaks=0;perfectWaves=0;surgeT=0;leakLog.length=0;
   LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];freeDigs=CFG.freeDigs;
   heroSpawned=false;hero.cool=0;hero.auto=false;hero.aiOwned=false;hero.kills=0;hero.dmgDealt=0;avatar.visible=false;
   spawnQueue=[];pendingQueue=[];breakT=-1;
@@ -1808,7 +1825,8 @@ function resetGame(diff,demo){
   focusActive();
   if(demo){gold=400;dirt=20;callWave(false);}
 }
-function startGame(diffIdx,free){
+function startGame(diffIdx,free,seed){
+  srand(seed!=null?(+seed>>>0):((Math.random()*2**31)|0)); /* fixed seed => identical scenario */
   DEMO=false;FREE=!!free;autopilot=false;autoSpin=false;
   $('splash').style.display='none';$('demoTag').style.display='none';
   resetGame(DIFFS[diffIdx],false);
@@ -1852,6 +1870,9 @@ function sim(dt){
       scene.remove(c.g);creeps.splice(ci,1);
       if(!FREE)lives--;
       addScore(-25);leaksThisWave++;totalLeaks++;
+      const pb=BIOMES[faceOf(c.spawnPortal)].name;
+      leakLog.push({wave,type:c.type,portalBiome:pb});if(leakLog.length>30)leakLog.shift();
+      logEvent('leak: '+c.type+' via '+pb+' portal');
       shakeT=.5;$('flash').style.opacity=.5;
       beep(300,.3,'sawtooth',.08);setTimeout(()=>beep(180,.35,'sawtooth',.08),120);
       toast('crystal hit — '+lives+' lives');
@@ -1932,7 +1953,7 @@ function sim(dt){
       tw.aim.quaternion.copy(tw.g.quaternion);
       tw.aim.lookAt(best.g.position);
       tw.head.quaternion.slerp(tw.g.quaternion.clone().invert().multiply(tw.aim.quaternion),Math.min(dt*9,1));
-      if(tw.cool<=0){tw.cool=1/tw.tt.rate;tw.kick=1;fire(tw,best);}
+      if(tw.cool<=0){tw.cool=1/(tw.tt.rate*(surgeT>0?1.5:1));tw.kick=1;fire(tw,best);}
     }
   }
   crystalCool-=dt;
@@ -1960,7 +1981,7 @@ function sim(dt){
       else damageCreep(c,tt.dmg,s2.tw);
       if(creeps.includes(c)){ /* survivors can still pick up status effects */
         if(tt.burn)c.burn={t:tt.burn,dps:tt.dmg*.4,src:s2.tw};
-        if(tt.stun&&Math.random()<tt.stun)c.stunT=.8;
+        if(tt.stun&&rnd()<tt.stun)c.stunT=.8;
         if(tt.execute&&!c.tt.boss&&c.hp<c.maxHp*tt.execute){dmgNum(c.g.position,'EXECUTED','#ff5e8a');killCreep(c,s2.tw);}
       }
       puff(c.g.position,tt.shot,3);
@@ -2170,6 +2191,7 @@ window.GameAPI={
     score,wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
     mining:{xp:mineXp,level:mineLvl(),chance:+mineChance().toFixed(2),freeDigs},
     hero:heroSpawned?{face:walker.face,faceName:FACES[walker.face].name,auto:hero.auto,aiOwned:hero.aiOwned,kills:hero.kills,dmgDealt:Math.round(hero.dmgDealt)}:null,
+    recentLeaks:leakLog.slice(-10),surge:surgeT>0?+surgeT.toFixed(1):0,seed:rngSeed,
     facesUnlocked,activeFaces:Array.from(ACTIVE),
     breakSec:breakT>0&&breakT<900?Math.ceil(breakT):0,waitingForStart:breakT>=900,
     crystal:CRYSTAL,portals:[...PORTALS],
@@ -2181,7 +2203,44 @@ window.GameAPI={
     hmap:Array.from(HMAP),
     path:pathCellsList(),
   };},
-  start(diffIdx,free){if(diffIdx==null)diffIdx=1;startGame(diffIdx,!!free);return{ok:true,diff:DIFF.name,free:FREE};},
+  start(diffIdx,free,seed){if(diffIdx==null)diffIdx=1;startGame(diffIdx,!!free,seed);return{ok:true,diff:DIFF.name,free:FREE,seed:rngSeed};},
+  /* dry-run terrain planner: predicted routes for hypothetical edits, nothing committed.
+     edits: [{cell, action:'wall'|'dig'|'chop'}, ...] — valid:false means it would seal. */
+  simulate(edits){
+    const undo=[];
+    const fail=why=>{while(undo.length)undo.pop()();return{ok:false,why};};
+    for(const e of (edits||[])){
+      const i=e&&e.cell;
+      if(!(i>=0&&i<N))return fail('bad cell');
+      if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return fail('occupied cell '+i);
+      if(e.action==='wall'){if(DEC[i])return fail('scenery at '+i);if(HMAP[i]>=2)return fail('max height at '+i);HMAP[i]++;undo.push(()=>HMAP[i]--);}
+      else if(e.action==='dig'){if(DEC[i])return fail('scenery at '+i);if(HMAP[i]<=CFG.digDepth)return fail('bedrock at '+i);HMAP[i]--;undo.push(()=>HMAP[i]++);}
+      else if(e.action==='chop'){if(!DEC[i])return fail('nothing to chop at '+i);const d=DEC[i];DEC[i]=null;undo.push(()=>{DEC[i]=d;});}
+      else return fail('action must be wall|dig|chop');
+    }
+    const scratch={dist:new Int32Array(N),next:new Int32Array(N),hMax:0,step:1};
+    computeField(scratch);
+    const routes=[];let total=0,valid=true;
+    for(const p of PORTALS){
+      if(scratch.dist[p]===INF){valid=false;routes.push({portal:p,blocked:true});continue;}
+      let i=p,g=0,len=0;
+      while(i!==-1&&i!==CRYSTAL&&g++<N){len++;i=scratch.next[i];}
+      total+=len;routes.push({portal:p,len});
+    }
+    while(undo.length)undo.pop()();
+    let cur=0;
+    for(const p of PORTALS){let i=p,g=0;while(i!==-1&&i!==CRYSTAL&&g++<N){cur++;i=FIELDS.walk.next[i];}}
+    return{ok:true,valid,routes,totalLen:total,currentLen:cur,gain:valid?total-cur:null};
+  },
+  /* batch: one round-trip, many actions — [['build',i,'cannon'],['place',j],['callWave']] */
+  plan(actions){
+    if(!Array.isArray(actions))return{ok:false,why:'array of [method,...args]'};
+    return actions.map(a=>{
+      const[m,...args]=Array.isArray(a)?a:[a];
+      if(m==='plan'||typeof window.GameAPI[m]!=='function')return{ok:false,why:'unknown method '+m};
+      try{return window.GameAPI[m](...args);}catch(e){return{ok:false,why:String(e.message||e)};}
+    });
+  },
   build(i,type){
     if(!TT[type])return{ok:false,why:'unknown tower type'};
     const g0=gold;tryBuy(i,type);
@@ -2219,7 +2278,7 @@ window.GameAPI={
   expandCost:()=>expandCost(),
   /* the benchmark blob — one call, everything a model comparison needs */
   scorecard(){return{
-    score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,
+    score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,seed:rngSeed,
     wave,kills,lives,prestige,totalLeaks,perfectWaves,
     faces:facesUnlocked,miningLevel:mineLvl(),
     heroKills:hero.kills,heroDmg:Math.round(hero.dmgDealt),

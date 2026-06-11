@@ -61,7 +61,7 @@ The game scores every run, so different models (or humans) can be compared on id
 | overrun (prestige) | −400 |
 
 **The arena protocol** (for pitting models against each other):
-1. `start 1` — frontier, real economy. Never `free`, autopilot **off** (`auto off`) — the model plays, not the director.
+1. `start 1 <seed>` — frontier, real economy, **fixed seed** so every model faces the identical scenario (same map, waves, loot dice, AI dice). Never `free`, autopilot **off** (`auto off`) — the model plays, not the director.
 2. Fixed speed (×8) and a fixed **`playSec` budget** (e.g. 60 or 300). Budget by `playSec` from `scorecard()`, not wall-clock — headless browsers throttle frames.
 3. The model may read `GUIDE.md` (full bestiary/tower/terrain data — also machine-readable at `GameAPI.grid`) and gets `state` between actions.
 4. When the budget expires, report `GameAPI.scorecard()` verbatim.
@@ -78,7 +78,10 @@ Via CLI: `node play.js -e "start 1; auto off; ...model's moves...; score"`. Sani
 The game is fully drivable by an agent — `window.GameAPI` is exposed for the browser console, Playwright/CDP `evaluate`, or any MCP browser tool. Cells are global indices: `cell = face*121 + v*11 + u`.
 
 ```js
-GameAPI.start(1, false)          // diff 0..2, free=true for sandbox
+GameAPI.start(1, false, 7777)    // diff 0..2, free, SEED — same seed = identical scenario
+GameAPI.simulate([{cell, action:'wall'|'dig'|'chop'}, ...])   // dry-run: predicted route
+                                 //   lengths + gain, valid:false = would seal. Nothing committed.
+GameAPI.plan([['build',i,'cannon'],['place',j],['callWave']]) // batch actions, one round-trip
 GameAPI.state()                  // full JSON snapshot: gold, lives, creeps, towers,
                                  //   hmap, live path, portals, next wave, unlocked towers
 GameAPI.build(GameAPI.cell(0,5,3), 'cannon')   // → {ok, spent} or {ok:false, why}

@@ -50,6 +50,14 @@ Findings from actually playing frontier (manual ×2), settler (idle), planetfall
 5. ~~**QoL batch**~~ ✅ DONE — LOGS clear on reset, ×8 speed (key 4 / new segment), "from ●●●" portal swatches in the wave preview, per-tower targeting priority (first/strong/close — snipers default strong), dig success floats its new depth.
 6. **Trench ergonomics**: 2-deep moats are the premium defense but cost many gamble-clicks with no depth feedback; consider a dig-queue or at least depth indicators.
 
+### The AI player's wishlist — ✅ ALL DONE (2026-06-10)
+
+1. ~~Dry-run simulator~~ — `GameAPI.simulate(edits)` predicts route lengths/gain for hypothetical walls/digs/chops, flags sealing, commits nothing.
+2. ~~Seeded determinism~~ — `start(diff, free, seed)`: mulberry32 PRNG drives all gameplay rolls (waves, loot, AI dice, decoration layout). Same seed = same scenario (frame-timing still adds small combat variance).
+3. ~~Batch plan~~ — `GameAPI.plan([[method, ...args], ...])` executes many actions in one round-trip.
+4. ~~Leak forensics~~ — every leak logs creep type + source portal; `state().recentLeaks`.
+5. ~~Timing lever~~ — `surge` ability: 80g, all towers +50% fire rate for 10s, 45s cooldown.
+
 ### Walk-mode (1st/3rd person) wishlist — from playing both views
 
 1. **Aimed-tile highlight** *(top FP/TP item)*: a Minecraft-style wireframe on the block you're about to dig/place. Right now you act blind; the overview has a ghost ring, walk mode has nothing.

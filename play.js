@@ -15,7 +15,8 @@ const HEADED = process.argv.includes('--headed');
 const cell = s => { const [f, u, v] = s.split(',').map(Number); return f * 121 + v * 11 + u; };
 
 const HELP = `commands (JSON out):
-  start [diff 0-2] [free]      new run (default frontier)
+  start [diff 0-2] [free] [seed]   new run (fixed seed => identical scenario)
+  sim wall:f,u,v dig:f,u,v ...     dry-run terrain edits -> predicted route lengths
   state                        full snapshot: gold, lives, creeps, towers, path, mining...
   build f,u,v <type>           cannon|frost|laser|mortar|tesla|sniper
   upgrade f,u,v | sell f,u,v | branch f,u,v <0|1>
@@ -71,13 +72,22 @@ async function launchBrowser() {
     if (!parts.length) return null;
     const [cmd, a, b] = parts;
     switch (cmd) {
-      case 'start':   return page.evaluate(([d, f]) => GameAPI.start(d, f), [a == null ? 1 : +a, b === 'free' || a === 'free']);
+      case 'start': { /* start [diff] [free] [seed]  or  start [diff] [seed] */
+        let free = false, seed = null;
+        if (b === 'free') { free = true; seed = parts[3] != null ? +parts[3] : null; }
+        else if (b != null) seed = +b;
+        return page.evaluate(([d, f, s]) => GameAPI.start(d, f, s), [a == null ? 1 : +a, free, seed]);
+      }
       case 'state':   return page.evaluate(() => GameAPI.state());
       case 'build':   return page.evaluate(([i, t]) => GameAPI.build(i, t), [cell(a), b]);
       case 'upgrade': return page.evaluate(i => GameAPI.upgrade(i), cell(a));
       case 'sell':    return page.evaluate(i => GameAPI.sell(i), cell(a));
       case 'branch':  return page.evaluate(([i, k]) => GameAPI.branch(i, k), [cell(a), +b || 0]);
       case 'prio':    return page.evaluate(([i, p]) => GameAPI.prio(i, p), [cell(a), b]);
+      case 'sim': { /* dry-run: sim wall:0,4,5 dig:0,3,3 -> predicted route lengths, nothing committed */
+        const edits = parts.slice(1).map(t => { const [act, c] = t.split(':'); return { action: act, cell: cell(c) }; });
+        return page.evaluate(e => GameAPI.simulate(e), edits);
+      }
       case 'dig':     return page.evaluate(i => GameAPI.dig(i), cell(a));
       case 'place':   return page.evaluate(i => GameAPI.place(i), cell(a));
       case 'wave':    return page.evaluate(() => GameAPI.callWave());
