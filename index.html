@@ -574,6 +574,7 @@ const FACES=[
   {n:V3(0,0,-1),r:V3(-1,0,0),u:V3(0,1,0),  name:'NORTH'},
 ];
 const faceOf=i=>(i/FCELLS)|0;
+const isEdgeCell=i=>{const u=i%S,v=((i%FCELLS)/S)|0;return u===0||u===S-1||v===0||v===S-1;}; /* face-border blocks hold the cube seams — never diggable */
 const HMAP=new Int8Array(N),TWR=new Array(N).fill(null);
 let ACTIVE=new Uint8Array(FN);
 function cellBase(i){ /* surface point at h=0 */
@@ -612,7 +613,7 @@ const ADJ=[];
 /* wtr = the biome's water feature: w 1=water (slows hard) · 2=ice (speeds up) · 3=lava (burns) */
 const BIOMES=[ /* obs = the obstacle each biome drops ON the road — dig/chop it or detour */
   {name:'meadow', a:0x6f9a4e,b:0x638c45,deco:'tree',   obs:'boulder', pc:0xa86bff,hz:null,wtr:{w:1,shape:'blob',n:4}}, /* bright spring green — must NOT read like the dark forest face */
-  {name:'caverns',a:0x2c2440,b:0x251e38,deco:'shard',  obs:'shard',   pc:0xc89bff,hz:{label:'crystal static',dpsPct:.012},wtr:{w:1,shape:'blob',n:3}},
+  {name:'caverns',a:0x2c2440,b:0x251e38,deco:'shard',  obs:'shard',   pc:0xc89bff,hz:{label:'crystal static',dpsPct:.012},wtr:{w:3,shape:'blob',n:3}} /* molten pools down in the caves */,
   {name:'desert', a:0x9c8458,b:0x8f794e,deco:'cactus', obs:'cactus',  pc:0xffd24a,hz:{label:'quicksand',pitSlow:2},wtr:{w:4,shape:'blob',n:4}}, /* 4 = QUICKSAND */
   {name:'volcanic',a:0x4a3034,b:0x422a2e,deco:'spike', obs:'boulder', pc:0xff7a2d,hz:{label:'embers',dpsPct:.015},wtr:{w:3,shape:'stream',n:6}},
   {name:'forest', a:0x1f4434,b:0x1a3a2c,deco:'pine',   obs:'boulder', pc:0x4dff7a,hz:{label:'undergrowth',mul:.85},wtr:{w:1,shape:'stream',n:7}}, /* deep dark forest ≠ meadow */
@@ -660,51 +661,44 @@ function rebuildWaterSurfaces(){
   WSURF.clear();
   for(let i=0;i<N;i++)if(WATER[i])addWaterSurface(i);
 }
-/* pits get a fake-AO vignette at the mouth — tile boxes don't cast shadows (perf),
-   so without this a hole reads as a flat recolored tile, not a hole */
-const PITRIM=new Map();
-const rimMat=(()=>{
-  const c=document.createElement('canvas');c.width=c.height=64;
-  const g=c.getContext('2d');
-  const E=16; /* square inner shadow: darkest at the rim, hard edge — reads as a sheer drop */
-  const strip=(x,y,w,h,gx0,gy0,gx1,gy1)=>{const gr=g.createLinearGradient(gx0,gy0,gx1,gy1);
-    gr.addColorStop(0,'rgba(0,0,0,.8)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x,y,w,h);};
-  strip(0,0,64,E,0,0,0,E);strip(0,64-E,64,E,0,64,0,64-E);
-  strip(0,0,E,64,0,0,E,0);strip(64-E,0,E,64,64,0,64-E,0);
-  return new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false});
-})();
-function syncPitRim(i){
-  const has=PITRIM.get(i);
-  if(HMAP[i]<0&&ACTIVE[faceOf(i)]&&!WATER[i]){
-    if(!has){
-      const F=FACES[faceOf(i)];
-      const m=new THREE.Mesh(surfGeo,rimMat);
-      m.position.copy(cellBase(i)).addScaledVector(F.n,.03);
-      m.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
-      m.renderOrder=2;scene.add(m);PITRIM.set(i,m);
-    }
-  }else if(has){scene.remove(has);PITRIM.delete(i);}
+/* tiles are FRUSTUMS, not boxes: each column converges toward the core, exactly
+   partitioning the cube interior. Straight 4.4-deep boxes invaded neighboring faces'
+   territory near edges — sunken water beds and pit floors got buried inside another
+   face's geometry (the 'thin skin' / 'water in my hole' family of bugs). */
+function tileGeoFrustum(i,q){
+  const g=new THREE.BoxGeometry(.98,.98,4.4); /* +Z = outward; deep enough that a -3 dig still shows solid pit walls */
+  const F=FACES[faceOf(i)];
+  const T=cellBase(i).clone().addScaledVector(F.n,-2.2);
+  const p=g.attributes.position,v=new THREE.Vector3(),lat=new THREE.Vector3(),qi=q.clone().invert();
+  for(let k=0;k<p.count;k++){
+    v.set(p.getX(k),p.getY(k),p.getZ(k)).applyQuaternion(q).add(T); /* world */
+    const r=v.dot(F.n);                                  /* radius along the face normal */
+    lat.copy(v).addScaledVector(F.n,-r).multiplyScalar(r/HCUBE); /* lateral part converges toward the core */
+    v.copy(lat).addScaledVector(F.n,r).sub(T).applyQuaternion(qi); /* back to local */
+    p.setXYZ(k,v.x,v.y,v.z);
+  }
+  g.computeVertexNormals();
+  return g;
 }
-const tileGeo=new THREE.BoxGeometry(.98,.98,4.4); /* +Z = outward; deep enough that a -3 dig still shows solid pit walls */
 const tiles=[];
 function topMat(i){
   const checker=((i%S+((i%FCELLS/S)|0))%2)?0:1;
   if(!ACTIVE[faceOf(i)])return checker?matLockA:matLockB;
+  if(WATER[i])return WATER[i]===3?matLava:WATER[i]===2?matIce:WATER[i]===4?matQuick:matWater; /* water before depth: flooded pits are water, not dirt */
   const h=HMAP[i];
   if(h<0)return matD[-h];
   if(h>0)return matWall;
-  if(WATER[i])return WATER[i]===3?matLava:WATER[i]===2?matIce:WATER[i]===4?matQuick:matWater;
   if(ROAD[i])return matRoad;
   if(((i*2654435761)>>>0)%9===0)return matBio[faceOf(i)][2];
   return matBio[faceOf(i)][checker];
 }
 for(let i=0;i<N;i++){
   const f=faceOf(i),F=FACES[f];
-  const m=new THREE.Mesh(tileGeo,[matSide,matSide,matSide,matSide,topMat(i),matSide]);
   const q=new THREE.Quaternion().setFromUnitVectors(V3(0,0,1),F.n);
+  const m=new THREE.Mesh(tileGeoFrustum(i,q),[matSide,matSide,matSide,matSide,topMat(i),matSide]);
   m.quaternion.copy(q);
   m.position.copy(cellBase(i)).addScaledVector(F.n,-2.2);
-  m.receiveShadow=true;m.castShadow=false;m.userData={i};
+  m.receiveShadow=true;m.castShadow=true;m.userData={i};
   scene.add(m);tiles[i]=m;
 }
 function setHeight(i,h){
@@ -713,7 +707,6 @@ function setHeight(i,h){
   tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,-2.2+h*HSTEP-((WATER[i]&&WATER[i]!==2)?.3:0));
   tiles[i].scale.set(1,1,1); /* full-size floor: a dug block is ALL gone, minecraft-style */
   tiles[i].material[4]=topMat(i);
-  syncPitRim(i);
 }
 function refreshTile(i){setHeight(i,HMAP[i]);}
 /* ===== biome decorations: occupy cells, choppable for +1 dirt ===== */
@@ -1191,6 +1184,8 @@ const SFX={
       tone(t+i*.15,{type:'sawtooth',f,dur:.45,vol:.018,a:.012,filter:'lowpass',fq:2100});});
     tone(t+.6,{type:'triangle',f:1046.5,dur:.85,vol:.06,a:.02});
     nz(t+.6,{dur:.55,vol:.03,filter:'highpass',fq:3200,a:.12});},
+  splash:t=>{nz(t,{dur:.25,vol:.1,fq:1400,fq1:300,rate:1.3});tone(t,{f:300,f1:120,dur:.2,vol:.06});
+    tone(t+.06,{f:520,f1:210,dur:.12,vol:.04});},
   confirm:t=>{tone(t,{type:'triangle',f:740,f1:1110,dur:.16,vol:.055,a:.005});
     nz(t,{dur:.03,vol:.03,filter:'highpass',fq:3000,a:.001});},
 };
@@ -1788,7 +1783,7 @@ function aiDig(){
   const path=pathCellsList(),cands=[];
   for(const pi of path){
     for(const j of ADJ[pi]){
-      if(!ACTIVE[faceOf(j)]||TWR[j]||DEC[j]||WATER[j]||HMAP[j]<=CFG.digDepth+1||PORTALS.includes(j)||j===CRYSTAL||creepOn(j))continue;
+      if(!ACTIVE[faceOf(j)]||isEdgeCell(j)||TWR[j]||DEC[j]||WATER[j]||HMAP[j]<=CFG.digDepth+1||PORTALS.includes(j)||j===CRYSTAL||creepOn(j))continue;
       if(path.includes(j))continue;
       cands.push(j);
     }
@@ -1801,6 +1796,7 @@ function aiDig(){
   if(!tryEdit(()=>{HMAP[i]--;},()=>{HMAP[i]++;}))return false;
   if(kit)freeDigs--;else gold-=CFG.digCost;
   aiDirt++;setHeight(i,HMAP[i]);
+  floodIfBesideLiquid(i);
   logEvent('AI dug spoil ('+aiDirt+' carried)');
   puff(cellTop(i),0xc9925a,5);
   return true;
@@ -2074,6 +2070,7 @@ function dig(i){
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'dig',cell:i});return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(chop(i))return;
+  if(isEdgeCell(i)){toast('edge blocks hold the cube together — dig inside the border');sfx('deny');return;}
   if(WATER[i]){toast(WATER[i]===3?'that is lava':WATER[i]===4?'quicksand — fill it with dirt':'water — fill it with dirt or go around');return;}
   if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');sfx('deny');return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
@@ -2100,6 +2097,19 @@ function dig(i){
   if(depth===1){if(r<.25){const g2=5+((rnd()*11)|0);gold+=g2;dmgNum(cellTop(i),'+'+g2,'#ffd24a');}}
   else if(depth===2){if(r<.3){INV.iron++;dmgNum(cellTop(i),'iron','#aab4c8');}else if(r<.45){gold+=10;dmgNum(cellTop(i),'+10','#ffd24a');}}
   else{if(r<.28){INV.shard++;dmgNum(cellTop(i),'shard','#2de0c8');}else if(r<.45){gold+=30;dmgNum(cellTop(i),'gem +30','#2de0c8');}}
+  floodIfBesideLiquid(i);
+}
+/* water finds its level: digging beside a liquid floods the new hole (fill with dirt to reclaim) */
+function floodIfBesideLiquid(i){
+  if(WATER[i])return false;
+  let fw=0;
+  for(const j of ADJ[i])if(WATER[j]&&WATER[j]!==2){fw=WATER[j];break;}
+  if(!fw)return false;
+  WATER[i]=fw;refreshTile(i);addWaterSurface(i);
+  bfs();refreshPathDots();NET.dirtyStatic=true;
+  toast(fw===3?'lava pours into the hole!':fw===4?'the sand slumps — quicksand spreads':'water floods the hole!');
+  sfx('splash');
+  return true;
 }
 function placeDirt(i){
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'place',cell:i});return;}
@@ -3554,7 +3564,9 @@ window.GameAPI={
       if(!(i>=0&&i<N))return fail('bad cell');
       if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return fail('occupied cell '+i);
       if(e.action==='wall'){if(DEC[i])return fail('scenery at '+i);if(HMAP[i]>=2)return fail('max height at '+i);HMAP[i]++;undo.push(()=>HMAP[i]--);}
-      else if(e.action==='dig'){if(DEC[i])return fail('scenery at '+i);if(HMAP[i]<=CFG.digDepth)return fail('bedrock at '+i);HMAP[i]--;undo.push(()=>HMAP[i]++);}
+      else if(e.action==='dig'){if(DEC[i])return fail('scenery at '+i);if(isEdgeCell(i))return fail('edge block at '+i);if(HMAP[i]<=CFG.digDepth)return fail('bedrock at '+i);HMAP[i]--;undo.push(()=>HMAP[i]++);
+        let fw=0;for(const j of ADJ[i])if(WATER[j]&&WATER[j]!==2){fw=WATER[j];break;}
+        if(fw){WATER[i]=fw;undo.push(()=>{WATER[i]=0;});}}
       else if(e.action==='chop'){if(!DEC[i])return fail('nothing to chop at '+i);const d=DEC[i];DEC[i]=null;undo.push(()=>{DEC[i]=d;});}
       else return fail('action must be wall|dig|chop');
     }
