@@ -15,6 +15,11 @@ Creep HP = `9 × 1.12-1.20^wave × hpMult × difficulty`. Bounty is flat gold pe
 | crawler | 1.3 | 1.1 | climber | w7 | **ignores ALL terrain** (half speed doing it) | pure DPS — your maze means nothing to it; mortar splash on the straight line |
 | healer | 1.2 | 1.2 | walker | w6 | heals nearby creeps 8%/2s | kill FIRST — tesla chains reach it behind tanks; executioner deletes it |
 | shield | 1.6 | 1.1 | walker | w9 | **35% damage reduction** | big single hits (sniper/railgun); slows + time |
+| burrower | 1.5 | 1.15 | walker | w8 | first damage taken sends it underground 3s (50% speed, untargetable, immune) | **can't dive on water/ice/road cells** — land the first hit there |
+| wisp | 1.1 | 1.25 | climber | w9, night only | semi-transparent; takes **50% damage while moving, 2× while slowed/stunned** | frost or terrain slows make it solid — pin it, then shoot |
+| swarm-mother | 3.4 | 0.7 | walker | w10 | on death splits into **4 spawn** at her position, same route | kill her early/over splash; her hatch point is a mortar's dream |
+| spawn | 0.18 | 2.6 | walker | (swarm-mother only) | tiny, fast, fragile | any chip damage or splash |
+| saboteur | 1.0 | 1.6 | jumper | w12 | pauses beside the first tower it passes and **disables it 4s** (spark tether), once per life | space towers so one short never silences a lane; kill it mid-channel |
 | boss | 15 | 0.75 | walker | every 5th wave | regenerates 1.2% max hp/s | focus fire + freeze + burn (DoT outpaces regen); +150 bounty, +50 score |
 
 Class rules: **walkers** climb 1-level slopes slowly (× their climbMul), blocked by 2-level cliffs. **Jumpers** clear height-1, blocked by height-2. **Climbers** cross everything. Night (sun down): all creeps +15% speed, eyes glow red.
@@ -37,6 +42,7 @@ Upgrades: tier 2 = base cost, tier 3 = 2× base (bronze → silver → gold base
 ## Terrain & economy
 
 - Matter conserved: dig = +1 dirt, place = −1. Chop scenery free (+1 dirt); builds auto-chop.
+- Each biome has 1-2 seeded **landmark set-pieces** (meadow standing stones, desert sandstone arch, tundra glinting monolith, volcanic smoking vent, forest hollow stump, cavern crystal clusters). Pure scenery: they occupy cells and block building, and chop like any deco — +1 dirt per cell.
 - Mining: 3g per roll, 60% +5%/level success (cap 95%), XP per attempt. **First 10 digs per run are free and guaranteed** (surveyor's kit).
 - Loot by depth: layer 1 gold, layer 2 iron, layer 3 shards/gems. Bedrock at −3.
 - 1-deep pit = speed bump · 2-deep = walker-proof cliff · walls: 1-high slows walkers/stops nothing special, 2-high stops walkers AND jumpers. Crawlers cross all of it.

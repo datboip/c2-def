@@ -304,7 +304,7 @@
     <b>PATH DOTS</b>: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling — reroute them through red. 1-deep pits slow walkers, 2-deep stop them. The route can never be fully sealed.
   </div>
   <div class="hl hsec">
-    <b style="color:#d4533b">grunt</b> fodder · <b style="color:#3b7bd4">runner</b> fast, fragile — slow it · <b style="color:#9b59c9">tank</b> 2.8× hp, stalls on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor — big hits · <b style="color:#ffb020">boss</b> (every 5th) regenerates — burn + freeze + focus fire.<br><br>
+    <b style="color:#d4533b">grunt</b> fodder · <b style="color:#3b7bd4">runner</b> fast, fragile — slow it · <b style="color:#9b59c9">tank</b> 2.8× hp, stalls on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor — big hits · <b style="color:#c07840">burrower</b> (w8+) first hit sends it underground 3s — water/ice/road deny the dive · <b style="color:#aee8ff">wisp</b> (w9+, night) half damage moving, DOUBLE while slowed · <b style="color:#d44fb0">swarm-mother</b> (w10+) splits into 4 spawn on death · <b style="color:#49e0d2">saboteur</b> (w12+) shorts one tower 4s · <b style="color:#ffb020">boss</b> (every 5th) regenerates — burn + freeze + focus fire.<br><br>
     <b>HAZARDS</b>: forest undergrowth slows · desert quicksand makes pits lethal · tundra ice speeds creeps but frost sticks 1.5× · volcanic embers &amp; cavern static burn hp. Night = all creeps +15%, red eyes.
   </div>
   <div class="hl hsec">
@@ -657,6 +657,12 @@ const decoMats={
   flower:new THREE.MeshStandardMaterial({color:0xff7ab8,emissive:0xff7ab8,emissiveIntensity:.3,roughness:.6}),
   dune:new THREE.MeshStandardMaterial({color:0xb09a6a,roughness:1}),
   icespike:new THREE.MeshStandardMaterial({color:0xcfeaf8,roughness:.15}),
+  megalith:new THREE.MeshStandardMaterial({color:0x808a93,roughness:.9}),
+  sandstone:new THREE.MeshStandardMaterial({color:0xd8c49a,roughness:.95}),
+  basalt:new THREE.MeshStandardMaterial({color:0x3a3238,roughness:1}),
+  stump:new THREE.MeshStandardMaterial({color:0x6a523a,roughness:1,side:THREE.DoubleSide}),
+  stumpIn:new THREE.MeshStandardMaterial({color:0x241a10,roughness:1}),
+  bone:new THREE.MeshStandardMaterial({color:0xe2dcc8,roughness:.85}),
 };
 function buildDeco(kind){
   const g=new THREE.Group();
@@ -673,7 +679,44 @@ function buildDeco(kind){
   else if(kind==='rock'){M(new THREE.DodecahedronGeometry(.13),decoMats.boulder,.1);}
   else if(kind==='dune'){const m=new THREE.Mesh(new THREE.SphereGeometry(.42,8,6),decoMats.dune);m.scale.set(1,.28,.65);m.position.y=.05;m.castShadow=true;g.add(m);}
   else if(kind==='icespike'){M(new THREE.ConeGeometry(.12,.6,5),decoMats.icespike,.3);const s2=M(new THREE.ConeGeometry(.07,.35,5),decoMats.icespike,.18);s2.position.x=.15;}
-  else {M(new THREE.OctahedronGeometry(.22),decoMats.shard,.26);M(new THREE.OctahedronGeometry(.12),decoMats.shard,.1).position.x=.18;}
+  else if(kind==='menhir'){ /* standing stone: weathered slab on a footing */
+    const m=M(new THREE.BoxGeometry(.17,.8,.26),decoMats.megalith,.42);
+    m.rotation.z=(rnd()-.5)*.18;m.rotation.x=(rnd()-.5)*.12;
+    M(new THREE.BoxGeometry(.24,.1,.32),decoMats.megalith,.05);
+  }
+  else if(kind==='archhalf'){ /* half a bleached sandstone arch — leans toward its twin (+Z) */
+    M(new THREE.BoxGeometry(.24,.62,.26),decoMats.sandstone,.31);
+    const o=M(new THREE.BoxGeometry(.2,.16,.52),decoMats.sandstone,.66);o.position.z=.24;o.rotation.x=.14;
+    M(new THREE.BoxGeometry(.3,.12,.32),decoMats.sandstone,.06);
+    const rib=M(new THREE.TorusGeometry(.13,.022,5,10,Math.PI),decoMats.bone,.06);rib.position.x=.2; /* old ribcage at the foot */
+  }
+  else if(kind==='vent'){ /* dormant fumarole: basalt cone, char-rimmed mouth (puffs smoke) */
+    M(new THREE.CylinderGeometry(.17,.42,.34,9),decoMats.basalt,.17);
+    M(new THREE.CylinderGeometry(.11,.14,.07,9),decoMats.spike,.36);
+    g.userData.vent=true;
+  }
+  else if(kind==='stump'){ /* giant hollow stump: open ring of old wood, root flares */
+    M(new THREE.CylinderGeometry(.3,.37,.4,9,1,true),decoMats.stump,.2);
+    M(new THREE.CylinderGeometry(.3,.3,.04,9),decoMats.stumpIn,.06); /* dark hollow floor */
+    for(let k=0;k<4;k++){const r2=M(new THREE.BoxGeometry(.12,.12,.2),trunkMat,.06);
+      const a2=k*Math.PI/2+.4;r2.position.x=Math.cos(a2)*.36;r2.position.z=Math.sin(a2)*.36;r2.rotation.y=-a2;}
+  }
+  else if(kind==='monolith'){ /* frozen monolith — the glint is a pulsing emissive */
+    const pm=new THREE.MeshStandardMaterial({color:0xbfe6f5,roughness:.12,emissive:0x6ab8e8,emissiveIntensity:.6});
+    const m=M(new THREE.BoxGeometry(.3,.96,.2),pm,.5);m.rotation.y=.5;
+    M(new THREE.BoxGeometry(.44,.12,.34),decoMats.megalith,.05);
+    g.userData.pulse=pm;
+  }
+  else {/* crystal shards — every cluster grows its own way (seeded size/tilt variety) */
+    const n2=2+((rnd()*3)|0);
+    for(let k=0;k<n2;k++){
+      const s2=.12+rnd()*.15;
+      const m=M(new THREE.OctahedronGeometry(s2),decoMats.shard,s2*1.1);
+      m.position.x=(rnd()-.5)*.4;m.position.z=(rnd()-.5)*.4;
+      m.rotation.z=(rnd()-.5)*.8;m.rotation.x=(rnd()-.5)*.5;
+      m.scale.y=1.25+rnd()*.9;
+    }
+  }
   return g;
 }
 function waterFeature(f){
@@ -768,8 +811,61 @@ function decorateFace(f){
     orientOnFace(g,i,0);
     scene.add(g);DEC[i]=g;placedO++;
   }
+  placeSetPieces(f);
   waterFeature(f);
   bfs();refreshPathDots();
+}
+/* ===== set-pieces: 1-2 seeded landmarks per face. DEC scenery like any deco:
+   they occupy cells, block building, chop = +1 dirt per cell (matter conserved). */
+const SETP=[ /* by face: 0 meadow · 1 caverns · 2 desert · 3 volcanic · 4 forest · 5 tundra */
+  {kind:'menhir',n:3},   /* standing-stones circle */
+  {kind:'shard',n:1,big:true}, /* grand crystal cluster */
+  {kind:'archhalf',n:2}, /* bleached sandstone arch spanning two cells */
+  {kind:'vent',n:1},     /* dormant vent — smoke every ~8s */
+  {kind:'stump',n:1},    /* giant hollow stump */
+  {kind:'monolith',n:1}, /* frozen monolith — glints */
+];
+const DECOFX=[]; /* animated scenery (monolith pulse, vent smoke) — purely visual */
+function aimDecoAt(g,from,to){ /* spin a deco around its face normal to face another cell */
+  const F=FACES[faceOf(from)];
+  const d=cellTop(to).sub(cellTop(from));
+  d.addScaledVector(F.n,-d.dot(F.n));
+  if(d.lengthSq()<1e-6)return;
+  d.normalize();
+  const wz=V3(0,0,1).applyQuaternion(g.quaternion);
+  g.rotateY(Math.atan2(wz.clone().cross(d).dot(F.n),wz.dot(d)));
+}
+function placeSetPieces(f){
+  const spec=SETP[f];
+  const want=1+(rnd()<.4?1:0);
+  const live=new Set(pathCellsList()); /* never on the portal/crystal/route */
+  const ok=j=>faceOf(j)===f&&!DEC[j]&&!TWR[j]&&HMAP[j]===0&&!WATER[j]&&!ROAD[j]&&!live.has(j)&&
+    !PORTALS.includes(j)&&j!==CRYSTAL&&!ADJ[j].some(k=>PORTALS.includes(k)||k===CRYSTAL);
+  let made=0,tries=0;
+  while(made<want&&tries++<50){
+    const u=2+((rnd()*(S-4))|0),v=2+((rnd()*(S-4))|0);
+    const i=f*FCELLS+v*S+u;
+    if(!ok(i))continue;
+    const cells=[i];
+    if(spec.n>1){
+      const adj=ADJ[i].filter(j=>ok(j));
+      if(adj.length<spec.n-1)continue;
+      for(let k=0;k<spec.n-1;k++)cells.push(adj[k]);
+    }
+    for(const j of cells)DEC[j]=true;
+    if(!bfs()){for(const j of cells)DEC[j]=null;continue;} /* would seal: pick elsewhere */
+    cells.forEach((j,k)=>{
+      const g=buildDeco(spec.kind);
+      if(spec.big)g.scale.setScalar(1.35+rnd()*.5);
+      else if(spec.kind==='menhir')g.scale.setScalar(.85+rnd()*.4);
+      orientOnFace(g,j,0);
+      if(spec.n>1)aimDecoAt(g,j,k===0?cells[1]:cells[0]); /* halves face each other, stones lean in */
+      scene.add(g);DEC[j]=g;
+      if(g.userData.pulse)DECOFX.push({g,type:'pulse',mat:g.userData.pulse,ph:rnd()*6});
+      if(g.userData.vent)DECOFX.push({g,type:'vent',f,t:3+rnd()*6});
+    });
+    made++;
+  }
 }
 /* glowing core */
 const core=new THREE.Mesh(new THREE.IcosahedronGeometry(2.2,1),
@@ -1129,6 +1225,11 @@ const CT={
   crawler:{color:0x8a5dd8,speed:1.1,hp:1.3,bounty:17,s:1.05,cost:22,cls:'climb',climbMul:.5,minWave:7},
   healer:{color:0x4dd87a,speed:1.2,hp:1.2,bounty:18, s:1,   cost:30,cls:'walk', climbMul:.55,healer:true,minWave:6},
   shield:{color:0x8a93ab,speed:1.1,hp:1.6,bounty:18, s:1.1, cost:28,cls:'walk', climbMul:.55,armor:.35,minWave:9},
+  burrower:{color:0xc07840,speed:1.15,hp:1.5,bounty:20,s:1.05,cost:26,cls:'walk',climbMul:.5,burrow:true,minWave:8,rare:true},
+  'swarm-mother':{color:0xd44fb0,speed:.7,hp:3.4,bounty:28,s:1.4,cost:36,cls:'walk',climbMul:.3,split:4,minWave:10,rare:true},
+  spawn: {color:0xff8ad4,speed:2.6,hp:.18,bounty:2,s:.55,cost:6,cls:'walk',climbMul:.7,child:true},
+  saboteur:{color:0x49e0d2,speed:1.6,hp:1,bounty:22,s:.95,cost:30,cls:'jump',climbMul:1,sabo:4,minWave:12,rare:true},
+  wisp:  {color:0xaee8ff,speed:1.25,hp:1.1,bounty:20,s:1,cost:24,cls:'climb',climbMul:.6,wisp:true,minWave:9,night:true,rare:true},
   boss:  {color:0xffb020,speed:.75,hp:15, bounty:150,s:2,   cost:0, cls:'walk', climbMul:.7,boss:true,regen:.012},
 };
 const eyeGeo=new THREE.BoxGeometry(.05,.05,.02);
@@ -1192,6 +1293,42 @@ function buildCreepBody(typeName,mat){
     M(new THREE.BoxGeometry(.42,.34,.05),0,.3,.27,armorMat);
     M(new THREE.BoxGeometry(.46,.04,.07),0,.48,.27,glowMat(0x8a93ab)); /* shield rim */
     eyes(hd,.02,.1,.05);
+  }else if(typeName==='burrower'){ /* drill-nosed digger: auger snout, scoop claws */
+    M(new THREE.BoxGeometry(.3,.22,.36),0,.18,-.04);
+    const dr=M(new THREE.ConeGeometry(.13,.34,8),0,.16,.26,armorMat);dr.rotation.x=Math.PI/2;
+    M(new THREE.BoxGeometry(.12,.08,.18),-.18,.1,.08,boneMat).rotation.z=.5;
+    M(new THREE.BoxGeometry(.12,.08,.18),.18,.1,.08,boneMat).rotation.z=-.5;
+    M(new THREE.BoxGeometry(.26,.06,.18),0,.32,-.1,armorMat); /* back plate */
+    eyes(g,.26,.16,.07);
+  }else if(typeName==='swarm-mother'){ /* gravid carrier: egg pods cling to her back */
+    M(new THREE.SphereGeometry(.26,10,10),0,.28,-.06);
+    const hd=M(new THREE.BoxGeometry(.2,.16,.18),0,.32,.24);
+    for(const[px,py,pz]of[[-.2,.38,-.02],[.2,.38,-.02],[-.12,.48,-.16],[.14,.46,-.18]])
+      M(new THREE.SphereGeometry(.08,8,8),px,py,pz,glowMat(0xff8ad4));
+    M(new THREE.BoxGeometry(.1,.1,.12),-.16,.1,.08,armorMat);
+    M(new THREE.BoxGeometry(.1,.1,.12),.16,.1,.08,armorMat);
+    eyes(hd,.02,.1,.05);
+  }else if(typeName==='spawn'){ /* hatchling: all head and hunger */
+    M(new THREE.SphereGeometry(.13,8,8),0,.13,0);
+    M(new THREE.ConeGeometry(.025,.08,4),-.05,.26,0,boneMat);
+    M(new THREE.ConeGeometry(.025,.08,4),.05,.26,0,boneMat);
+    eyes(g,.15,.11,.05);
+  }else if(typeName==='saboteur'){ /* wiry jumper with a sparking prod arm */
+    M(new THREE.BoxGeometry(.22,.18,.22),0,.26,0);
+    const lL=M(new THREE.BoxGeometry(.07,.26,.1),-.15,.14,-.06,armorMat);lL.rotation.x=.5;
+    const lR=M(new THREE.BoxGeometry(.07,.26,.1),.15,.14,-.06,armorMat);lR.rotation.x=.5;
+    M(new THREE.CylinderGeometry(.025,.025,.3,5),.14,.34,.14,armorMat).rotation.x=1.2; /* prod arm */
+    M(new THREE.SphereGeometry(.045,6,6),.14,.4,.27,glowMat(0x49e0d2)); /* spark tip */
+    M(new THREE.BoxGeometry(.12,.14,.08),0,.32,-.14,armorMat); /* coil pack */
+    eyes(g,.36,.12,.06);
+  }else if(typeName==='wisp'){ /* cavern ghost: a veil around a glowing heart */
+    mat.transparent=true;mat.opacity=.45;
+    mat.emissive=new THREE.Color(0x6ab8e8);mat.emissiveIntensity=.5;
+    M(new THREE.ConeGeometry(.2,.5,8,1,true),0,.3,0);
+    M(new THREE.SphereGeometry(.07,8,8),0,.3,0,glowMat(0xaee8ff));
+    const ring=M(new THREE.TorusGeometry(.16,.015,5,14),0,.12,0,glowMat(0x6ab8e8));ring.rotation.x=Math.PI/2;
+    g.userData.spin=ring;
+    eyes(g,.42,.13,.05);
   }else{ /* grunt: the horned rabble */
     M(new THREE.BoxGeometry(.3,.32,.4),0,.25,0);
     const hd=M(new THREE.BoxGeometry(.22,.2,.22),0,.49,.1);
@@ -1202,7 +1339,7 @@ function buildCreepBody(typeName,mat){
   return g;
 }
 let spawnIdx=0,PORTAL_BORN=[0]; /* wave each portal opened — fresh portals ramp in gently */
-function spawnCreep(typeName){
+function spawnCreep(typeName,atCell,mother){ /* atCell: mid-route births (swarm-mother splits) */
   const t=CT[typeName];
   const hp=(9*Math.pow(DIFF.exp,wave))*(1+prestige*.25)*t.hp*DIFF.hp;
   const mat=new THREE.MeshStandardMaterial({color:t.color,roughness:.7});
@@ -1210,22 +1347,35 @@ function spawnCreep(typeName){
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(.5,.05),new THREE.MeshBasicMaterial({color:0x4dff7a,side:THREE.DoubleSide}));
   bar.position.y=.78;g.add(bar);
   g.scale.setScalar(t.s);
-  let sp=PORTALS[spawnIdx++%PORTALS.length];
-  const bi=PORTALS.indexOf(sp);
-  if(bi>0&&wave-(PORTAL_BORN[bi]||0)<2&&rnd()<.5)sp=PORTALS[0]; /* new portal: ~50% share its first 2 waves */
+  let sp,cell;
+  if(atCell!=null){cell=atCell;sp=mother?mother.spawnPortal:PORTALS[0];}
+  else{
+    sp=PORTALS[spawnIdx++%PORTALS.length];
+    const bi=PORTALS.indexOf(sp);
+    if(bi>0&&wave-(PORTAL_BORN[bi]||0)<2&&rnd()<.5)sp=PORTALS[0]; /* new portal: ~50% share its first 2 waves */
+    cell=sp;
+  }
   const c={g,type:typeName,tt:t,hp,maxHp:hp,speed:t.speed*(1+wave*.008),bounty:t.bounty,bar,nid:++NET.creepSeq,
-    cell:sp,spawnPortal:sp,prog:0,slowT:0,stunT:0,slowPow:.5,burn:null,healT:0,anim:Math.random()*9,
+    cell,spawnPortal:sp,prog:0,slowT:0,stunT:0,burrowT:0,slowPow:.5,burn:null,healT:0,anim:Math.random()*9,
     field:FIELDS[t.cls]};
-  g.position.copy(cellTop(sp));
-  const F2=FACES[faceOf(sp)];
+  if(mother)c.speed*=.9+rnd()*.2; /* hatchlings scatter at slightly different paces */
+  g.position.copy(cellTop(cell));
+  const F2=FACES[faceOf(cell)];
   g.quaternion.setFromUnitVectors(V3(0,1,0),F2.n);
   g.userData.creep=c;creeps.push(c);scene.add(g);
 }
 function damageCreep(c,dmg,src){
+  if(c.burrowT>0)return; /* underground — untouchable until it surfaces */
+  if(c.tt.wisp)dmg*=(c.slowT>0||c.stunT>0?2:.5); /* spectral in motion; pinned = solid */
   if(c.tt.armor)dmg*=(1-c.tt.armor);
   if(src)src.dmgDealt+=Math.min(dmg,Math.max(c.hp,0)); /* credit what actually landed */
   c.hp-=dmg;
-  if(c.hp<=0)killCreep(c,src);
+  if(c.hp<=0){killCreep(c,src);return;}
+  /* burrower: its first wound on open ground sends it under — water/ice/road deny the dive */
+  if(c.tt.burrow&&!c.didBurrow&&!WATER[c.cell]&&!ROAD[c.cell]){
+    c.didBurrow=true;c.burrowT=3;c.burn=null;
+    puff(c.g.position,0xc9925a,8);sfx('dig');
+  }
 }
 function killCreep(c,src){
   const i=creeps.indexOf(c);if(i<0)return;
@@ -1236,6 +1386,10 @@ function killCreep(c,src){
   puff(c.g.position,0xffd24a,c.tt.boss?12:3);
   sfx(c.tt.boss?'bosskill':'kill');
   scene.remove(c.g);creeps.splice(i,1);
+  if(c.tt.split){ /* swarm-mother: her death is a birth — spawn inherit her route (and fresh nids) */
+    for(let k=0;k<c.tt.split;k++)spawnCreep('spawn',c.cell,c);
+    dmgNum(c.g.position,'SPLIT ×'+c.tt.split,'#ff8ad4');
+  }
 }
 
 /* waves */
@@ -1244,9 +1398,12 @@ function composeQueue(){
   const w=wave+1,budget=(16+w*9)*DIFF.budget,q=[]; /* retuned after the dangling-else fix made towers actually fire */
   if(w%5===0){q.push('boss');let b=budget*.5;while(b>0){q.push(rnd()<.5?'grunt':'runner');b-=12;}}
   else{
-    const avail=Object.keys(CT).filter(k=>!CT[k].boss&&(!CT[k].minWave||w>=CT[k].minWave));
+    const avail=Object.keys(CT).filter(k=>{const t=CT[k];
+      return !t.boss&&!t.child&&(!t.minWave||w>=t.minWave)&&(!t.night||isNight);});
+    const pool=[]; /* rare creeps are spice, not the meal: 1 pool slot vs 3 for the regulars */
+    for(const k of avail){pool.push(k);if(!CT[k].rare)pool.push(k,k);}
     let b=budget;
-    while(b>0){const p=avail[(rnd()*avail.length)|0];q.push(p);b-=CT[p].cost;}
+    while(b>0){const p=pool[(rnd()*pool.length)|0];q.push(p);b-=CT[p].cost;}
   }
   return q.sort(()=>rnd()-.5);
 }
@@ -1411,6 +1568,7 @@ function destroyTower(tw){
 function acquire(tw){
   let best=null,bs=-1e9;
   for(const c of creeps){
+    if(c.burrowT>0)continue; /* underground: no lock */
     const d=tw.g.position.distanceTo(c.g.position);
     if(d>tw.tt.range||(tw.tt.minRange&&d<tw.tt.minRange))continue;
     const s2=tw.prio==='strong'?c.hp:tw.prio==='close'?-d:-(c.field.dist[c.cell]===INF?9999:c.field.dist[c.cell]);
@@ -2508,6 +2666,11 @@ function sim(dt){
     const c=creeps[ci];
     if(c.slowT>0)c.slowT-=dt;
     if(c.stunT>0)c.stunT-=dt;
+    if(c.burrowT>0){ /* burrowed: water/ice/paving force it back up early */
+      c.burrowT-=dt;
+      if(WATER[c.cell]||ROAD[c.cell])c.burrowT=0;
+      if(c.burrowT<=0){c.burrowT=0;puff(c.g.position,0xc9925a,7);}
+    }
     if(c.burn){c.burn.t-=dt;damageCreep(c,c.burn.dps*dt,c.burn.src);if(!creeps.includes(c))continue;if(c.burn&&c.burn.t<=0)c.burn=null;}
     if(c.tt.regen)c.hp=Math.min(c.maxHp,c.hp+c.maxHp*c.tt.regen*dt);
     if(c.tt.healer){c.healT-=dt;
@@ -2542,6 +2705,26 @@ function sim(dt){
         if(twHere.hp<=0)destroyTower(twHere);
       }
     }
+    /* saboteur: shorts out the first tower it passes — once per life, spark tether while it works */
+    if(c.tt.sabo&&!c.saboDone){
+      for(const j of ADJ[c.cell]){
+        const tw2=TWR[j];
+        if(!tw2||tw2==='pending'||tw2.saboT>0)continue;
+        c.saboDone=true;c.saboT=1.4;c.saboTw=tw2;
+        tw2.saboT=c.tt.sabo;tw2.headMat.emissiveIntensity=.05;
+        toast('saboteur shorted your '+tw2.type+' — '+c.tt.sabo+'s');beep(180,.3,'sawtooth',.06);
+        logEvent('saboteur disabled '+tw2.type+' on '+FACES[faceOf(j)].name.toLowerCase());
+        break;
+      }
+    }
+    if(c.saboT>0){
+      c.saboT-=dt;
+      c.saboFx=(c.saboFx||0)-dt;
+      if(c.saboFx<=0&&c.saboTw&&towers.includes(c.saboTw)){
+        c.saboFx=.12;
+        boltFx(c.g.position.clone(),c.saboTw.g.position.clone().addScaledVector(FACES[faceOf(c.saboTw.cell)].n,.5),0x49e0d2);
+      }
+    }
     let target=c.field.next[c.cell],crawling=false;
     if(target===-1){
       /* pocketed by terrain: slowly climb out — pits can't be cheese-traps */
@@ -2564,7 +2747,8 @@ function sim(dt){
     const dh=Math.abs(HMAP[target]-HMAP[c.cell]);
     if(dh>0&&c.tt.cls!=='jump')sp*=c.tt.climbMul;
     if(crawling)sp*=.35;
-    if(c.stunT>0)sp=0;
+    if(c.burrowT>0)sp*=.5; /* tunneling is slow going */
+    if(c.stunT>0||c.saboT>0)sp=0; /* stunned, or a saboteur mid-job */
     else if(c.slowT>0)sp*=(c.slowPow||.5);
     c.anim+=dt*(c.tt.cls==='jump'?9:c.type==='crawler'?14:7);
     c.prog+=sp*dt/Math.max(a.distanceTo(b),.0001);
@@ -2574,7 +2758,8 @@ function sim(dt){
       const n1=FACES[faceOf(c.cell)].n,n2=FACES[faceOf(target)].n;
       const n=n1.clone().lerp(n2,c.prog).normalize();
       let lift=.02;
-      if(c.tt.cls==='jump'&&dh>0)lift+=Math.sin(c.prog*Math.PI)*.5;
+      if(c.burrowT>0)lift=-.42; /* submerged: just a moving hump of dirt */
+      else if(c.tt.cls==='jump'&&dh>0)lift+=Math.sin(c.prog*Math.PI)*.5;
       else if(c.tt.cls==='jump')lift+=Math.abs(Math.sin(c.anim))*.08;
       else if(c.type==='crawler')lift+=Math.abs(Math.sin(c.anim))*.02;
       else lift+=Math.abs(Math.sin(c.anim))*.04;
@@ -2586,6 +2771,7 @@ function sim(dt){
     }
     if(c.g.userData.spin)c.g.userData.spin.rotation.z+=dt*2.2;
     if(c.g.userData.spin2)c.g.userData.spin2.rotation.z-=dt*3;
+    c.bar.visible=c.burrowT<=0;
     c.bar.scale.x=Math.max(c.hp/c.maxHp,.001);
     c.bar.material.color.setHSL(.33*(c.hp/c.maxHp),.9,.55);
     c.bar.position.y=.78+(HMAP[c.cell]<0?(-HMAP[c.cell]*HSTEP)/c.tt.s:0); /* bars peek above pit rims — creeps in holes stay readable */
@@ -2602,6 +2788,11 @@ function sim(dt){
     }
     tw.warn.visible=routeSet.has(tw.cell);
     if(tw.warn.visible)tw.warn.rotation.y+=dt*4;
+    if(tw.saboT>0){ /* sabotaged: dark, sparking, silent */
+      tw.saboT-=dt;
+      if(tw.saboT<=0){tw.saboT=0;tw.headMat.emissiveIntensity=.4;toast(tw.type+' back online');}
+      else{if(Math.random()<dt*5)puff(tw.g.position,0x49e0d2,1);continue;}
+    }
     tw.cool-=dt;
     const best=acquire(tw);
     if(best){
@@ -2615,7 +2806,7 @@ function sim(dt){
   crystalCool-=dt;
   if(crystalCool<=0)
     for(const c of creeps)
-      if(c.g.position.distanceTo(crystal.position)<1.9){
+      if(c.burrowT<=0&&c.g.position.distanceTo(crystal.position)<1.9){
         crystalCool=2;
         boltFx(crystal.position.clone(),c.g.position.clone(),0x2de0c8);
         damageCreep(c,14);break;
@@ -2774,6 +2965,13 @@ function tick(){
   surfWater.opacity=.5+Math.sin(t*1.7)*.08;
   for(const m of WSURF.values())
     m.position.copy(m.userData.base).addScaledVector(m.userData.n,Math.sin(t*1.6+m.userData.ph)*.045);
+  for(let i2=DECOFX.length-1;i2>=0;i2--){ /* set-piece life: monolith glint, vent smoke */
+    const d2=DECOFX[i2];
+    if(!d2.g.parent){DECOFX.splice(i2,1);continue;} /* chopped or cleared */
+    if(d2.type==='pulse')d2.mat.emissiveIntensity=.45+(Math.sin(t*1.7+d2.ph)+1)*.6;
+    else if((d2.t-=raw)<=0){d2.t=7.2+Math.random()*2.2;
+      puff(d2.g.position.clone().addScaledVector(FACES[d2.f].n,.4),0x6e7280,5);}
+  }
   if(heroSpawned&&mode!=='walk'){
     const HF=FACES[walker.face];
     avatar.position.copy(walker.pos).addScaledVector(HF.n,groundLift(walker.pos));
@@ -3064,7 +3262,8 @@ window.GameAPI={
     biomes:BIOMES.map((B,f)=>({face:f,name:B.name,hazard:B.hz?B.hz.label:null})),
     towers:Object.keys(TT).map(k=>({type:k,cost:TT[k].cost,range:TT[k].range,dmg:TT[k].dmg,rate:TT[k].rate,homeBiome:TT[k].biome})),
     creeps:Object.keys(CT).map(k=>({type:k,hpMult:CT[k].hp,speed:CT[k].speed,cls:CT[k].cls,bounty:CT[k].bounty,
-      armor:CT[k].armor||0,minWave:CT[k].minWave||1,boss:!!CT[k].boss,healer:!!CT[k].healer,regen:CT[k].regen||0,climbMul:CT[k].climbMul}))},
+      armor:CT[k].armor||0,minWave:CT[k].minWave||1,boss:!!CT[k].boss,healer:!!CT[k].healer,regen:CT[k].regen||0,climbMul:CT[k].climbMul,
+      burrow:!!CT[k].burrow,split:CT[k].split||0,sabo:CT[k].sabo||0,wisp:!!CT[k].wisp,nightOnly:!!CT[k].night,child:!!CT[k].child,rare:!!CT[k].rare}))},
   state(){return{
     demo:DEMO,free:FREE,paused,simSpeed,autopilot,mode,
     score,wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
@@ -3077,7 +3276,7 @@ window.GameAPI={
     crystal:CRYSTAL,portals:[...PORTALS],
     nextWave:pendingQueue.reduce((a,k)=>(a[k]=(a[k]||0)+1,a),{}),
     queuedSpawns:spawnQueue.length,
-    creeps:creeps.map(c=>({type:c.type,cell:c.cell,hp:+c.hp.toFixed(1),maxHp:+c.maxHp.toFixed(1),cls:c.tt.cls})),
+    creeps:creeps.map(c=>({type:c.type,cell:c.cell,hp:+c.hp.toFixed(1),maxHp:+c.maxHp.toFixed(1),cls:c.tt.cls,burrowed:c.burrowT>0||undefined})),
     towers:towers.map(t=>({type:t.type,cell:t.cell,tier:t.tier,onWall:t.onWall,home:!!t.home,hp:Math.round(t.hp),branch:t.branch||null,prio:t.prio,kills:t.kills,dmgDealt:Math.round(t.dmgDealt)})),
     unlockedTowers:Object.keys(TT).filter(towerUnlocked),
     hmap:Array.from(HMAP),

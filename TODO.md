@@ -30,6 +30,7 @@ python3 -m http.server 8765 --directory .   # serve
 - Demo attract mode, splash with difficulty + biome strip, pause menu w/ stats, settings, autopilot director (banks for big towers, mazes terrain, pays mining costs).
 - Day/night (night = +15% creep speed, red eyes), per-biome hazards, sun/moon synced to light.
 - `window.GameAPI` — full agent control surface (also `GameAPI.fp.*` for walking). Balance was tuned with it.
+- **#22 content variety (2026-06-11)**: 4 new creeps — burrower w8+ (first hit sends it under 3s; water/ice/road deny the dive), swarm-mother w10+ (death-splits into 4 spawn with fresh nids), saboteur w12+ (shorts one tower 4s, spark tether), night-only wisp w9+ (50% dmg moving / 2× slowed) — lightly weighted in composeQueue; plus 1-2 seeded landmark set-pieces per biome (standing-stone circle, sandstone arch, glinting monolith, smoking vent, hollow stump, varied crystal clusters), all choppable DEC scenery off the route. Bestiary/portraits/GameAPI.grid updated.
 
 ## Open (priority order)
 
