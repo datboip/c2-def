@@ -873,7 +873,7 @@ function spawnCreep(typeName){
   let sp=PORTALS[spawnIdx++%PORTALS.length];
   const bi=PORTALS.indexOf(sp);
   if(bi>0&&wave-(PORTAL_BORN[bi]||0)<2&&rnd()<.5)sp=PORTALS[0]; /* new portal: ~50% share its first 2 waves */
-  const c={g,type:typeName,tt:t,hp,maxHp:hp,speed:t.speed*(1+wave*.008),bounty:t.bounty,bar,
+  const c={g,type:typeName,tt:t,hp,maxHp:hp,speed:t.speed*(1+wave*.008),bounty:t.bounty,bar,nid:++NET.creepSeq,
     cell:sp,spawnPortal:sp,prog:0,slowT:0,stunT:0,slowPow:.5,burn:null,healT:0,anim:Math.random()*9,
     field:FIELDS[t.cls]};
   g.position.copy(cellTop(sp));
@@ -2460,7 +2460,7 @@ function tick(){
    theirs to defend. Guests mirror the host's world and their actions are
    validated + executed host-side (own biome only). */
 const NET={on:false,role:null,sock:null,id:0,name:'p',guests:new Map(),myFace:-1,
-  dirtyStatic:false,silent:false,mGroups:[],towerCache:''};
+  dirtyStatic:false,silent:false,mirror:new Map(),towerCache:'',creepSeq:0};
 function netSend(o){if(NET.sock&&NET.sock.readyState===1)NET.sock.send(JSON.stringify(o));}
 (function(){
   const q=new URLSearchParams(location.search);
@@ -2549,7 +2549,7 @@ function netHostPump(dt){
   netT=.05; /* 20Hz — guests dead-reckon between snaps */
   if(NET.dirtyStatic){NET.dirtyStatic=false;sendStatic();}
   netSend({t:'snap',w:wave,g:gold,l:lives,b:breakT>0&&breakT<900?Math.ceil(breakT):0,
-    cr:creeps.map(c=>({y:c.type,x:+c.g.position.x.toFixed(2),z:+c.g.position.y.toFixed(2),q:+c.g.position.z.toFixed(2),h:+(c.hp/c.maxHp).toFixed(2)})),
+    cr:creeps.map(c=>({d:c.nid,y:c.type,x:+c.g.position.x.toFixed(2),z:+c.g.position.y.toFixed(2),q:+c.g.position.z.toFixed(2),h:+(c.hp/c.maxHp).toFixed(2)})),
     tw:towers.map(t2=>({y:t2.type,c:t2.cell,t:t2.tier}))});
 }
 function guestMsg(m){
@@ -2580,28 +2580,30 @@ function guestMsg(m){
     wave=m.w;gold=m.g;lives=m.l;
     if(m.b>0){$('breakwrap').style.display='block';$('breakbar').textContent='CALL WAVE · '+m.b+'s';}
     else $('breakwrap').style.display='none';
-    /* creep mirror: reconcile by index */
-    while(NET.mGroups.length>m.cr.length){const e=NET.mGroups.pop();scene.remove(e.g);}
-    const now=performance.now();
-    m.cr.forEach((c,i)=>{
-      let e=NET.mGroups[i];
-      if(!e||e.type!==c.y){
-        if(e)scene.remove(e.g);
+    /* creep mirror: STABLE IDS — index-matching scrambled identities whenever
+       one died, which is what sent mirrors flying into the sky */
+    const now=performance.now(),seen=new Set();
+    for(const c of m.cr){
+      seen.add(c.d);
+      let e=NET.mirror.get(c.d);
+      if(!e){
         const mat=new THREE.MeshStandardMaterial({color:CT[c.y].color,roughness:.7});
         const g=buildCreepBody(c.y,mat);
         g.scale.setScalar(CT[c.y].s);
-        e={type:c.y,g,tgt:new THREE.Vector3(c.x,c.z,c.q),vel:new THREE.Vector3(),at:now};
+        e={type:c.y,g,tgt:new THREE.Vector3(c.x,c.z,c.q),last:new THREE.Vector3(c.x,c.z,c.q),vel:new THREE.Vector3(),at:now};
         g.position.copy(e.tgt);
-        scene.add(g);NET.mGroups[i]=e;
+        scene.add(g);NET.mirror.set(c.d,e);
       }
-      /* dead reckoning: measure velocity between snaps so motion stays live between packets */
+      /* dead reckoning from AUTHORITATIVE positions only */
       const dtSnap=Math.min(Math.max((now-e.at)/1000,.02),.3);
-      e.vel.set(c.x,c.z,c.q).sub(e.tgt).divideScalar(dtSnap);
-      if(e.vel.length()>8)e.vel.setLength(8); /* spawn/teleport guard */
-      e.tgt.set(c.x,c.z,c.q);
+      netTmp.set(c.x,c.z,c.q).sub(e.last).divideScalar(dtSnap);
+      if(netTmp.length()>6)netTmp.setLength(6);
+      e.vel.lerp(netTmp,.6); /* EMA calms hop-animation aliasing */
+      e.last.set(c.x,c.z,c.q);
+      e.tgt.copy(e.last);
       e.at=now;
-      e.g.quaternion.setFromUnitVectors(V3(0,1,0),e.tgt.clone().normalize());
-    });
+    }
+    for(const[id,e]of NET.mirror)if(!seen.has(id)){scene.remove(e.g);NET.mirror.delete(id);}
     /* tower mirror: rebuild on change */
     const tc=JSON.stringify(m.tw);
     if(tc!==NET.towerCache){
@@ -2617,12 +2619,20 @@ function guestMsg(m){
     }
   }
 }
+const netTmp=new THREE.Vector3(),netQ=new THREE.Quaternion(),netM=new THREE.Matrix4();
 function netGuestLerp(dt){
   if(NET.role!=='guest')return;
   const k=Math.min(dt*14,1);
-  for(const e of NET.mGroups){
-    e.tgt.addScaledVector(e.vel,dt); /* keep moving along last-known velocity */
+  const now=performance.now();
+  for(const e of NET.mirror.values()){
+    if(now-e.at<400)e.tgt.addScaledVector(e.vel,dt); /* extrapolate briefly, never forever */
     e.g.position.lerp(e.tgt,k);
+    /* orient like the host does: forward = where it's going, up = the face it stands on */
+    if(e.vel.lengthSq()>.04){
+      const F=FACES[faceBasisAt(e.g.position)];
+      netM.lookAt(netTmp.copy(e.g.position).add(e.vel),e.g.position,F.n);
+      e.g.quaternion.slerp(netQ.setFromRotationMatrix(netM),Math.min(dt*8,1));
+    }
   }
 }
 
@@ -2744,10 +2754,11 @@ window.GameAPI={
   ability(k){return useAbility(k)?{ok:true,cooldown:ABIL[k].cd}:{ok:false,why:ABIL[k]?(ABIL[k].t>0?'on cooldown':'cannot afford'):'unknown ability'};},
   heroSkill(k){return buyHeroSkill(k);},
   player(n){playerName=String(n||'anon').slice(0,24);return{ok:true,player:playerName};},
-  net(){return{on:NET.on,role:NET.role,myFace:NET.myFace,
-    mirrors:NET.mGroups.length,
+  net(){const first=NET.mirror.values().next().value;
+    return{on:NET.on,role:NET.role,myFace:NET.myFace,
+    mirrors:NET.mirror.size,
     guests:[...NET.guests.values()].map(g=>({name:g.name,face:g.face})),
-    mirrorPos:NET.mGroups[0]?NET.mGroups[0].g.position.toArray().map(v=>+v.toFixed(3)):null};},
+    mirrorPos:first?first.g.position.toArray().map(v=>+v.toFixed(3)):null};},
   leaderboard(){return getLeaderboard();},
   branch(i,idx){const tw=TWR[i];
     if(!tw)return{ok:false,why:'no tower there'};
