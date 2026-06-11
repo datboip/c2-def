@@ -172,7 +172,7 @@
   <h2>HOW TO PLAY · C² DEFENSE</h2>
   <div class="hl">
     The world is a <b>cube</b>; each face is a <b>biome</b>, gravity points at the core. Creeps pour from <b style="color:#a86bff">portals</b> — one per awake biome, tinted to match it — and all march to your single <b style="color:#2de0c8">crystal</b>. One way in per biome, one way out.<br><br>
-    <b>WAKING THE CUBE</b> — you start on the meadow. Survive and biomes wake in order: <b>forest → desert → tundra → volcanic → caverns</b>. Each brings a new portal, its hazard, and unlocks its <b>native tower</b>. Difficulty sets the pace and ceiling.<br><br>
+    <b>WAKING THE CUBE</b> — you start on the meadow. Biomes wake in order: <b>forest → desert → tundra → volcanic → caverns</b>, on a schedule set by difficulty — or <b>breach early</b> by clicking the countdown chip (costs gold, comes with an expedition cache + the biome's native tower). Every portal sits at its face's <b>far edge</b>: the invasion marches the full face, over the rim, and onward — one continuous front.<br><br>
     <b>NATIVE TOWERS</b> — cannon starts with you (meadow). tesla→forest · sniper→desert · frost→tundra · mortar→volcanic · laser→caverns. A tower on its home biome hits <b style="color:#ffd24a">+25%</b>.<br><br>
     <b>HAZARDS</b> — forest undergrowth slows creeps · desert quicksand makes pits lethal-slow · tundra ice speeds them up but frost slows stick longer · volcanic embers and cavern static burn HP over time.<br><br>
     <b>PATH DOTS</b> read the route's speed: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling. Reroute them through red.<br><br>
@@ -1588,8 +1588,24 @@ function addPortalMesh(f){
   scene.add(p2);portalMeshes.push(p2);return p2;
 }
 function farCellOnFace(f){
-  if(f===0)return 0*FCELLS+1*S+(S>>1); /* portal: middle of one edge */
-  return f*FCELLS+(S>>1)*S+(S>>1);
+  /* continuity: every portal sits at its face's FAR edge so the invasion marches the
+     full length of the new face, over the shared edge, and onward — one flowing front.
+     (side faces: v=1 row borders the BOTTOM of the cube; the bottom face keeps the
+      center — it's the antipode of the crystal, the finale.) */
+  if(f===1)return f*FCELLS+(S>>1)*S+(S>>1);
+  return f*FCELLS+1*S+(S>>1);
+}
+const expandCost=()=>120+60*(facesUnlocked-1);
+function expandNow(){
+  if(DEMO||facesUnlocked>=DIFF.maxFaces)return{ok:false,why:'nothing left to wake'};
+  if(!FREE&&gold<expandCost()){toast('need '+expandCost()+'g to breach early');return{ok:false,why:'need '+expandCost()+'g'};}
+  const cost=expandCost();
+  if(!FREE)gold-=cost;
+  unlockNextFace();
+  nextUnlockWave=wave+DIFF.unlockEvery; /* the schedule restarts from your breach */
+  INV.iron+=2;INV.shard+=1;
+  toast('expedition cache: +2 iron · +1 shard');
+  return{ok:true,paid:cost,faces:facesUnlocked};
 }
 /* ===== unlock telegraph: ghost portal + dotted preview of the incoming route, one wave early ===== */
 let ghostPortal=null,previewDots=null,telegraphFor=-1;
@@ -1996,7 +2012,7 @@ function tick(){
       '<div class="chip" style="color:'+(isNight?'#a86bff':'#ffd24a')+'" title="'+(isNight?'night — creeps frenzy':'day')+'">'+(isNight?IC.moon:IC.sun)+'</div>'+
       '<div class="chip" style="color:#8a93ab" title="biomes awake">'+IC.cube+' <b style="color:#8a93ab">'+facesUnlocked+'/6</b></div>'+
       (!DEMO&&facesUnlocked<DIFF.maxFaces?(()=>{const nf=UNLOCK_ORDER[facesUnlocked-1],left=Math.max(1,nextUnlockWave-wave),pc='#'+BIOMES[nf].pc.toString(16).padStart(6,'0');
-        return '<div class="chip" style="color:'+pc+'" title="next biome — new portal incoming">'+IC.skull+' <b style="color:'+pc+'">'+BIOMES[nf].name+' '+left+'w</b></div>';})():'');
+        return '<div class="chip" id="nextbio" style="color:'+pc+';pointer-events:auto;cursor:pointer" title="wakes in '+left+' wave'+(left>1?'s':'')+' — click to breach now for '+expandCost()+'g (+expedition cache, unlocks its tower)">'+IC.skull+' <b style="color:'+pc+'">'+BIOMES[nf].name+' '+left+'w</b></div>';})():'');
     if(hudHtml!==hudCache){hudCache=hudHtml;$('hud').innerHTML=hudHtml;}
     const resHtml=DEMO?'':
       (freeDigs>0&&!FREE?'<div class="res" style="color:#8ee8d8">'+IC.pick+'<span>'+freeDigs+'<small>FREE DIGS</small></span></div>':'')+
@@ -2069,6 +2085,8 @@ window.GameAPI={
     towers:towers.map(tw=>{const b=acquire(tw);return{type:tw.type,cool:+tw.cool.toFixed(2),
       acquired:b?b.type:null,nearest:creeps.length?Math.min(...creeps.map(c=>tw.g.position.distanceTo(c.g.position))).toFixed(2):null,range:tw.tt.range};})}),
   unlock(){const b=facesUnlocked;unlockNextFace();return{ok:facesUnlocked>b,faces:facesUnlocked};},
+  expand(){return expandNow();},
+  expandCost:()=>expandCost(),
   ability(k){return useAbility(k)?{ok:true,cooldown:ABIL[k].cd}:{ok:false,why:ABIL[k]?(ABIL[k].t>0?'on cooldown':'cannot afford'):'unknown ability'};},
   branch(i,idx){const tw=TWR[i];
     if(!tw)return{ok:false,why:'no tower there'};
@@ -2097,6 +2115,7 @@ window.GameAPI={
 /* boot */
 document.querySelectorAll('[data-ic]').forEach(el=>{el.innerHTML=IC[el.dataset.ic]||'';});
 $('biostrip').innerHTML=BIOMES.map(B=>'<div class="bio"><i style="background:#'+B.a.toString(16).padStart(6,'0')+'"></i>'+B.name+'</div>').join('');
+$('hud').addEventListener('click',e=>{if(e.target.closest('#nextbio'))expandNow();});
 (function(){const sg=document.querySelectorAll('#segSpeed div');
   sg[0].innerHTML=IC.pause;sg[1].innerHTML=IC.play;sg[2].innerHTML=IC.ff;sg[3].innerHTML=IC.ff2;sg[4].innerHTML=IC.ff3;})();
 $('btnWalk').innerHTML=IC.pick;$('btnPath').innerHTML=IC.path;
