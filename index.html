@@ -749,14 +749,19 @@ function rebuildWaterSurfaces(){
    territory near edges — sunken water beds and pit floors got buried inside another
    face's geometry (the 'thin skin' / 'water in my hole' family of bugs). */
 function tileGeoFrustum(i,q){
-  const g=new THREE.BoxGeometry(.98,.98,4.4); /* +Z = outward; deep enough that a -3 dig still shows solid pit walls */
+  /* piecewise: the top 1.1 units stay a TRUE straight cube (every block the player
+     ever sees — walls, pit walls — is square), the taper toward the core only starts
+     below the diggable zone, where it exists purely to stop faces interpenetrating */
+  const g=new THREE.BoxGeometry(.98,.98,4.4,1,1,4); /* +Z = outward; depth rings every 1.1 for the piecewise taper */
   const F=FACES[faceOf(i)];
   const T=cellBase(i).clone().addScaledVector(F.n,-2.2);
+  const sEnd=(HCUBE-4.4)/HCUBE;
   const p=g.attributes.position,v=new THREE.Vector3(),lat=new THREE.Vector3(),qi=q.clone().invert();
   for(let k=0;k<p.count;k++){
     v.set(p.getX(k),p.getY(k),p.getZ(k)).applyQuaternion(q).add(T); /* world */
-    const r=v.dot(F.n);                                  /* radius along the face normal */
-    lat.copy(v).addScaledVector(F.n,-r).multiplyScalar(r/HCUBE); /* lateral part converges toward the core */
+    const r=v.dot(F.n),d=HCUBE-r;                        /* depth below the surface */
+    const s=d<=1.1?1:1-(1-sEnd)*(d-1.1)/3.3;
+    lat.copy(v).addScaledVector(F.n,-r).multiplyScalar(s); /* converge only below the visible zone */
     v.copy(lat).addScaledVector(F.n,r).sub(T).applyQuaternion(qi); /* back to local */
     p.setXYZ(k,v.x,v.y,v.z);
   }
