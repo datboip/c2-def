@@ -96,6 +96,7 @@ async function launchBrowser() {
       case 'resume':  return page.evaluate(() => GameAPI.pause(false));
       case 'auto':    return page.evaluate(v => GameAPI.auto(v), a !== 'off');
       case 'ability': return page.evaluate(k => GameAPI.ability(k), a);
+      case 'hero':    return a ? page.evaluate(k => GameAPI.heroSkill(k), a) : page.evaluate(() => GameAPI.state().hero);
       case 'unlock':  return page.evaluate(() => GameAPI.unlock());
       case 'walk':    return page.evaluate(() => GameAPI.fp.enter());
       case 'exit':    return page.evaluate(() => GameAPI.fp.exit());
