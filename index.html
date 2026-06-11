@@ -734,6 +734,7 @@ function addWaterSurface(i){
   const F=FACES[faceOf(i)];
   const m=new THREE.Mesh(surfGeo,w===3?surfLava:w===4?surfQuick:surfWater);
   m.userData.base=cellBase(i).clone().addScaledVector(F.n,-.08);
+  m.userData.amp=w===4?.004:w===3?.01:.016; /* sand doesn't dance; lava heaves; water ripples */
   m.userData.n=F.n;m.userData.ph=(i%9);
   m.position.copy(m.userData.base);
   m.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
@@ -748,21 +749,26 @@ function rebuildWaterSurfaces(){
    partitioning the cube interior. Straight 4.4-deep boxes invaded neighboring faces'
    territory near edges — sunken water beds and pit floors got buried inside another
    face's geometry (the 'thin skin' / 'water in my hole' family of bugs). */
-function tileGeoFrustum(i,q){
-  /* piecewise: the top 1.1 units stay a TRUE straight cube (every block the player
-     ever sees — walls, pit walls — is square), the taper toward the core only starts
-     below the diggable zone, where it exists purely to stop faces interpenetrating */
-  const g=new THREE.BoxGeometry(.98,.98,4.4,1,1,4); /* +Z = outward; depth rings every 1.1 for the piecewise taper */
+function tileGeoFrustum(i,q,h){
+  /* blocks are TRUE CUBES everywhere the player can see — each vertex is only
+     clamped to its face's 45-degree sector boundary, so columns meet the
+     neighboring face in a clean mitred seam instead of interpenetrating it.
+     Rebuilt on height change so raised walls stay square top to bottom. */
+  const g=new THREE.BoxGeometry(.98,.98,4.4);
   const F=FACES[faceOf(i)];
-  const T=cellBase(i).clone().addScaledVector(F.n,-2.2);
-  const sEnd=(HCUBE-4.4)/HCUBE;
-  const p=g.attributes.position,v=new THREE.Vector3(),lat=new THREE.Vector3(),qi=q.clone().invert();
+  const T=cellBase(i).clone().addScaledVector(F.n,-2.2+(h||0)*HSTEP);
+  const p=g.attributes.position,v=new THREE.Vector3(),qi=q.clone().invert();
   for(let k=0;k<p.count;k++){
     v.set(p.getX(k),p.getY(k),p.getZ(k)).applyQuaternion(q).add(T); /* world */
-    const r=v.dot(F.n),d=HCUBE-r;                        /* depth below the surface */
-    const s=d<=1.1?1:1-(1-sEnd)*(d-1.1)/3.3;
-    lat.copy(v).addScaledVector(F.n,-r).multiplyScalar(s); /* converge only below the visible zone */
-    v.copy(lat).addScaledVector(F.n,r).sub(T).applyQuaternion(qi); /* back to local */
+    const r=v.dot(F.n),d=HCUBE-r;                     /* depth below the face surface */
+    if(d>0){
+      const lim=Math.max(.1,HCUBE-d);                 /* the 45-degree sector wall */
+      let a=v.dot(F.r),b=v.dot(F.u);
+      a=Math.sign(a)*Math.min(Math.abs(a),lim);
+      b=Math.sign(b)*Math.min(Math.abs(b),lim);
+      v.copy(F.n).multiplyScalar(r).addScaledVector(F.r,a).addScaledVector(F.u,b);
+    }
+    v.sub(T).applyQuaternion(qi);                     /* back to local */
     p.setXYZ(k,v.x,v.y,v.z);
   }
   g.computeVertexNormals();
@@ -783,7 +789,7 @@ function topMat(i){
 for(let i=0;i<N;i++){
   const f=faceOf(i),F=FACES[f];
   const q=new THREE.Quaternion().setFromUnitVectors(V3(0,0,1),F.n);
-  const m=new THREE.Mesh(tileGeoFrustum(i,q),[matSide,matSide,matSide,matSide,topMat(i),matSide]);
+  const m=new THREE.Mesh(tileGeoFrustum(i,q,0),[matSide,matSide,matSide,matSide,topMat(i),matSide]);
   m.quaternion.copy(q);
   m.position.copy(cellBase(i)).addScaledVector(F.n,-2.2);
   m.receiveShadow=true;m.castShadow=true;m.userData={i};
@@ -794,6 +800,11 @@ function setHeight(i,h){
   const F=FACES[faceOf(i)];
   tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,-2.2+h*HSTEP-((WATER[i]&&WATER[i]!==2)?.3:0));
   tiles[i].scale.set(1,1,1); /* full-size floor: a dug block is ALL gone, minecraft-style */
+  if((tiles[i].userData.gh||0)!==h){ /* height changed: re-clamp the column to its sector */
+    tiles[i].geometry.dispose();
+    tiles[i].geometry=tileGeoFrustum(i,tiles[i].quaternion,h);
+    tiles[i].userData.gh=h;
+  }
   tiles[i].material[4]=topMat(i);
 }
 function refreshTile(i){setHeight(i,HMAP[i]);}
@@ -1344,20 +1355,19 @@ function musUpdate(){
   const heat=Math.min(1,creeps.length/14); /* battle intensity opens the filters and thickens the layers */
   while(MUS.next<AC.currentTime+.3){
     const st=MUS.step&63,ch=MUS_CHORDS[(st>>4)&3];
-    const t0=MUS.next+(Math.random()-.5)*.012; /* humanize: nothing lands exactly on the grid */
+    const t0=MUS.next; /* tight grid — the humanize jitter read as sloppy, not organic */
     if(st%16===0&&AU.voices<13){ /* pad: one warm chord per two bars (root doubled + fifth) */
       const fr=110*Math.pow(2,ch[0]/12);
-      tone(t0,{type:'sawtooth',f:fr,dur:spb*15,vol:.012+heat*.005,a:spb*3,det:8,filter:'lowpass',fq:380+heat*300});
-      tone(t0,{type:'sawtooth',f:fr*1.005,dur:spb*15,vol:.01,a:spb*3,det:8,filter:'lowpass',fq:380});
-      tone(t0,{type:'sawtooth',f:110*Math.pow(2,ch[2]/12),dur:spb*15,vol:.008,a:spb*4,det:8,filter:'lowpass',fq:380});
+      tone(t0,{type:'triangle',f:fr,dur:spb*15,vol:.014+heat*.005,a:spb*3,det:2,filter:'lowpass',fq:420+heat*260});
+      tone(t0,{type:'triangle',f:110*Math.pow(2,ch[2]/12),dur:spb*15,vol:.009,a:spb*4,det:2,filter:'lowpass',fq:420});
     }
     const b=MUS_BASS[st&15];
     if(b>=0&&AU.voices<14){
       const f=55*Math.pow(2,(ch[0]+b)/12);
       tone(t0,{type:'triangle',f,dur:spb*1.6,vol:.038+heat*.012+(st%16===0?.012:0),a:.012,det:4,filter:'lowpass',fq:560});
     }
-    if((st&1)===1&&Math.random()<.14+heat*.24&&AU.voices<14){ /* sparse pluck, denser as the fight heats up */
-      const f=220*Math.pow(2,(ch[0]+MUS_PENTA[(Math.random()*MUS_PENTA.length)|0])/12);
+    if((st&3)===2&&Math.random()<.22+heat*.2&&AU.voices<14){ /* sparse pluck on weak beats, chord tones only */
+      const f=220*Math.pow(2,(ch[(Math.random()*3)|0]+(Math.random()<.3?12:0))/12);
       tone(t0,{type:'triangle',f,dur:spb*2.4,vol:.02,a:.004,det:6,filter:'lowpass',fq:1900});
       tone(t0,{f:f*2,dur:spb*1.1,vol:.007,a:.004});
     }
@@ -3825,7 +3835,7 @@ function tick(){
   surfLava.emissiveIntensity=.85+Math.sin(t*2.6)*.3;
   surfWater.opacity=.5+Math.sin(t*1.7)*.08;
   for(const m of WSURF.values())
-    m.position.copy(m.userData.base).addScaledVector(m.userData.n,Math.sin(t*1.6+m.userData.ph)*.045);
+    m.position.copy(m.userData.base).addScaledVector(m.userData.n,Math.sin(t*1.6+m.userData.ph)*(m.userData.amp||.016));
   for(let i2=DECOFX.length-1;i2>=0;i2--){ /* set-piece life: monolith glint, vent smoke */
     const d2=DECOFX[i2];
     if(!d2.g.parent){DECOFX.splice(i2,1);continue;} /* chopped or cleared */
