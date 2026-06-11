@@ -39,6 +39,19 @@ python3 -m http.server 8765 --directory .   # serve
 4. **Endgame** — wave-20 phase boss, endless mode, persistent prestige meta-upgrades, stats graphs. Balance beyond wave ~10 is untested; the autopilot survives to ~wave 7+ on frontier but humans play better.
 5. **Nice-to-haves logged along the way:** block-place wireframe ghost in walk mode, TP camera wall-clipping, walk-mode footstep bobbing, golem upgrade tiers.
 
+## Playtest wishlist (from 4 scripted GameAPI runs, 2026-06-10)
+
+Findings from actually playing frontier (manual ×2), settler (idle), planetfall (manual):
+
+1. **Auto-chop on build** *(top priority — lost two runs to this)*: building on a scenery cell fails with "chop the scenery first"; the best coverage spots are often treed and the silent refusal is brutal. Chop is free — just do it as part of the build, hint it in the ghost.
+2. **Telegraph the next biome** *(the unlock cliff killed 3 of 4 runs)*: HUD chip "FOREST WAKES IN 2 WAVES" + ghost portal marker and dotted preview route one wave out. The information is deterministic; hiding it just makes the wave-4 spike feel unfair instead of strategic.
+3. **Trample visibility**: towers on the route die silently. HP bars over damaged towers, red badge when a tower stands on the live route.
+4. **Soften new-portal entry**: first 2 waves from a fresh portal at ~50% spawn share.
+5. **QoL batch**: clear event LOGS on reset (bug — bleeds across runs), 8× speed for idle, wave-preview chips tinted by source portal, per-tower targeting priority, hover shows pit depth.
+6. **Trench ergonomics**: 2-deep moats are the premium defense but cost many gamble-clicks with no depth feedback; consider a dig-queue or at least depth indicators.
+
+Verdicts: settler idle pacing is healthy (wave 8, no prestige, autopilot bought tesla and mazed to 32 cells). Planetfall is appropriately brutal. Frontier's danger is entirely concentrated at biome unlocks — items 2 and 4 are the fix.
+
 ## Gotchas
 
 - Tile heights: one logical level = `HSTEP` (0.98 world units, full Minecraft-style blocks). Tile boxes are 4.4 deep so 3-deep pits show solid walls.
