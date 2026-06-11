@@ -58,6 +58,14 @@ Findings from actually playing frontier (manual ×2), settler (idle), planetfall
 4. ~~Leak forensics~~ — every leak logs creep type + source portal; `state().recentLeaks`.
 5. ~~Timing lever~~ — `surge` ability: 80g, all towers +50% fire rate for 10s, 45s cooldown.
 
+### UI/flow wishlist round 2 (2026-06-11 review)
+
+1. **Wave-end summary card**: brief overlay after each wave — kills by tower, leaks by portal, gold earned. The data all exists (per-tower stats, leak forensics).
+2. **Build-bar hover panel**: tooltips work but a styled hover card (stats + branch preview) would beat the native title popup.
+3. **HUD scale setting** + remember hide-UI/history prefs in localStorage.
+4. **Damage ticker**: small rolling DPS readout per tower in its panel (have dmgDealt; sample over 10s).
+5. **Creep inspector**: click a creep → type, hp, speed, source portal, distance to crystal.
+
 ### Walk-mode (1st/3rd person) wishlist — from playing both views
 
 1. **Aimed-tile highlight** *(top FP/TP item)*: a Minecraft-style wireframe on the block you're about to dig/place. Right now you act blind; the overview has a ghost ring, walk mode has nothing.
