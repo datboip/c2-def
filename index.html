@@ -13,12 +13,21 @@
   .tbtn .ic{width:15px;height:15px}
   .slot .ic{width:20px;height:20px}
   .mbtn .ic{width:14px;height:14px;margin-right:8px;vertical-align:-2px}
-  #hud{position:fixed;top:0;left:0;right:0;height:44px;display:flex;align-items:center;gap:4px;padding:0 14px;pointer-events:none;z-index:10;
-    background:linear-gradient(180deg,rgba(7,9,16,.94) 0%,rgba(7,9,16,.78) 70%,transparent);
+  #hud{position:fixed;top:0;left:0;right:0;height:54px;display:flex;align-items:center;gap:7px;padding:0 14px;pointer-events:none;z-index:10;
+    background:linear-gradient(180deg,rgba(7,9,16,.96) 0%,rgba(7,9,16,.82) 70%,transparent);
     border-bottom:1px solid rgba(255,210,74,.14)}
-  .chip{padding:0 12px;font-size:12px;color:#cfd6e4;display:flex;align-items:center;gap:7px;height:26px;border-right:1px solid rgba(255,255,255,.07)}
-  .chip:last-child{border-right:none}
-  .chip b{color:#ffd24a;font-weight:700;font-size:13px}
+  .chip{padding:5px 13px;font-size:12px;color:#cfd6e4;display:flex;align-items:center;gap:8px;
+    background:linear-gradient(170deg,rgba(24,28,42,.85),rgba(13,15,23,.85));border:1px solid rgba(255,255,255,.08);border-radius:10px;
+    box-shadow:0 3px 10px rgba(0,0,0,.35)}
+  .chip b{color:#ffd24a;font-weight:700;font-size:15px;line-height:1.1;animation:chippop .25s ease-out}
+  .chip small{display:block;font-size:8px;color:#6b7385;letter-spacing:.12em;font-weight:400;line-height:1}
+  .chip .cv{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+  @keyframes chippop{from{transform:scale(1.28)}to{transform:scale(1)}}
+  body.uihide #hud,body.uihide #buildbar,body.uihide #resbar,body.uihide #abilbar,body.uihide #histpanel,body.uihide #facetag,body.uihide #toast{display:none!important}
+  #uirestore{display:none;position:fixed;top:10px;right:10px;z-index:30;background:rgba(20,23,34,.9);border:1px solid #3a4158;color:#8a93ab;border-radius:8px;padding:6px 10px;font:11px ui-monospace,monospace;cursor:pointer}
+  body.uihide #uirestore{display:block}
+  @keyframes breachpulse{0%,100%{box-shadow:0 0 4px rgba(255,210,74,.2)}50%{box-shadow:0 0 16px rgba(255,210,74,.6)}}
+  .chip.canbreach{animation:breachpulse 1.6s ease-in-out infinite}
   #ctrls{position:fixed;top:0;right:10px;height:44px;display:flex;gap:2px;align-items:center;z-index:11}
   .tbtn{background:transparent;border:none;color:#8a93ab;border-radius:8px;padding:7px 9px;cursor:pointer;user-select:none;display:flex;align-items:center;transition:color .15s,background .15s}
   .tbtn:hover{color:#ffd24a;background:rgba(255,210,74,.08)}
@@ -207,6 +216,7 @@
   <button class="mbtn" id="spHelp"><span data-ic="help"></span>how to play</button>
 </div></div>
 <div id="demoTag" style="display:none">DEMO</div>
+<div id="uirestore">show UI [U]</div>
 <div id="errbar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99;background:rgba(80,10,20,.95);border-top:1px solid #ff5e8a;color:#ffb3c4;font:11px/1.6 ui-monospace,monospace;padding:8px 14px;max-height:120px;overflow:auto"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
 <script>
@@ -1782,7 +1792,8 @@ function renderBar(){
       continue;
     }
     html+='<div class="bb'+(selectedType===k?' sel':'')+((gold<TT[k].cost&&!FREE)?' poor':'')+'" data-t="'+k+
-      '" style="color:#'+TT[k].color.toString(16).padStart(6,'0')+'"><span class="ico">'+IC[k]+'</span><span style="color:#cfd6e4">'+k+'</span><br><span class="c">'+TT[k].cost+'g</span></div>';
+      '" title="dmg '+TT[k].dmg+' · '+TT[k].rate+'/s · range '+TT[k].range+' · native: '+BIOMES[TT[k].biome].name+'"'+
+      ' style="color:#'+TT[k].color.toString(16).padStart(6,'0')+'"><span class="ico">'+IC[k]+'</span><span style="color:#cfd6e4">'+k+'</span><br><span class="c">'+TT[k].cost+'g</span></div>';
   }
   html+='<div class="bb'+(selectedType==='__dig'?' sel':'')+'" data-t="__dig" style="color:#c9925a"><span class="ico">'+IC.pick+'</span><span style="color:#cfd6e4">dig</span><br><span class="c">'+(freeDigs>0&&!FREE?freeDigs+' free':CFG.digCost+'g roll')+'</span></div>';
   html+='<div class="bb'+(selectedType==='__wall'?' sel':'')+((dirt<1&&!FREE)?' poor':'')+'" data-t="__wall" style="color:#8ee8d8"><span class="ico">'+IC.dirt+'</span><span style="color:#cfd6e4">wall</span><br><span class="c">1 dirt</span></div>';
@@ -1910,6 +1921,7 @@ addEventListener('keydown',e=>{
   if((e.key==='e'||e.key==='E')&&mode==='walk')setTool(tool+1);
   if((e.key==='c'||e.key==='C')&&mode==='walk'){walkView=walkView==='fp'?'tp':'fp';toast('camera: '+(walkView==='fp'?'first':'third')+' person');}
   if((e.key==='h'||e.key==='H')&&!menuOpen){showHist=!showHist;$('btnHist').classList.toggle('on',showHist);}
+  if((e.key==='u'||e.key==='U')&&!menuOpen)document.body.classList.toggle('uihide');
   if(e.key==='Escape'){
     if($('helpmenu').style.display==='flex'){$('helpmenu').style.display='none';if(!menuOpen)paused=false;return;}
     if(menuOpen){closeMenu(true);return;}
@@ -2185,6 +2197,7 @@ function sim(dt){
     if(c.g.userData.spin2)c.g.userData.spin2.rotation.z-=dt*3;
     c.bar.scale.x=Math.max(c.hp/c.maxHp,.001);
     c.bar.material.color.setHSL(.33*(c.hp/c.maxHp),.9,.55);
+    c.bar.position.y=.78+(HMAP[c.cell]<0?(-HMAP[c.cell]*HSTEP)/c.tt.s:0); /* bars peek above pit rims — creeps in holes stay readable */
     c.bar.lookAt(camera.position);
   }
   for(const tw of towers){
@@ -2423,18 +2436,23 @@ function tick(){
     /* who's at the controls — so there's never any doubt */
     const who=NET.on?(NET.role==='host'?['#ff8c2d','HOST · '+(NET.guests.size+1)+'P']:['#4dd8ff','GUEST · '+(NET.myFace>=0?BIOMES[NET.myFace].name:'spec')]):
       DEMO?['#a86bff','DEMO · AI']:autopilot?['#2de0c8','AI PLAYING']:['#ffd24a','HUMAN'];
+    const C=(icon,val,label,col,extra,id)=>'<div class="chip"'+(id?' id="'+id+'"':'')+' style="color:'+(col||'#cfd6e4')+(id?';pointer-events:auto;cursor:pointer':'')+'"'+(extra?' title="'+extra+'"':'')+'>'+icon+
+      '<span class="cv"><b style="color:'+(col||'#ffd24a')+'">'+val+'</b><small>'+label+'</small></span></div>';
+    const incoming=creeps.length+spawnQueue.length;
     const hudHtml=
-      '<div class="chip" style="color:'+who[0]+'" title="who is playing right now">'+IC.bot+' <b style="color:'+who[0]+'">'+who[1]+(FREE?' · SANDBOX':'')+'</b></div>'+
-      (DEMO?'':'<div class="chip" title="score — best '+bestScore+'">'+IC.star+' <b>'+score+'</b></div>')+
-      '<div class="chip">'+IC.wave+' <b>'+wave+'</b>'+
-        (waveTotal&&(creeps.length+spawnQueue.length)?
-          ' <span style="display:inline-block;width:54px;height:5px;background:#222738;border-radius:3px;margin-left:5px"><span style="display:block;height:100%;border-radius:3px;background:#ffd24a;width:'+
-          Math.round((1-(creeps.length+spawnQueue.length)/Math.max(waveTotal,1))*100)+'%"></span></span>':'')+'</div>'+
-      '<div class="chip" style="color:'+(lowLives?'#ff5e8a':'#cfd6e4')+'">'+IC.heart+' <b style="color:'+(lowLives?'#ff5e8a':'#ffd24a')+'">'+lives+'</b></div>'+
-      '<div class="chip" style="color:'+(isNight?'#a86bff':'#ffd24a')+'" title="'+(isNight?'night — creeps frenzy':'day')+'">'+(isNight?IC.moon:IC.sun)+'</div>'+
-      '<div class="chip" style="color:#8a93ab" title="biomes awake">'+IC.cube+' <b style="color:#8a93ab">'+facesUnlocked+'/6</b></div>'+
-      (!DEMO&&facesUnlocked<DIFF.maxFaces?(()=>{const nf=UNLOCK_ORDER[facesUnlocked-1],left=Math.max(1,nextUnlockWave-wave),pc='#'+BIOMES[nf].pc.toString(16).padStart(6,'0');
-        return '<div class="chip" id="nextbio" style="color:'+pc+';pointer-events:auto;cursor:pointer" title="wakes in '+left+' wave'+(left>1?'s':'')+' — click to breach now for '+expandCost()+'g (+expedition cache, unlocks its tower)">'+IC.skull+' <b style="color:'+pc+'">'+BIOMES[nf].name+' '+left+'w</b></div>';})():'');
+      C(IC.bot,who[1]+(FREE?' · SBX':''),'playing',who[0],'who is at the controls')+
+      (DEMO?'':C(IC.star,score,'score · best '+bestScore,'#ffd24a'))+
+      C(IC.wave,wave+(incoming?' · '+incoming+' left':''),'wave','#cfd6e4',waveTotal?'enemies still coming this wave':'')+
+      C(IC.heart,lives,'lives',lowLives?'#ff5e8a':'#ffd24a',lowLives?'CRITICAL':'')+
+      C(isNight?IC.moon:IC.sun,isNight?'night':'day',isNight?'creeps +15%':'cycle',isNight?'#a86bff':'#ffd24a')+
+      C(IC.cube,facesUnlocked+'/6','biomes','#8a93ab')+
+      (!DEMO&&facesUnlocked<DIFF.maxFaces?(()=>{
+        const nf=UNLOCK_ORDER[facesUnlocked-1],left=Math.max(1,nextUnlockWave-wave),pc='#'+BIOMES[nf].pc.toString(16).padStart(6,'0');
+        const afford=FREE||gold>=expandCost();
+        const chip=C(IC.skull,BIOMES[nf].name+' in '+left+'w','breach: '+expandCost()+'g',pc,
+          'wakes in '+left+' wave'+(left>1?'s':'')+' — click to breach now for '+expandCost()+'g (+cache, unlocks its tower)','nextbio');
+        return afford?chip.replace('class="chip"','class="chip canbreach"'):chip;
+      })():'');
     if(hudHtml!==hudCache){hudCache=hudHtml;$('hud').innerHTML=hudHtml;}
     const resHtml=DEMO?'':
       (freeDigs>0&&!FREE?'<div class="res" style="color:#8ee8d8">'+IC.pick+'<span>'+freeDigs+'<small>FREE DIGS</small></span></div>':'')+
@@ -2800,6 +2818,7 @@ $('btnWalk').innerHTML=IC.pick;$('btnPath').innerHTML=IC.path;
 $('btnHist').innerHTML=IC.list;
 $('btnHist').classList.add('on');
 $('btnHist').onclick=()=>{showHist=!showHist;$('btnHist').classList.toggle('on',showHist);};
+$('uirestore').onclick=()=>document.body.classList.remove('uihide');
 $('btnSpin').innerHTML=IC.cube;
 $('btnSpin').onclick=()=>{autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);};
 $('btnSpin').classList.toggle('on',true);
