@@ -1,4 +1,4 @@
-# TINY DEFENCE · CUBE
+# C² DEFENSE — cube squared
 
 A single-file 3D tower defense where the world is a cube. Six faces, six biomes, gravity points at the molten core. Creeps pour from biome portals and march across faces and over edges to your crystal.
 
