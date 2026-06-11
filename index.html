@@ -768,6 +768,12 @@ const TT={
 };
 const towerUnlocked=k=>FREE||TT[k].starter||!!ACTIVE[TT[k].biome];
 const baseGeo=new THREE.CylinderGeometry(.26,.34,.4,7);
+/* tier reads at a glance: bronze → silver → gold base */
+const tierBaseMats=[
+  new THREE.MeshStandardMaterial({color:0x9a6233,metalness:.35,roughness:.5}),
+  new THREE.MeshStandardMaterial({color:0xc8d0dc,metalness:.45,roughness:.4}),
+  new THREE.MeshStandardMaterial({color:0xe8b73a,metalness:.5,roughness:.35}),
+];
 const twBarGeo=new THREE.PlaneGeometry(.5,.055);
 const warnGeo=new THREE.OctahedronGeometry(.09);
 const warnMat=new THREE.MeshBasicMaterial({color:0xff3355});
@@ -776,7 +782,7 @@ function buildTower(i,typeName,byPlayer){
   const tt=TT[typeName]; /* towers never touch the route, so no path validation needed */
   const g=new THREE.Group();
   const hm=new THREE.MeshStandardMaterial({color:tt.color,emissive:tt.color,emissiveIntensity:.4,roughness:.5});
-  const base=new THREE.Mesh(baseGeo,new THREE.MeshStandardMaterial({color:0x474e63,roughness:.8}));
+  const base=new THREE.Mesh(baseGeo,tierBaseMats[0]);
   base.position.y=.2;base.castShadow=true;
   const head=new THREE.Group();head.position.y=.5;
   const M=(geo,x,y,z,rx)=>{const m=new THREE.Mesh(geo,hm);m.position.set(x,y,z);if(rx)m.rotation.x=rx;m.castShadow=true;head.add(m);return m;};
@@ -794,7 +800,7 @@ function buildTower(i,typeName,byPlayer){
   orientOnFace(g,i,0);
   scene.add(g);
   const onWall=HMAP[i]>0;
-  const tw={g,head,headMat:hm,bar,warn,kick:0,tt:Object.assign({},tt),type:typeName,tier:1,cool:0,cell:i,invested:tt.cost,onWall,
+  const tw={g,head,headMat:hm,base,bar,warn,kick:0,tt:Object.assign({},tt),type:typeName,tier:1,cool:0,cell:i,invested:tt.cost,onWall,
     hp:50,maxHp:50,prio:tt.tanky?'strong':'first',kills:0,dmgDealt:0,aim:new THREE.Object3D()};
   if(onWall)tw.tt.range*=CFG.wallRangeBonus;
   if(faceOf(i)===tt.biome){tw.home=true;tw.tt.dmg*=1.25;} /* native biome boost */
@@ -841,6 +847,7 @@ function branchTower(tw,idx){
 }
 function upgradeTower(tw){
   tw.invested+=upgradeCost(tw);tw.tier++;
+  tw.base.material=tierBaseMats[Math.min(tw.tier-1,tierBaseMats.length-1)];
   tw.maxHp+=40;tw.hp=tw.maxHp;
   tw.tt.dmg*=1.7;tw.tt.range*=1.1;tw.tt.rate*=1.2;
   tw.g.scale.setScalar(1+(tw.tier-1)*.18);
@@ -984,13 +991,21 @@ function director(dt){
     if(cov>0)cands.push({i,cov});
   }
   cands.sort((a,b)=>b.cov-a.cov);
-  const ups=towers.filter(t=>t.tier<CFG.maxTier);
-  if(!saveFor&&towers.length>=1&&Math.random()<.6&&mazeWall()){ /* terrain is the only reroute now — maze hard */
+  /* upgrade the PROVEN killers first — the stats know who earns their keep */
+  const ups=towers.filter(t=>t.tier<CFG.maxTier).sort((a,b)=>b.kills-a.kills);
+  const upT=ups[0];
+  if(!saveFor&&towers.length>=1&&Math.random()<.6&&mazeWall()){
+    /* the director's prime directive: the longest possible route — every wall that stretches it is free damage */
+  }else if(upT&&towers.length>=4&&gold>=upgradeCost(upT)&&Math.random()<.65){
+    gold-=upgradeCost(upT);upgradeTower(upT);
   }else if(cands.length&&gold>=cost&&(saveFor||towers.length<5||Math.random()<.3)){
     const tw=buildTower(cands[0].i,type,false);
     if(tw){gold-=cost;if(type===saveFor)saveFor=null;}
-  }else if(ups.length&&gold>=upgradeCost(ups[0])){
-    gold-=upgradeCost(ups[0]);upgradeTower(ups[0]);
+  }else if(upT&&gold>=upgradeCost(upT)){
+    gold-=upgradeCost(upT);upgradeTower(upT);
+  }else{
+    const br=towers.find(t=>t.tier>=CFG.maxTier&&!t.branch&&t.kills>=12);
+    if(br&&gold>=branchCost(br)){gold-=branchCost(br);branchTower(br,(Math.random()*2)|0);}
   }
 }
 
@@ -2034,6 +2049,11 @@ window.GameAPI={
     if(!FREE)gold-=c;upgradeTower(tw);return{ok:true,tier:tw.tier};
   },
   sell(i){const tw=TWR[i];if(!tw)return{ok:false,why:'no tower there'};sellTower(tw);return{ok:true,gold};},
+  prio(i,p){const tw=TWR[i];
+    if(!tw)return{ok:false,why:'no tower there'};
+    if(!['first','strong','close'].includes(p))return{ok:false,why:'first | strong | close'};
+    tw.prio=p;return{ok:true,prio:p};
+  },
   dig(i){const d0=dirt,h0=HMAP[i];dig(i);return{ok:HMAP[i]!==h0||dirt!==d0,h:HMAP[i],dirt};},
   place(i){const h0=HMAP[i];placeDirt(i);return{ok:HMAP[i]!==h0,h:HMAP[i],dirt};},
   callWave(){if(breakT<=0)return{ok:false,why:'no break active'};callWave(true);return{ok:true,wave};},

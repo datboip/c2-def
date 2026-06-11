@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+/* C² DEFENSE CLI driver — play the game from a terminal (human or AI agent).
+ *
+ *   npm install            # once (pulls playwright)
+ *   node play.js           # REPL: type commands, get JSON back
+ *   node play.js -e "start 1; build 0,4,5 cannon; wave; speed 8; state"
+ *   node play.js --headed  # watch the browser while you drive
+ *
+ * Cells are addressed as face,u,v (0-10). Faces: 0 TOP · 1 BOTTOM · 2 EAST · 3 WEST · 4 SOUTH · 5 NORTH
+ */
+const fs = require('fs'), path = require('path'), http = require('http'), os = require('os');
+const { chromium } = require('playwright');
+
+const HEADED = process.argv.includes('--headed');
+const cell = s => { const [f, u, v] = s.split(',').map(Number); return f * 121 + v * 11 + u; };
+
+const HELP = `commands (JSON out):
+  start [diff 0-2] [free]      new run (default frontier)
+  state                        full snapshot: gold, lives, creeps, towers, path, mining...
+  build f,u,v <type>           cannon|frost|laser|mortar|tesla|sniper
+  upgrade f,u,v | sell f,u,v | branch f,u,v <0|1>
+  prio f,u,v <first|strong|close>
+  dig f,u,v | place f,u,v      terraform (matter-conserving)
+  wave                         call the next wave early
+  speed <1|2|4|8> | pause | resume | auto <on|off>
+  ability <golem|freeze|strike>
+  unlock                       wake the next biome (sandbox/testing)
+  walk | look <yaw> <pitch> | tool <0|1|2> | act [btn] | exit   first-person controls
+  logs [n] | errors | debug    introspection
+  shot [file.png]              screenshot
+  help | quit`;
+
+async function launchBrowser() {
+  try { return await chromium.launch({ headless: !HEADED }); }
+  catch (e) {
+    // fall back to any cached playwright chromium (version drift between npm pkg and cache)
+    const root = path.join(os.homedir(), '.cache', 'ms-playwright');
+    for (const d of (fs.existsSync(root) ? fs.readdirSync(root) : []).filter(d => d.startsWith('chromium'))) {
+      const exe = path.join(root, d, 'chrome-linux', 'chrome');
+      if (fs.existsSync(exe)) {
+        try { return await chromium.launch({ headless: !HEADED, executablePath: exe }); } catch (_) {}
+      }
+    }
+    throw e;
+  }
+}
+
+(async () => {
+  const html = path.join(__dirname, 'index.html');
+  if (!fs.existsSync(html)) { console.error('index.html not found next to play.js'); process.exit(1); }
+  const srv = http.createServer((req, res) => {
+    fs.readFile(html, (err, data) => {
+      if (err) { res.writeHead(500); res.end(); return; }
+      res.writeHead(200, { 'content-type': 'text/html' }); res.end(data);
+    });
+  });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  const browser = await launchBrowser();
+  const page = await (await browser.newContext()).newPage();
+  await page.goto(`http://127.0.0.1:${srv.address().port}/`);
+  await page.waitForFunction(() => !!window.GameAPI);
+
+  async function run(line) {
+    const parts = line.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return null;
+    const [cmd, a, b] = parts;
+    switch (cmd) {
+      case 'start':   return page.evaluate(([d, f]) => GameAPI.start(d, f), [a == null ? 1 : +a, b === 'free' || a === 'free']);
+      case 'state':   return page.evaluate(() => GameAPI.state());
+      case 'build':   return page.evaluate(([i, t]) => GameAPI.build(i, t), [cell(a), b]);
+      case 'upgrade': return page.evaluate(i => GameAPI.upgrade(i), cell(a));
+      case 'sell':    return page.evaluate(i => GameAPI.sell(i), cell(a));
+      case 'branch':  return page.evaluate(([i, k]) => GameAPI.branch(i, k), [cell(a), +b || 0]);
+      case 'prio':    return page.evaluate(([i, p]) => GameAPI.prio(i, p), [cell(a), b]);
+      case 'dig':     return page.evaluate(i => GameAPI.dig(i), cell(a));
+      case 'place':   return page.evaluate(i => GameAPI.place(i), cell(a));
+      case 'wave':    return page.evaluate(() => GameAPI.callWave());
+      case 'speed':   return page.evaluate(n => GameAPI.speed(n), +a);
+      case 'pause':   return page.evaluate(() => GameAPI.pause(true));
+      case 'resume':  return page.evaluate(() => GameAPI.pause(false));
+      case 'auto':    return page.evaluate(v => GameAPI.auto(v), a !== 'off');
+      case 'ability': return page.evaluate(k => GameAPI.ability(k), a);
+      case 'unlock':  return page.evaluate(() => GameAPI.unlock());
+      case 'walk':    return page.evaluate(() => GameAPI.fp.enter());
+      case 'exit':    return page.evaluate(() => GameAPI.fp.exit());
+      case 'look':    return page.evaluate(([y, p]) => GameAPI.fp.look(y, p), [+a, b == null ? null : +b]);
+      case 'tool':    return page.evaluate(n => GameAPI.fp.tool(n), +a);
+      case 'act':     return page.evaluate(n => GameAPI.fp.act(n), +a || 0);
+      case 'logs':    return page.evaluate(n => GameAPI.logs(n), +a || 30);
+      case 'errors':  return page.evaluate(() => GameAPI.errors());
+      case 'debug':   return page.evaluate(() => GameAPI.debug());
+      case 'shot':    { const f = a || 'shot.png'; await page.screenshot({ path: f }); return { saved: f }; }
+      case 'wait':    await new Promise(r => setTimeout(r, (+a || 1) * 1000)); return { waited: +a || 1 };
+      case 'help':    return HELP;
+      case 'quit': case 'exit!': await browser.close(); process.exit(0);
+      default:        return { ok: false, why: 'unknown command — try help' };
+    }
+  }
+
+  const ei = process.argv.indexOf('-e');
+  if (ei >= 0) {
+    for (const c of process.argv[ei + 1].split(';')) {
+      const r = await run(c);
+      if (r !== null) console.log(typeof r === 'string' ? r : JSON.stringify(r));
+    }
+    await browser.close(); process.exit(0);
+  }
+
+  console.log('C² DEFENSE CLI — type help');
+  process.stdout.write('> ');
+  const rl = require('readline').createInterface({ input: process.stdin });
+  for await (const line of rl) {
+    try {
+      const r = await run(line);
+      if (r !== null) console.log(typeof r === 'string' ? r : JSON.stringify(r));
+    } catch (e) { console.log(JSON.stringify({ ok: false, err: String(e.message || e) })); }
+    process.stdout.write('> ');
+  }
+})();

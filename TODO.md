@@ -50,6 +50,15 @@ Findings from actually playing frontier (manual ×2), settler (idle), planetfall
 5. ~~**QoL batch**~~ ✅ DONE — LOGS clear on reset, ×8 speed (key 4 / new segment), "from ●●●" portal swatches in the wave preview, per-tower targeting priority (first/strong/close — snipers default strong), dig success floats its new depth.
 6. **Trench ergonomics**: 2-deep moats are the premium defense but cost many gamble-clicks with no depth feedback; consider a dig-queue or at least depth indicators.
 
+### Walk-mode (1st/3rd person) wishlist — from playing both views
+
+1. **Aimed-tile highlight** *(top FP/TP item)*: a Minecraft-style wireframe on the block you're about to dig/place. Right now you act blind; the overview has a ghost ring, walk mode has nothing.
+2. **Build from walk mode**: a 4th hotbar slot that cycles tower types so walk mode is a complete way to play, not just a terraforming trip.
+3. **Cube compass**: a small corner gizmo showing which face you're on and where the crystal/portals are — on side faces you lose orientation fast.
+4. **TP camera collision**: the trailing camera clips through walls/towers behind the avatar; pull it in when blocked.
+5. **Feel pass**: subtle head-bob + footstep ticks when moving, slightly slower gravity roll when crossing an edge (current snap is functional but not planetary), faint landing puff when dropping into a pit.
+6. **Mining feedback**: hold-to-mine resolves instantly per roll; a quick crack-flash on the block per roll would sell the gamble.
+
 Verdicts: settler idle pacing is healthy (wave 8, no prestige, autopilot bought tesla and mazed to 32 cells). Planetfall is appropriately brutal. Frontier's danger is entirely concentrated at biome unlocks — items 2 and 4 are the fix.
 
 ## Gotchas

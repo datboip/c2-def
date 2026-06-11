@@ -35,6 +35,17 @@ python3 -m http.server 8765 --directory .
 | space, 1/2/3 | pause, speed ×1/×2/×4 |
 | R | auto-rotate cube |
 
+## CLI play (terminal / AI agents)
+
+```sh
+npm install          # once
+node play.js         # REPL — type `help` for commands, JSON out
+node play.js -e "start 1; build 0,4,5 cannon; upgrade 0,4,5; wave; speed 8; wait 6; state"
+node play.js --headed  # watch the browser while you drive
+```
+
+Cells are `face,u,v` (faces: 0 TOP · 1 BOTTOM · 2 EAST · 3 WEST · 4 SOUTH · 5 NORTH). Covers everything: build/upgrade/sell/branch/prio, dig/place, waves/speed/abilities, first-person (`walk`, `look`, `tool`, `act`), `state`/`logs`/`debug`/`shot file.png`.
+
 ## AI / automation API
 
 The game is fully drivable by an agent — `window.GameAPI` is exposed for the browser console, Playwright/CDP `evaluate`, or any MCP browser tool. Cells are global indices: `cell = face*121 + v*11 + u`.

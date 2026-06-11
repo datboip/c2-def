@@ -1,0 +1,12 @@
+{
+  "name": "c2-def",
+  "version": "1.0.0",
+  "description": "C² DEFENSE — cube-world tower defense. play.js drives the game from a terminal via window.GameAPI.",
+  "scripts": {
+    "play": "node play.js",
+    "play:headed": "node play.js --headed"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
