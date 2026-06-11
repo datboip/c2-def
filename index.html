@@ -2313,9 +2313,10 @@ function updateWalk(dt){
 
 /* ============ MAIN LOOP ============ */
 const clock=new THREE.Clock();
-let hudT=0,frameNo=0,hudCache='',resCache='',histCache='',showHist=true;
+let hudT=0,frameNo=0,hudCache='',resCache='',histCache='',showHist=true,lastTickMs=performance.now();
 function tick(){
   requestAnimationFrame(tick);
+  lastTickMs=performance.now();
   if((++frameNo&1)===0)renderer.shadowMap.needsUpdate=true;
   const raw=Math.min(clock.getDelta(),.05);
   const t=clock.elapsedTime;
@@ -2481,6 +2482,18 @@ function netMsg(m){
     if(m.role==='host'){
       startGame(1,false);
       toast('HOSTING — room is open');
+      /* timer-driven lifeline: if this tab is backgrounded the render loop stops —
+         keep SIMULATING and snapshotting so guests' game never freezes */
+      let lastBgSim=performance.now();
+      setInterval(()=>{
+        const now=performance.now();
+        if(now-lastTickMs>250&&!paused){ /* rAF starved */
+          let el=Math.min((now-lastBgSim)/1000,1);
+          while(el>0){const st=Math.min(el,.05);for(let k=0;k<simSpeed;k++)sim(st);el-=st;}
+        }
+        lastBgSim=now;
+        netHostPump(.06);
+      },50);
     }else{
       DEMO=false;FREE=false;autopilot=false;autoSpin=false;
       $('splash').style.display='none';$('demoTag').style.display='none';
@@ -2533,7 +2546,7 @@ function netHostPump(dt){
   if(!NET.on||NET.role!=='host'||!NET.guests.size)return;
   netT-=dt;
   if(netT>0)return;
-  netT=.12;
+  netT=.05; /* 20Hz — guests dead-reckon between snaps */
   if(NET.dirtyStatic){NET.dirtyStatic=false;sendStatic();}
   netSend({t:'snap',w:wave,g:gold,l:lives,b:breakT>0&&breakT<900?Math.ceil(breakT):0,
     cr:creeps.map(c=>({y:c.type,x:+c.g.position.x.toFixed(2),z:+c.g.position.y.toFixed(2),q:+c.g.position.z.toFixed(2),h:+(c.hp/c.maxHp).toFixed(2)})),
@@ -2569,6 +2582,7 @@ function guestMsg(m){
     else $('breakwrap').style.display='none';
     /* creep mirror: reconcile by index */
     while(NET.mGroups.length>m.cr.length){const e=NET.mGroups.pop();scene.remove(e.g);}
+    const now=performance.now();
     m.cr.forEach((c,i)=>{
       let e=NET.mGroups[i];
       if(!e||e.type!==c.y){
@@ -2576,11 +2590,16 @@ function guestMsg(m){
         const mat=new THREE.MeshStandardMaterial({color:CT[c.y].color,roughness:.7});
         const g=buildCreepBody(c.y,mat);
         g.scale.setScalar(CT[c.y].s);
-        e={type:c.y,g,tgt:new THREE.Vector3(c.x,c.z,c.q)};
+        e={type:c.y,g,tgt:new THREE.Vector3(c.x,c.z,c.q),vel:new THREE.Vector3(),at:now};
         g.position.copy(e.tgt);
         scene.add(g);NET.mGroups[i]=e;
       }
+      /* dead reckoning: measure velocity between snaps so motion stays live between packets */
+      const dtSnap=Math.min(Math.max((now-e.at)/1000,.02),.3);
+      e.vel.set(c.x,c.z,c.q).sub(e.tgt).divideScalar(dtSnap);
+      if(e.vel.length()>8)e.vel.setLength(8); /* spawn/teleport guard */
       e.tgt.set(c.x,c.z,c.q);
+      e.at=now;
       e.g.quaternion.setFromUnitVectors(V3(0,1,0),e.tgt.clone().normalize());
     });
     /* tower mirror: rebuild on change */
@@ -2600,8 +2619,11 @@ function guestMsg(m){
 }
 function netGuestLerp(dt){
   if(NET.role!=='guest')return;
-  const k=Math.min(dt*9,1);
-  for(const e of NET.mGroups)e.g.position.lerp(e.tgt,k);
+  const k=Math.min(dt*14,1);
+  for(const e of NET.mGroups){
+    e.tgt.addScaledVector(e.vel,dt); /* keep moving along last-known velocity */
+    e.g.position.lerp(e.tgt,k);
+  }
 }
 
 /* ============ AI / AUTOMATION API ============
@@ -2722,6 +2744,10 @@ window.GameAPI={
   ability(k){return useAbility(k)?{ok:true,cooldown:ABIL[k].cd}:{ok:false,why:ABIL[k]?(ABIL[k].t>0?'on cooldown':'cannot afford'):'unknown ability'};},
   heroSkill(k){return buyHeroSkill(k);},
   player(n){playerName=String(n||'anon').slice(0,24);return{ok:true,player:playerName};},
+  net(){return{on:NET.on,role:NET.role,myFace:NET.myFace,
+    mirrors:NET.mGroups.length,
+    guests:[...NET.guests.values()].map(g=>({name:g.name,face:g.face})),
+    mirrorPos:NET.mGroups[0]?NET.mGroups[0].g.position.toArray().map(v=>+v.toFixed(3)):null};},
   leaderboard(){return getLeaderboard();},
   branch(i,idx){const tw=TWR[i];
     if(!tw)return{ok:false,why:'no tower there'};
