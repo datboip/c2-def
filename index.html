@@ -211,7 +211,7 @@
   .menu .card{animation:menuin .18s cubic-bezier(.22,1,.36,1)}
   @keyframes menuin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   /* wave banner: letterbox strip, no scale bounce */
-  #wavebanner{left:0;right:0;width:100%;transform:none;font-size:26px;letter-spacing:.34em;padding:13px 0;
+  #wavebanner{left:0;right:0;width:100%;transform:none;text-align:center;font-size:26px;letter-spacing:.34em;padding:13px 0;
     background:rgba(10,12,18,.88);border-top:1px solid var(--line);border-bottom:1px solid var(--acc);
     font-family:'Oxanium',monospace;text-shadow:none;color:var(--val)}
   @keyframes wb{0%{opacity:0;transform:translateY(-10px)}12%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0}}
@@ -550,12 +550,12 @@ const matBio=BIOMES.map(B=>[
 const matLockA=new THREE.MeshStandardMaterial({color:0x14161d,roughness:1});
 const matLockB=new THREE.MeshStandardMaterial({color:0x101218,roughness:1});
 const matD=[null, /* pit floors darken with depth — the contrast IS the hole */
-  new THREE.MeshStandardMaterial({color:0x4a3826,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x32281c,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x232733,roughness:.9})];
+  new THREE.MeshStandardMaterial({color:0x42301c,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x2c2014,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x1e1a16,roughness:.95})];
 const matWall=new THREE.MeshStandardMaterial({color:0x7a6346,roughness:.95});
 const matRoad=new THREE.MeshStandardMaterial({color:0xa08e6a,roughness:.85}); /* the invasion's paved trail */
-const matSide=new THREE.MeshStandardMaterial({color:0x55422e,roughness:1}); /* pit walls: dug earth, darker than the surface so holes READ */
+const matSide=new THREE.MeshStandardMaterial({color:0x3a2d1d,roughness:1}); /* pit walls: dug earth, darker than the surface so holes READ */
 const ROAD=new Uint8Array(N);
 /* water is TERRAIN, full tiles: 1 water · 2 ice · 3 lava */
 const WATER=new Uint8Array(N);
@@ -584,6 +584,29 @@ function rebuildWaterSurfaces(){
   for(const m of WSURF.values())scene.remove(m);
   WSURF.clear();
   for(let i=0;i<N;i++)if(WATER[i])addWaterSurface(i);
+}
+/* pits get a fake-AO vignette at the mouth — tile boxes don't cast shadows (perf),
+   so without this a hole reads as a flat recolored tile, not a hole */
+const PITRIM=new Map();
+const rimMat=(()=>{
+  const c=document.createElement('canvas');c.width=c.height=64;
+  const g=c.getContext('2d');
+  const grd=g.createRadialGradient(32,32,8,32,32,34);
+  grd.addColorStop(0,'rgba(0,0,0,0)');grd.addColorStop(.5,'rgba(0,0,0,.22)');grd.addColorStop(1,'rgba(0,0,0,.8)');
+  g.fillStyle=grd;g.fillRect(0,0,64,64);
+  return new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false});
+})();
+function syncPitRim(i){
+  const has=PITRIM.get(i);
+  if(HMAP[i]<0&&ACTIVE[faceOf(i)]&&!WATER[i]){
+    if(!has){
+      const F=FACES[faceOf(i)];
+      const m=new THREE.Mesh(surfGeo,rimMat);
+      m.position.copy(cellBase(i)).addScaledVector(F.n,.03);
+      m.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
+      m.renderOrder=2;scene.add(m);PITRIM.set(i,m);
+    }
+  }else if(has){scene.remove(has);PITRIM.delete(i);}
 }
 const tileGeo=new THREE.BoxGeometry(.98,.98,4.4); /* +Z = outward; deep enough that a -3 dig still shows solid pit walls */
 const tiles=[];
@@ -614,6 +637,7 @@ function setHeight(i,h){
   const shrink=h<0?.9:1; /* pits pull in from the rim — the dark seam makes the hole unmistakable */
   tiles[i].scale.set(shrink,shrink,1);
   tiles[i].material[4]=topMat(i);
+  syncPitRim(i);
 }
 function refreshTile(i){setHeight(i,HMAP[i]);}
 /* ===== biome decorations: occupy cells, choppable for +1 dirt ===== */
