@@ -61,6 +61,7 @@
   #panel button:disabled{opacity:.4;cursor:default}
   #facetag{position:fixed;bottom:84px;left:14px;color:#6b7385;font-size:11px;letter-spacing:.2em;z-index:9;pointer-events:none}
   #xhair{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;width:5px;height:5px;border-radius:50%;background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.8);z-index:8}
+  #compass{display:none;position:fixed;right:18px;bottom:16px;width:90px;height:90px;z-index:9;pointer-events:none;opacity:.92}
   #dmgnums{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:7}
   #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,40,70,.55));opacity:0;transition:opacity .6s;z-index:6}
   #wavebanner{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);color:#ffd24a;font-size:42px;font-weight:800;letter-spacing:.22em;pointer-events:none;opacity:0;text-shadow:0 0 30px rgba(255,210,74,.5),0 2px 10px rgba(0,0,0,.9);z-index:12}
@@ -308,9 +309,11 @@
   <div class="slot" data-t="1"><span data-ic="dirt"></span><small>place</small></div>
   <div class="slot" data-t="2"><span data-ic="cross"></span><small>gun</small></div>
   <div class="slot" data-t="3" id="slotBucket" style="display:none"><span data-ic="bucket"></span><small>bucket</small></div>
+  <div class="slot" data-t="4" id="slotBuild" title="build tower — T cycles types"></div>
 </div>
 <div id="panel"></div>
 <div id="facetag"></div>
+<canvas id="compass" width="90" height="90"></canvas>
 <div id="lenstip"></div>
 <div id="xhair"></div>
 <div id="dmgnums"></div>
@@ -326,6 +329,7 @@
   <button class="mbtn" id="mHelp"><span data-ic="help"></span>how to play</button>
   <div class="row">sensitivity <input type="range" id="mSens" min="30" max="200" value="100"></div>
   <div class="row">invert look <input type="checkbox" id="mInv"></div>
+  <div class="row">head bob <input type="checkbox" id="mBob" checked></div>
   <div class="row">sound <input type="checkbox" id="mSfx" checked></div>
   <div class="row">volume <input type="range" id="mVol" min="0" max="100" value="70"></div>
   <div class="row">music <input type="checkbox" id="mMusic" checked></div>
@@ -471,7 +475,7 @@ let DIFF=DIFFS[1];
 let DEMO=true,FREE=false,MODE='classic'; /* classic: ONE portal, maze the whole cube · siege: every biome opens one */
 const CFG={startGold:150,startDirt:10,freeDigs:10,maxTier:3,digCost:3,digDepth:-3,reach:4.4,
   breakTime:14,earlyBonus:20,dayLen:240,wallRangeBonus:1.15};
-const SETT={sens:1,invert:false,sfx:true,vol:.7,music:true,alwaysDay:false};
+const SETT={sens:1,invert:false,sfx:true,vol:.7,music:true,alwaysDay:false,bob:true};
 /* seeded PRNG (mulberry32) for everything gameplay-affecting: waves, loot, AI dice,
    decoration layout. Same seed => same scenario, so model runs compare fairly.
    (Frame-timing still adds small combat variance — movement integrates real dt.) */
@@ -1196,6 +1200,9 @@ const SFX={
   herohit:t=>{tone(t,{f:980,f1:1460,dur:.07,vol:.04,a:.002});nz(t,{dur:.03,vol:.03,filter:'highpass',fq:3400,a:.001});},
   order:t=>{tone(t,{f:640,f1:900,dur:.07,vol:.04,a:.003});tone(t+.05,{f:900,f1:1100,dur:.05,vol:.03,a:.002});},
   jump:t=>{nz(t,{dur:.2,vol:.08,fq:900,fq1:200,rate:1.2});tone(t,{f:300,f1:95,dur:.18,vol:.05});},
+  step0:t=>{nz(t,{dur:.045,vol:.028,filter:'bandpass',fq:430,Q:1.4,a:.002,rate:.75});}, /* footsteps alternate two pitches */
+  step1:t=>{nz(t,{dur:.045,vol:.028,filter:'bandpass',fq:560,Q:1.4,a:.002,rate:.9});},
+  land:t=>{nz(t,{dur:.14,vol:.1,fq:520,fq1:110,a:.002,rate:.7});tone(t,{f:130,f1:58,dur:.16,vol:.08});},
   stirs:t=>{tone(t,{type:'triangle',f:108,dur:.7,vol:.07,a:.12});tone(t,{type:'triangle',f:162,dur:.7,vol:.04,a:.15});
     nz(t,{dur:.7,vol:.03,fq:260,a:.2,rate:.4});},
   trample:t=>{nz(t,{dur:.18,vol:.1,fq:500,fq1:140,rate:.7});tone(t,{type:'sawtooth',f:210,f1:88,dur:.22,vol:.07,filter:'lowpass',fq:900});},
@@ -2312,6 +2319,7 @@ let mode='overview',menuOpen=false;
 let camYaw=.7,camPitch=.45,camDist=26,autoSpin=true,downBtn=0;
 const camPan=new THREE.Vector3(); /* middle-drag strafe offset */
 let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='tp',lockToastT=0,faceSwapT=0;
+let buildIdx=0,aimPulse=0,aimWireCell=-1,reorientT=0,tpK=1,bobT=0,bobAmp=0,stepAcc=0,stepAlt=0; /* walk-mode polish state */
 const walker={face:0,pos:new THREE.Vector3(),fwd:new THREE.Vector3(1,0,0)};
 const avatar=(function(){ /* the hero, v2: arms, visor (no creep eyes!), backpack, swinging limbs */
   const g=new THREE.Group();
@@ -2434,7 +2442,9 @@ function exitMode(){
 function showFPUI(b){
   $('xhair').style.display=b?'block':'none';
   $('hotbar').style.display=b?'flex':'none';
+  $('compass').style.display=b?'block':'none';
   $('slotBucket').style.display=hasTool('bucket')?'':'none';
+  renderBuildSlot();
   $('buildbar').style.display=b?'none':'flex';
   $('facetag').textContent=b?'FACE: '+FACES[walker.face].name:'';
 }
@@ -2479,6 +2489,87 @@ function aimedTile(){
   const reach=CFG.reach+(walkView==='tp'?3.7:0); /* tp camera trails the body — same effective arm length */
   return (hit&&hit.distance<=reach)?hit.object.userData.i:-1;
 }
+/* ===== walk-mode aim wireframe: the Minecraft-style outline on the block you'd act on.
+   Visual only — every act still routes through dig/placeDirt/bucketAct/tryBuy. ===== */
+const aimWire=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.98,.98,.98)),
+  new THREE.LineBasicMaterial({color:0xffd24a,transparent:true,opacity:.9}));
+aimWire.visible=false;scene.add(aimWire);
+function updateAimWire(raw){
+  if(aimPulse>0)aimPulse=Math.max(0,aimPulse-raw*3.5);
+  if(mode!=='walk'||DEMO||camTrans.active||tool===2){aimWire.visible=false;aimWireCell=-1;return;}
+  const i=aimedTile();
+  aimWireCell=i;
+  if(i<0){aimWire.visible=false;return;}
+  const F=FACES[faceOf(i)];
+  /* dig/scoop outline the block that goes; place/build/pour outline the incoming one */
+  const above=tool===1||tool===4||(tool===3&&!WATER[i]);
+  aimWire.position.copy(cellBase(i)).addScaledVector(F.n,HMAP[i]*HSTEP+(above?.49:-.49)+.012);
+  aimWire.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
+  aimWire.scale.setScalar(1.035+aimPulse*.16); /* slightly proud of the block — never z-fights the top face. crack-flash pulses per roll */
+  const bt=walkBuildType();
+  aimWire.material.color.setHex(aimPulse>.55?0xffffff:tool===0?0xffd24a:tool===1?0x8ee8d8:tool===3?0x4dd8ff:bt?TT[bt].color:0xffffff);
+  aimWire.material.opacity=.9+aimPulse*.1;
+  aimWire.visible=true;
+}
+/* ===== cube compass: tiny corner gizmo — your face lit, teal crystal, tinted awake portals ===== */
+const cmpCtx=$('compass').getContext('2d');
+const CMPC=[];for(let cx=-1;cx<=1;cx+=2)for(let cy=-1;cy<=1;cy+=2)for(let cz=-1;cz<=1;cz+=2)CMPC.push(V3(cx,cy,cz));
+const CMPE=[];for(let a2=0;a2<8;a2++)for(let b2=a2+1;b2<8;b2++)if(CMPC[a2].distanceToSquared(CMPC[b2])===4)CMPE.push([a2,b2]);
+const CMPF=FACES.map(F=>{ /* the 4 corners of each face, fan-ordered for a clean polygon */
+  const ix=[];for(let k=0;k<8;k++)if(CMPC[k].dot(F.n)>0)ix.push(k);
+  ix.sort((a2,b2)=>Math.atan2(CMPC[a2].dot(F.u),CMPC[a2].dot(F.r))-Math.atan2(CMPC[b2].dot(F.u),CMPC[b2].dot(F.r)));
+  return ix;
+});
+const cmpQ=new THREE.Quaternion(),cmpV=new THREE.Vector3(),cmpP=CMPC.map(()=>({x:0,y:0,z:0}));
+function cmpDot(i,col,r){
+  cmpV.copy(cellBase(i)).divideScalar(HCUBE).applyQuaternion(cmpQ);
+  cmpCtx.globalAlpha=cmpV.z>0?1:.3; /* far side fades */
+  cmpCtx.fillStyle=col;
+  cmpCtx.beginPath();cmpCtx.arc(45+cmpV.x*26,45-cmpV.y*26,r,0,7);cmpCtx.fill();
+  cmpCtx.globalAlpha=1;
+}
+function drawCompass(){
+  cmpCtx.clearRect(0,0,90,90);
+  cmpQ.copy(camera.quaternion).invert(); /* cube as the player's camera sees it */
+  for(let k=0;k<8;k++){
+    cmpV.copy(CMPC[k]).applyQuaternion(cmpQ);
+    cmpP[k].x=45+cmpV.x*26;cmpP[k].y=45-cmpV.y*26;cmpP[k].z=cmpV.z;
+  }
+  cmpCtx.lineWidth=1;
+  for(const[ea,eb]of CMPE){ /* back edges fade — that's the depth cue */
+    cmpCtx.strokeStyle=(cmpP[ea].z+cmpP[eb].z)>0?'rgba(207,214,228,.75)':'rgba(207,214,228,.18)';
+    cmpCtx.beginPath();cmpCtx.moveTo(cmpP[ea].x,cmpP[ea].y);cmpCtx.lineTo(cmpP[eb].x,cmpP[eb].y);cmpCtx.stroke();
+  }
+  cmpCtx.beginPath(); /* the face under your boots, lit amber */
+  CMPF[walker.face].forEach((ci,k)=>k?cmpCtx.lineTo(cmpP[ci].x,cmpP[ci].y):cmpCtx.moveTo(cmpP[ci].x,cmpP[ci].y));
+  cmpCtx.closePath();
+  cmpCtx.fillStyle='rgba(255,210,74,.16)';cmpCtx.fill();
+  cmpCtx.strokeStyle='rgba(255,210,74,.85)';cmpCtx.lineWidth=1.4;cmpCtx.stroke();
+  cmpDot(CRYSTAL,'#2de0c8',3); /* teal = home */
+  for(const p of PORTALS)cmpDot(p,'#'+BIOMES[faceOf(p)].pc.toString(16).padStart(6,'0'),2.4);
+}
+/* ===== build-from-walk: hotbar slot 4 cycles the unlocked arsenal (T cycles types) ===== */
+function walkBuildType(){
+  const ts=Object.keys(TT).filter(towerUnlocked);
+  if(!ts.length)return null;
+  buildIdx%=ts.length;
+  return ts[buildIdx];
+}
+let bsCache='';
+function renderBuildSlot(){
+  const el=$('slotBuild');if(!el)return;
+  const ty=walkBuildType();
+  const html=ty?'<span style="color:#'+TT[ty].color.toString(16).padStart(6,'0')+'">'+IC[ty]+'</span><small>'+ty+'</small><small style="color:'+((gold>=TT[ty].cost||FREE)?'#ffd24a':'#ff5e8a')+'">'+TT[ty].cost+'g</small>':'';
+  if(html!==bsCache){bsCache=html;el.innerHTML=html;}
+}
+function cycleBuildType(){
+  const ts=Object.keys(TT).filter(towerUnlocked);
+  if(!ts.length)return;
+  buildIdx=(buildIdx+1)%ts.length;
+  if(tool!==4)setTool(4);else renderBuildSlot();
+  toast(ts[buildIdx]+' · '+TT[ts[buildIdx]].cost+'g — aim and click to build');
+  sfx('tick');
+}
 function fpFire(){
   if(fpCool>0)return;fpCool=.42*heroRate();
   sfx('heroshot');
@@ -2497,13 +2588,23 @@ function fpAction(btn){
   if(btn===2){const i=aimedTile();if(i>=0)placeDirt(i);return;}
   if(tool===2){fpFire();return;}
   if(tool===3){const i=aimedTile();if(i>=0)bucketAct(i);return;} /* bucket slot (when crafted) */
+  if(tool===4){const i=aimedTile(),ty=walkBuildType();if(i>=0&&ty)tryBuy(i,ty);return;} /* build slot — same validation/cost path as god view */
   const i=aimedTile();
-  if(i>=0)(tool===0?dig:placeDirt)(i);
+  if(i>=0){
+    if(tool===0)aimPulse=1; /* crack-flash so the mining gamble reads per roll */
+    (tool===0?dig:placeDirt)(i);
+  }
 }
+function fpTools(){return hasTool('bucket')?[0,1,2,3,4]:[0,1,2,4];} /* slot 3 appears once the bucket is crafted */
 function setTool(t){
-  const n=hasTool('bucket')?4:3; /* the bucket adds a 4th hotbar slot */
-  tool=((t%n)+n)%n;
-  document.querySelectorAll('#hotbar .slot').forEach((s2,i)=>s2.classList.toggle('on',i===tool));
+  const av=fpTools();
+  if(av.includes(t))tool=t;
+  else{ /* wheel/Q/E stepped onto a missing slot — keep going that way */
+    const idx=av.indexOf(tool)+(t>tool?1:-1);
+    tool=av[((idx%av.length)+av.length)%av.length];
+  }
+  document.querySelectorAll('#hotbar .slot').forEach(s2=>s2.classList.toggle('on',+s2.dataset.t===tool));
+  renderBuildSlot();
 }
 document.querySelectorAll('#hotbar .slot').forEach(s2=>s2.addEventListener('pointerdown',e=>{setTool(+s2.dataset.t);e.stopPropagation();}));
 
@@ -2764,6 +2865,7 @@ $('mQuit').onclick=()=>{
 };
 $('mSens').oninput=e=>SETT.sens=e.target.value/100;
 $('mInv').onchange=e=>SETT.invert=e.target.checked;
+$('mBob').onchange=e=>SETT.bob=e.target.checked;
 $('mSfx').onchange=e=>{SETT.sfx=e.target.checked;auVol();};
 $('mVol').oninput=e=>{SETT.vol=e.target.value/100;auVol();};
 $('mMusic').onchange=e=>SETT.music=e.target.checked;
@@ -2891,6 +2993,7 @@ addEventListener('keydown',e=>{
     for(const ak in AKEY)if(AKEY[ak]===kk){useAbility(ak);return;}
   }
   if((e.key==='n'||e.key==='N')&&breakT>0)callWave(true);
+  if((e.key==='t'||e.key==='T')&&mode==='walk'&&!menuOpen)cycleBuildType();
   if((e.key==='q'||e.key==='Q')&&mode==='walk')setTool(tool-1);
   if((e.key==='e'||e.key==='E')&&mode==='walk')setTool(tool+1);
   if((e.key==='c'||e.key==='C')&&mode==='walk'){walkView=walkView==='fp'?'tp':'fp';toast('camera: '+(walkView==='fp'?'first':'third')+' person');}
@@ -3371,6 +3474,11 @@ function updateWalk(dt){
       walker.pos.copy(prevPos); /* jump jets clear 2-high mid-air */
       return;
     }
+    bobT+=mv.length()*5.5;stepAcc+=mv.length(); /* feel: stride-driven head-bob phase + footstep cadence */
+    if(stepAcc>1.15){stepAcc=0;sfx('step'+(stepAlt^=1));}
+    if(ni>=0&&pi>=0&&ni!==pi&&HMAP[pi]-HMAP[ni]>1){ /* dropped 2+ blocks: faint puff + thump */
+      puff(cellTop(ni),0x9a8a72,6);sfx('land');
+    }
     /* face transition: dominant axis changed? A short cooldown + seam nudge stops corner flip-flop */
     faceSwapT-=dt;
     const nf=faceBasisAt(walker.pos);
@@ -3380,7 +3488,7 @@ function updateWalk(dt){
         if((lockToastT-=dt)<0){lockToastT=2.5;toast(BIOMES[nf].name+' is still asleep — survive or breach to wake it');}
         return;
       }else{
-        faceSwapT=.3;
+        faceSwapT=.3;reorientT=.45; /* planetary roll: gravity eases over the edge, not snaps */
         /* re-express yaw in new basis */
         const oldN=FACES[walker.face].n;
         const wf=fwd.clone();
@@ -3493,9 +3601,22 @@ function tick(){
       const am=new THREE.Matrix4().lookAt(avatar.position.clone().add(fwd),avatar.position,F.n);
       avatar.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(am),Math.min(raw*12,1));
       toPos=walker.pos.clone().addScaledVector(F.n,lift+1.5).addScaledVector(lookDir,-3.4);
+      /* boom collision: raycast head->camera, pull in front of the first wall/tower/terrain hit */
+      const head=walker.pos.clone().addScaledVector(F.n,lift+.6);
+      const boom=toPos.clone().sub(head),bLen=boom.length();
+      ray.set(head,boom.multiplyScalar(1/bLen));ray.far=bLen;
+      let bHit=Infinity;
+      const ht=ray.intersectObjects(tiles,false)[0];if(ht)bHit=ht.distance;
+      const hw=ray.intersectObjects(towers.map(t2=>t2.g),true)[0];if(hw&&hw.distance<bHit)bHit=hw.distance;
+      ray.far=Infinity;
+      const wantK=bHit<bLen?Math.max(.1,(bHit-.25)/bLen):1;
+      tpK=wantK<tpK?wantK:tpK+(wantK-tpK)*Math.min(1,raw*5); /* snap in, ease back out */
+      toPos.copy(head).addScaledVector(ray.ray.direction,bLen*tpK);
       const lm=new THREE.Matrix4().lookAt(toPos,walker.pos.clone().addScaledVector(F.n,lift+.6).addScaledVector(lookDir,2),F.n);
       toQ=new THREE.Quaternion().setFromRotationMatrix(lm);
     }else{
+      bobAmp+=((SETT.bob&&heroMove>0?1:0)-bobAmp)*Math.min(1,raw*8); /* head-bob eases in/out */
+      toPos.addScaledVector(F.n,Math.sin(bobT)*.038*bobAmp);
       const m=new THREE.Matrix4().lookAt(toPos,toPos.clone().add(lookDir),F.n);
       toQ=new THREE.Quaternion().setFromRotationMatrix(m);
     }
@@ -3511,7 +3632,10 @@ function tick(){
     if(camTrans.t>=1)camTrans.active=false;
   }else{
     camera.position.copy(toPos);
-    if(mode==='walk')camera.quaternion.slerp(toQ,Math.min(raw*14,1));
+    if(mode==='walk'){
+      if(reorientT>0)reorientT-=raw;
+      camera.quaternion.slerp(toQ,Math.min(raw*(reorientT>0?4.5:14),1)); /* edge crossings roll over ~.45s */
+    }
     else camera.quaternion.copy(toQ);
   }
   if(shakeT>0){
@@ -3520,6 +3644,8 @@ function tick(){
     camera.position.y+=(Math.random()-.5)*shakeT*.35;
     if(shakeT<=0)$('flash').style.opacity=0;
   }
+  updateAimWire(raw);
+  if(mode==='walk'&&!DEMO)drawCompass();
 
   hudT+=raw;
   if(hudT>.25){
@@ -3565,6 +3691,7 @@ function tick(){
       if(histHtml!==histCache){histCache=histHtml;$('histpanel').innerHTML=histHtml;}
     }
     renderBar();renderAbil();
+    if(mode==='walk')renderBuildSlot(); /* affordability tint + new unlocks (cached) */
     if(mode==='walk'&&hasTool('lens')&&tool===0){ /* PROSPECTOR LENS rides the aim */
       const li=aimedTile();
       let lt='FACE: '+FACES[walker.face].name;
@@ -3803,6 +3930,7 @@ window.GameAPI={
     hmap:Array.from(HMAP),
     water:Array.from(WATER),
     path:pathCellsList(),
+    fp:mode==='walk'?{view:walkView,tool,buildType:walkBuildType(),aimCell:aimWireCell}:null,
   };},
   start(diffIdx,free,seed,mode){if(diffIdx==null)diffIdx=1;startGame(diffIdx,!!free,seed,mode);return{ok:true,diff:DIFF.name,free:FREE,seed:rngSeed,mode:MODE};},
   /* dry-run terrain planner: predicted routes for hypothetical edits, nothing committed.
@@ -3949,6 +4077,9 @@ window.GameAPI={
     pos(){return{face:walker.face,faceName:FACES[walker.face].name,yaw:+fpYaw.toFixed(2),pitch:+fpPitch.toFixed(2)};},
     key(k,down){keys[k]=!!down;return{ok:true};},
     view(v){walkView=v==='tp'?'tp':'fp';return{ok:true,view:walkView};},
+    build(name){const ts=Object.keys(TT).filter(towerUnlocked);const ix=ts.indexOf(name);
+      if(ix<0)return{ok:false,why:'locked or unknown — unlocked: '+ts.join(' ')};
+      buildIdx=ix;renderBuildSlot();return{ok:true,buildType:name};},
   },
 };
 

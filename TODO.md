@@ -41,7 +41,7 @@ python3 -m http.server 8765 --directory .   # serve
 2. **CLI driver** — tiny Node+Playwright wrapper around `GameAPI` so an agent can play from a terminal (`node play.js state`, `node play.js build 0,5,3 cannon`). All the hooks exist already.
 3. **Audio & ambience** — footsteps in walk mode, core/portal hum, per-tower fire sounds (partial: synth `beep()` exists), volume slider.
 4. ~~**Endgame**~~ ✅ DONE (see Done list) — only **stats graphs** remain from this item. Balance note: wave 15+ income still outpaces sinks; the Warden + endless are now the sink, but mid-game tuning could use a pass with `GameAPI.warp`.
-5. **Nice-to-haves logged along the way:** block-place wireframe ghost in walk mode, TP camera wall-clipping, walk-mode footstep bobbing, golem upgrade tiers.
+5. **Nice-to-haves logged along the way:** golem upgrade tiers (the walk-mode trio — wireframe ghost, TP camera clipping, footstep bobbing — shipped with the walk-mode polish batch below).
 
 ## Playtest wishlist (from 4 scripted GameAPI runs, 2026-06-10)
 
@@ -70,14 +70,14 @@ Findings from actually playing frontier (manual ×2), settler (idle), planetfall
 4. **Damage ticker**: small rolling DPS readout per tower in its panel (have dmgDealt; sample over 10s).
 5. **Creep inspector**: click a creep → type, hp, speed, source portal, distance to crystal.
 
-### Walk-mode (1st/3rd person) wishlist — from playing both views
+### Walk-mode (1st/3rd person) wishlist — ✅ ALL DONE (2026-06-11, `shot-walkmode.png`)
 
-1. **Aimed-tile highlight** *(top FP/TP item)*: a Minecraft-style wireframe on the block you're about to dig/place. Right now you act blind; the overview has a ghost ring, walk mode has nothing.
-2. **Build from walk mode**: a 4th hotbar slot that cycles tower types so walk mode is a complete way to play, not just a terraforming trip.
-3. **Cube compass**: a small corner gizmo showing which face you're on and where the crystal/portals are — on side faces you lose orientation fast.
-4. **TP camera collision**: the trailing camera clips through walls/towers behind the avatar; pull it in when blocked.
-5. **Feel pass**: subtle head-bob + footstep ticks when moving, slightly slower gravity roll when crossing an edge (current snap is functional but not planetary), faint landing puff when dropping into a pit.
-6. **Mining feedback**: hold-to-mine resolves instantly per roll; a quick crack-flash on the block per roll would sell the gamble.
+1. ~~**Aimed-tile highlight**~~ ✅ — Minecraft-style `LineSegments` box outline on the aimed block, sized to the tile, slightly proud (1.035×, +.012 lift) so it never z-fights the top face. Color by tool: amber dig · teal place · blue bucket · tower-color build; outlines the block that *goes* for dig/scoop and the *incoming* block for place/build/pour; tracks HMAP every frame; hidden out of reach / gun slot. Visual only — acts still route through dig/placeDirt/bucketAct/tryBuy.
+2. ~~**Build from walk mode**~~ ✅ — 5th hotbar slot (after dig/wall/gun/bucket) showing the selected tower's bar icon + cost (red when unaffordable); **T** cycles unlocked types; acting calls the same `tryBuy` validation path (cost, unlock, water, pit, creep, trample rules all intact) with its denial toasts. `GameAPI.fp.build(type)` + `state().fp` for agents.
+3. ~~**Cube compass**~~ ✅ — 90px overlay canvas bottom-right: wireframe mini-cube matching camera orientation (back edges fade for depth), current face filled amber, teal dot = crystal, tinted dots = awake portals (far-side dots dim). Redrawn per frame in walk mode only.
+4. ~~**TP camera collision**~~ ✅ — per-frame raycast head→boom against tiles + towers; camera pulled in front of the first hit with .25 margin (snaps in, eases back out at ~5/s). Verified error-free with walls on all 4 sides.
+5. ~~**Feel pass**~~ ✅ — stride-driven head-bob (FP only, eases in/out, `SETT.bob` toggle in settings, default ON) · footstep ticks (two alternating quiet noise voices `step0/step1`, cadence from distance travelled) · landing puff + `land` thump when dropping >1 block · edge crossings now roll gravity over ~.45s (slerp rate 4.5 during `reorientT`) instead of snapping.
+6. ~~**Mining feedback**~~ ✅ — every dig act pulses the aim wireframe (scale + white flash, .3s decay) so each roll of the gamble reads; success/crumble debris puffs were already there.
 
 Verdicts: settler idle pacing is healthy (wave 8, no prestige, autopilot bought tesla and mazed to 32 cells). Planetfall is appropriately brutal. Frontier's danger is entirely concentrated at biome unlocks — items 2 and 4 are the fix.
 
