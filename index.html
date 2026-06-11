@@ -591,9 +591,11 @@ const PITRIM=new Map();
 const rimMat=(()=>{
   const c=document.createElement('canvas');c.width=c.height=64;
   const g=c.getContext('2d');
-  const grd=g.createRadialGradient(32,32,8,32,32,34);
-  grd.addColorStop(0,'rgba(0,0,0,0)');grd.addColorStop(.5,'rgba(0,0,0,.22)');grd.addColorStop(1,'rgba(0,0,0,.8)');
-  g.fillStyle=grd;g.fillRect(0,0,64,64);
+  const E=16; /* square inner shadow: darkest at the rim, hard edge — reads as a sheer drop */
+  const strip=(x,y,w,h,gx0,gy0,gx1,gy1)=>{const gr=g.createLinearGradient(gx0,gy0,gx1,gy1);
+    gr.addColorStop(0,'rgba(0,0,0,.8)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(x,y,w,h);};
+  strip(0,0,64,E,0,0,0,E);strip(0,64-E,64,E,0,64,0,64-E);
+  strip(0,0,E,64,0,0,E,0);strip(64-E,0,E,64,64,0,64-E,0);
   return new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false});
 })();
 function syncPitRim(i){
@@ -634,8 +636,7 @@ function setHeight(i,h){
   HMAP[i]=h;
   const F=FACES[faceOf(i)];
   tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,-2.2+h*HSTEP-((WATER[i]&&WATER[i]!==2)?.3:0));
-  const shrink=h<0?.9:1; /* pits pull in from the rim — the dark seam makes the hole unmistakable */
-  tiles[i].scale.set(shrink,shrink,1);
+  tiles[i].scale.set(1,1,1); /* full-size floor: a dug block is ALL gone, minecraft-style */
   tiles[i].material[4]=topMat(i);
   syncPitRim(i);
 }
@@ -1074,6 +1075,39 @@ const SFX={
       tone(t+i*.13,{type:'sawtooth',f,dur:.3,vol:.02,a:.01,filter:'lowpass',fq:1900});});
     tone(t+.39,{type:'triangle',f:1046.5,dur:.5,vol:.055,a:.01});},
   tick:t=>{nz(t,{dur:.03,vol:.045,filter:'highpass',fq:3000,a:.001});tone(t,{f:1250,f1:880,dur:.04,vol:.03,a:.001});},
+  branch:t=>{tone(t,{type:'triangle',f:520,f1:780,dur:.22,vol:.07,a:.01});
+    nz(t,{dur:.08,vol:.05,filter:'bandpass',fq:2400,Q:5,a:.002});
+    tone(t+.1,{f:130,f1:70,dur:.2,vol:.09});},
+  twdie:t=>{nz(t,{dur:.3,vol:.14,fq:600,fq1:90,rate:.8});tone(t,{f:140,f1:42,dur:.3,vol:.12});
+    nz(t+.12,{dur:.18,vol:.06,fq:350,fq1:120,rate:.5});},
+  repair:t=>{for(let i=0;i<2;i++)tone(t+i*.09,{type:'triangle',f:620+i*180,f1:980+i*180,dur:.09,vol:.05,a:.004});
+    nz(t,{dur:.2,vol:.025,filter:'bandpass',fq:1900,Q:3,rate:1.4});},
+  surgecast:t=>{tone(t,{type:'sawtooth',f:190,f1:880,dur:.4,vol:.06,a:.04,filter:'lowpass',fq:600,fq1:2600});
+    nz(t+.08,{dur:.3,vol:.045,filter:'bandpass',fq:2100,Q:6,rate:1.3});},
+  golem:t=>{tone(t,{f:72,f1:38,dur:.45,vol:.16});nz(t,{dur:.4,vol:.1,fq:300,fq1:60,rate:.45});
+    nz(t+.2,{dur:.2,vol:.05,fq:200,rate:.4});},
+  golemslam:t=>{nz(t,{dur:.16,vol:.13,fq:420,fq1:70,a:.001});tone(t,{f:95,f1:38,dur:.2,vol:.13});},
+  freeze:t=>{tone(t,{f:1900,f1:640,dur:.5,vol:.05,det:30,a:.02});
+    tone(t+.05,{f:2533,f1:850,dur:.45,vol:.03,det:30,a:.02});
+    nz(t,{dur:.5,vol:.04,filter:'highpass',fq:4200,a:.05});},
+  strikecall:t=>{tone(t,{type:'sawtooth',f:520,f1:240,dur:.3,vol:.055,filter:'lowpass',fq:1700});
+    nz(t,{dur:.3,vol:.03,filter:'bandpass',fq:2800,Q:2,rate:1.6});},
+  strikehit:t=>{nz(t,{dur:.25,vol:.16,fq:800,fq1:70});tone(t,{f:105,f1:36,dur:.3,vol:.15});},
+  deny:t=>{tone(t,{f:130,f1:78,dur:.12,vol:.08});nz(t,{dur:.07,vol:.05,fq:420,a:.002,rate:.6});},
+  skillup:t=>{[660,880].forEach((f,i)=>tone(t+i*.09,{type:'triangle',f,f1:f*1.25,dur:.14,vol:.055,a:.006}));},
+  heroshot:t=>{tone(t,{type:'square',f:470,f1:230,dur:.07,vol:.04,filter:'lowpass',fq:2400});
+    nz(t,{dur:.04,vol:.06,filter:'highpass',fq:2200,a:.001});},
+  herohit:t=>{tone(t,{f:980,f1:1460,dur:.07,vol:.04,a:.002});nz(t,{dur:.03,vol:.03,filter:'highpass',fq:3400,a:.001});},
+  order:t=>{tone(t,{f:640,f1:900,dur:.07,vol:.04,a:.003});tone(t+.05,{f:900,f1:1100,dur:.05,vol:.03,a:.002});},
+  jump:t=>{nz(t,{dur:.2,vol:.08,fq:900,fq1:200,rate:1.2});tone(t,{f:300,f1:95,dur:.18,vol:.05});},
+  stirs:t=>{tone(t,{type:'triangle',f:108,dur:.7,vol:.07,a:.12});tone(t,{type:'triangle',f:162,dur:.7,vol:.04,a:.15});
+    nz(t,{dur:.7,vol:.03,fq:260,a:.2,rate:.4});},
+  trample:t=>{nz(t,{dur:.18,vol:.1,fq:500,fq1:140,rate:.7});tone(t,{type:'sawtooth',f:210,f1:88,dur:.22,vol:.07,filter:'lowpass',fq:900});},
+  sabo:t=>{for(let i=0;i<3;i++)nz(t+i*.05,{dur:.05,vol:.08,filter:'bandpass',fq:1500+i*900,Q:8});
+    tone(t,{type:'square',f:300,f1:95,dur:.25,vol:.05,filter:'lowpass',fq:1100});},
+  whoosh:t=>{nz(t,{dur:.22,vol:.05,fq:600,fq1:2200,a:.06,rate:1.1});},
+  confirm:t=>{tone(t,{type:'triangle',f:740,f1:1110,dur:.16,vol:.055,a:.005});
+    nz(t,{dur:.03,vol:.03,filter:'highpass',fq:3000,a:.001});},
 };
 /* throttled, voice-capped dispatcher — at x8 speed shots can spam; same sound max
    once per 50ms and ~16 simultaneous voices so it never clips or machine-guns */
@@ -1085,11 +1119,6 @@ function sfx(name){
   AU.last[name]=now;
   if(AU.voices>=16)return;
   try{fn(AC.currentTime);}catch(e){}
-}
-/* compatibility shim: legacy beep(f,dur,type,vol) call sites route through the engine */
-function beep(f,dur,type,vol){
-  if(!auReady()||AU.voices>=16)return;
-  try{tone(AC.currentTime,{type:type||'square',f,f1:Math.max(40,f*.45),dur,vol:(vol||.05)*1.15,det:7});}catch(e){}
 }
 /* AMBIENT: quiet evolving pad (two detuned triangles + slow filter LFO) + a low
    molten-core rumble. Runs only in a real game (not demo/splash); night pulls the
@@ -1539,7 +1568,7 @@ function branchTower(tw,idx){
   cm.position.y=.95;tw.g.add(cm); /* gold crown */
   ringFx(tw.cell,tw.tt.range,0xffd24a);
   puff(tw.g.position,0xffd24a,10);
-  beep(660,.3,'triangle',.06);
+  sfx('branch');
   toast(tw.type+' → '+br.k);
 }
 function upgradeTower(tw){
@@ -1560,7 +1589,7 @@ function sellTower(tw){
 function destroyTower(tw){
   toast(tw.type+' destroyed by creeps');
   puff(tw.g.position,0xff5e5e,14);
-  beep(120,.3,'sawtooth',.07);
+  sfx('twdie');
   scene.remove(tw.g);TWR[tw.cell]=null;
   towers.splice(towers.indexOf(tw),1);
   bfs();refreshPathDots();
@@ -1719,14 +1748,14 @@ const ABIL={
   strike:{label:'strike',icon:'strike',cd:20,t:0,cost:()=>'100g',can:()=>FREE||gold>=100,pay:()=>{if(!FREE)gold-=100;},cast:()=>castAirstrike()},
   repair:{label:'repair',icon:'heart',cd:35,t:0,cost:()=>'60g',can:()=>FREE||gold>=60,pay:()=>{if(!FREE)gold-=60;},
     cast:()=>{let n=0;for(const tw of towers)if(tw.hp<tw.maxHp){tw.hp=tw.maxHp;n++;puff(tw.g.position,0x4dff7a,4);}
-      toast(n?('repair drones out — '+n+' tower'+(n>1?'s':'')+' patched'):'all towers already pristine');beep(700,.25,'triangle',.06);}},
+      toast(n?('repair drones out — '+n+' tower'+(n>1?'s':'')+' patched'):'all towers already pristine');sfx('repair');}},
   pilot:{label:'pilot',icon:'bot',cd:1,t:0,
     cost:()=>hero.aiOwned?(hero.auto?'ON':'OFF'):'2 shards',
     can:()=>hero.aiOwned||FREE||INV.shard>=2,
     pay:()=>{if(!hero.aiOwned&&!FREE)INV.shard-=2;},
     cast:()=>{hero.aiOwned=true;hero.auto=!hero.auto;toast('hero autopilot '+(hero.auto?'engaged':'standby'));}},
   surge:{label:'surge',icon:'tesla',cd:45,t:0,cost:()=>'80g',can:()=>FREE||gold>=80,pay:()=>{if(!FREE)gold-=80;},
-    cast:()=>{surgeT=10;ringFx(CRYSTAL,5,0xffd24a);beep(550,.4,'sawtooth',.07);toast('SURGE — towers fire 50% faster for 10s');}},
+    cast:()=>{surgeT=10;ringFx(CRYSTAL,5,0xffd24a);sfx('surgecast');toast('SURGE — towers fire 50% faster for 10s');}},
 };
 const TKEY={cannon:'q',frost:'w',laser:'e',mortar:'r',tesla:'t',sniper:'y'};
 const AKEY={golem:'z',freeze:'x',strike:'c',repair:'b',pilot:'p',surge:'j'}; /* v=walk, n=wave — keep clear */
@@ -1782,7 +1811,7 @@ function updateHero(dt){
       const d2=heroDmg();
       dmgNum(best.g.position,Math.round(d2),'#2de0c8');
       damageCreep(best,d2,hero);
-      beep(700,.05,'sine',.03);
+      sfx('heroshot');
     }
   }
 }
@@ -1807,18 +1836,18 @@ function castGolem(){
   g.position.copy(go.pos);
   g.quaternion.setFromUnitVectors(V3(0,1,0),FACES[faceOf(CRYSTAL)].n);
   scene.add(g);golems.push(go);
-  puff(go.pos,0x9aa3b5,10);beep(80,.35,'square',.08);
+  puff(go.pos,0x9aa3b5,10);sfx('golem');
   toast('golem awakened — 75s');
 }
 function castFreeze(){
   for(const c of creeps){c.slowT=Math.max(c.slowT,3);c.slowPow=.15;}
-  ringFx(CRYSTAL,4,0x9be8ff);beep(880,.5,'sine',.07);
+  ringFx(CRYSTAL,4,0x9be8ff);sfx('freeze');
   toast('deep freeze — 3s');
 }
 function castAirstrike(){
   const path=pathCellsList();
   for(let k=0;k<6;k++)strikes.push({cell:path[(rnd()*path.length)|0],t:.25+k*.22});
-  toast('airstrike inbound');beep(440,.3,'sawtooth',.06);
+  toast('airstrike inbound');sfx('strikecall');
 }
 function useAbility(k){
   const a=ABIL[k];
@@ -1834,7 +1863,7 @@ function updateAbilities(dt){
     if(s2.t>0)continue;
     strikes.splice(i,1);
     const p=cellTop(s2.cell);
-    ringFx(s2.cell,1.2,0xffaa3d);puff(p,0xff8c2d,10);beep(110,.25,'sawtooth',.07);
+    ringFx(s2.cell,1.2,0xffaa3d);puff(p,0xff8c2d,10);sfx('strikehit');
     const dmg=14+wave*1.2;
     for(const c of [...creeps])if(c.g.position.distanceTo(p)<1.25)damageCreep(c,dmg);
     shakeT=Math.max(shakeT,.15);
@@ -1857,7 +1886,7 @@ function updateAbilities(dt){
     if(best&&go.cool<=0&&bd<1.1){ /* slam */
       go.cool=1.5;
       if(ci>=0)ringFx(ci,1.3,0x9aa3b5);
-      beep(90,.2,'square',.07);
+      sfx('golemslam');
       const dmg=15+wave*1.5;
       for(const c of [...creeps])if(c.g.position.distanceTo(go.g.position)<1.3)damageCreep(c,dmg);
     }
@@ -1905,7 +1934,7 @@ function dig(i){
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(chop(i))return;
   if(WATER[i]){toast(WATER[i]===3?'that is lava':WATER[i]===4?'quicksand — fill it with dirt':'water — fill it with dirt or go around');return;}
-  if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');beep(90,.2,'sawtooth',.06);return;}
+  if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');sfx('deny');return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
   const kit=freeDigs>0; /* surveyor's kit: opening digs are free and never crumble */
   if(!kit){
@@ -2018,7 +2047,7 @@ function buyHeroSkill(k){
   if(!FREE){gold-=c.gold;INV.iron-=c.iron;}
   s.lv++;
   toast('hero '+s.label+' lv'+s.lv);
-  beep(620,.2,'triangle',.06);
+  sfx('skillup');
   return{ok:true,skill:k,level:s.lv};
 }
 function orbitPose(){
@@ -2123,7 +2152,7 @@ function aimedTile(){
 }
 function fpFire(){
   if(fpCool>0)return;fpCool=.42*heroRate();
-  beep(520,.08,'square',.045);
+  sfx('heroshot');
   const dir=new THREE.Vector3();camera.getWorldDirection(dir);
   ray.set(camera.position,dir);
   const hit=ray.intersectObjects(creeps.map(c=>c.g),true)[0];
@@ -2132,7 +2161,7 @@ function fpFire(){
   if(hit){let o=hit.object;while(o&&!o.userData.creep)o=o.parent;
     if(o){const c=o.userData.creep;const d=heroDmg();
       dmgNum(c.g.position,Math.round(d),'#ffd24a');damageCreep(c,d,hero);
-      beep(960,.05,'sine',.04);}}
+      sfx('herohit');}}
 }
 function fpAction(btn){
   if(camTrans.active)return;
@@ -2230,7 +2259,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
     if(!dragging&&heroSpawned&&HSK.command.lv>0){
       const hit=castAt(e,tiles,false);
       if(hit){const i=hit.object.userData.i;
-        if(ACTIVE[faceOf(i)]){hero.moveTo=cellTop(i).clone();ringFx(i,.55,0x2de0c8);beep(620,.07,'sine',.04);}}
+        if(ACTIVE[faceOf(i)]){hero.moveTo=cellTop(i).clone();ringFx(i,.55,0x2de0c8);sfx('order');}}
     }else if(!dragging&&heroSpawned&&HSK.command.lv===0&&!DEMO){
       if((lockToastT-=0)<=0){lockToastT=2;toast('unlock COMMAND LINK in the hero skill tree to order him around');}
     }
@@ -2443,7 +2472,7 @@ addEventListener('keydown',e=>{
   if(['1','2','3','4'].includes(e.key))document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===simSpeed));
   if(e.key===' '&&!menuOpen){
     if(mode==='walk'){ /* in the field, space = jump jets (if unlocked) */
-      if(HSK.jump.lv>0&&hero.jumpT<=0){hero.jumpT=.55;beep(520,.14,'square',.05);}
+      if(HSK.jump.lv>0&&hero.jumpT<=0){hero.jumpT=.55;sfx('jump');}
       else if(HSK.jump.lv===0)toast('unlock JUMP JETS in the hero skill tree');
       e.preventDefault();return;
     }
@@ -2556,7 +2585,7 @@ function showTelegraph(f){
   }
   scene.add(previewDots);
   toast(BIOMES[f].name+' stirs — portal opens next wave');
-  beep(180,.3,'triangle',.05);
+  sfx('stirs');
 }
 function unlockNextFace(){
   if(facesUnlocked>=DIFF.maxFaces)return;
@@ -2699,7 +2728,7 @@ function sim(dt){
     if(twHere&&twHere!=='pending'){
       c.atkT=(c.atkT||0)-dt;
       if(c.atkT<=0){c.atkT=.8;
-        if(!twHere.warned){twHere.warned=true;toast(twHere.type+' is being TRAMPLED — it stands on the route');beep(200,.25,'sawtooth',.07);}
+        if(!twHere.warned){twHere.warned=true;toast(twHere.type+' is being TRAMPLED — it stands on the route');sfx('trample');}
         twHere.hp-=3+wave*.4+(c.tt.boss?15:0);
         puff(twHere.g.position,0xff5e5e,3);
         if(twHere.hp<=0)destroyTower(twHere);
@@ -2712,7 +2741,7 @@ function sim(dt){
         if(!tw2||tw2==='pending'||tw2.saboT>0)continue;
         c.saboDone=true;c.saboT=1.4;c.saboTw=tw2;
         tw2.saboT=c.tt.sabo;tw2.headMat.emissiveIntensity=.05;
-        toast('saboteur shorted your '+tw2.type+' — '+c.tt.sabo+'s');beep(180,.3,'sawtooth',.06);
+        toast('saboteur shorted your '+tw2.type+' — '+c.tt.sabo+'s');sfx('sabo');
         logEvent('saboteur disabled '+tw2.type+' on '+FACES[faceOf(j)].name.toLowerCase());
         break;
       }
@@ -2893,7 +2922,7 @@ function updateWalk(dt){
         walker.pos.addScaledVector(wf,.15); /* step cleanly off the seam so the corner can't reclaim you */
         toast('FACE: '+NF.name);
         $('facetag').textContent='FACE: '+NF.name;
-        beep(440,.12,'triangle',.05);
+        sfx('whoosh');
       }
     }
     /* clamp to surface shell */
@@ -3450,7 +3479,7 @@ function tutTick(){
   if(TUTS[TUT.step].done()){
     TUT.step++;
     if(TUT.step===2)TUT.d3=dirt; /* wall step: detect by dirt spent */
-    beep(740,.15,'triangle',.06);
+    sfx('confirm');
     if(TUT.step>=TUTS.length){tutEnd('tutorial complete — the cube is yours');return;}
     tutShow();
   }
