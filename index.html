@@ -413,7 +413,8 @@ const BIOMES=[ /* obs = the obstacle each biome drops ON the road — dig/chop i
 ];
 const matBio=BIOMES.map(B=>[
   new THREE.MeshStandardMaterial({color:B.a,roughness:.95}),
-  new THREE.MeshStandardMaterial({color:B.b,roughness:.95})]);
+  new THREE.MeshStandardMaterial({color:B.b,roughness:.95}),
+  new THREE.MeshStandardMaterial({color:new THREE.Color(B.a).offsetHSL(.015,.04,.05),roughness:.95})]); /* the occasional odd tile breaks the checkerboard monotony */
 const matLockA=new THREE.MeshStandardMaterial({color:0x14161d,roughness:1});
 const matLockB=new THREE.MeshStandardMaterial({color:0x101218,roughness:1});
 const matD=[null, /* dug-pit floors: readable earth strata, not voids */
@@ -439,6 +440,7 @@ function topMat(i){
   if(h>0)return matWall;
   if(WATER[i])return WATER[i]===3?matLava:WATER[i]===2?matIce:matWater;
   if(ROAD[i])return matRoad;
+  if(((i*2654435761)>>>0)%9===0)return matBio[faceOf(i)][2];
   return matBio[faceOf(i)][checker];
 }
 for(let i=0;i<N;i++){
@@ -471,6 +473,9 @@ const decoMats={
   pond:new THREE.MeshStandardMaterial({color:0x3b7bd4,roughness:.2,transparent:true,opacity:.85}),
   boulder:new THREE.MeshStandardMaterial({color:0x6e7280,roughness:.95}),
   snow:new THREE.MeshStandardMaterial({color:0xeef4f8,roughness:.7}),
+  flower:new THREE.MeshStandardMaterial({color:0xff7ab8,emissive:0xff7ab8,emissiveIntensity:.3,roughness:.6}),
+  dune:new THREE.MeshStandardMaterial({color:0xb09a6a,roughness:1}),
+  icespike:new THREE.MeshStandardMaterial({color:0xcfeaf8,roughness:.15}),
 };
 function buildDeco(kind){
   const g=new THREE.Group();
@@ -483,6 +488,10 @@ function buildDeco(kind){
   else if(kind==='pond'){const m=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.06,14),decoMats.pond);m.position.y=.04;g.add(m);}
   else if(kind==='boulder'){M(new THREE.DodecahedronGeometry(.27),decoMats.boulder,.24);M(new THREE.DodecahedronGeometry(.14),decoMats.boulder,.12).position.x=.22;}
   else if(kind==='snowball'){M(new THREE.SphereGeometry(.26,10,10),decoMats.snow,.24);M(new THREE.SphereGeometry(.14,8,8),decoMats.snow,.5);}
+  else if(kind==='flower'){M(new THREE.CylinderGeometry(.012,.012,.16,4),decoMats.tree,.08);M(new THREE.SphereGeometry(.05,6,6),decoMats.flower,.18);}
+  else if(kind==='rock'){M(new THREE.DodecahedronGeometry(.13),decoMats.boulder,.1);}
+  else if(kind==='dune'){const m=new THREE.Mesh(new THREE.SphereGeometry(.42,8,6),decoMats.dune);m.scale.set(1,.28,.65);m.position.y=.05;m.castShadow=true;g.add(m);}
+  else if(kind==='icespike'){M(new THREE.ConeGeometry(.12,.6,5),decoMats.icespike,.3);const s2=M(new THREE.ConeGeometry(.07,.35,5),decoMats.icespike,.18);s2.position.x=.15;}
   else {M(new THREE.OctahedronGeometry(.22),decoMats.shard,.26);M(new THREE.OctahedronGeometry(.12),decoMats.shard,.1).position.x=.18;}
   return g;
 }
@@ -541,10 +550,12 @@ function markRoad(p){ /* pave the invasion's current route from this portal */
     i=FIELDS.walk.next[i];
   }
 }
+const BIOME_EXTRA=[['flower','rock'],['rock'],['dune','rock'],['rock'],['rock','flower'],['icespike','rock']];
 function decorateFace(f){
-  const kind=BIOMES[f].deco;
+  const extra=BIOME_EXTRA[f];
   let placed=0,tries=0;
-  while(placed<9&&tries++<160){
+  while(placed<11&&tries++<180){
+    const kind=rnd()<.55?BIOMES[f].deco:extra[(rnd()*extra.length)|0];
     const u=1+((rnd()*(S-2))|0),v=1+((rnd()*(S-2))|0);
     const i=f*FCELLS+v*S+u;
     if(DEC[i]||TWR[i]||HMAP[i]!==0||PORTALS.includes(i)||i===CRYSTAL)continue;
@@ -781,6 +792,9 @@ const CT={
 };
 const eyeGeo=new THREE.BoxGeometry(.05,.05,.02);
 const eyeMat=new THREE.MeshBasicMaterial({color:0xffffff});
+const armorMat=new THREE.MeshStandardMaterial({color:0x23262f,roughness:.6});
+const boneMat=new THREE.MeshStandardMaterial({color:0xd8d2c0,roughness:.8});
+const glowMat=c=>new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:1.1});
 function eyes(parent,y,z,spread){
   const e1=new THREE.Mesh(eyeGeo,eyeMat),e2=new THREE.Mesh(eyeGeo,eyeMat);
   e1.position.set(-spread,y,z);e2.position.set(spread,y,z);
@@ -788,39 +802,62 @@ function eyes(parent,y,z,spread){
 }
 function buildCreepBody(typeName,mat){
   const g=new THREE.Group();
-  const M=(geo,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;g.add(m);return m;};
-  if(typeName==='runner'){
-    const b=M(new THREE.ConeGeometry(.16,.5,5),0,.16,0);b.rotation.x=Math.PI/2;
-    eyes(g,.22,.2,.06);
-  }else if(typeName==='jumper'){
-    M(new THREE.BoxGeometry(.3,.22,.3),0,.2,0);
-    M(new THREE.BoxGeometry(.1,.26,.14),-.2,.14,-.1);
-    M(new THREE.BoxGeometry(.1,.26,.14),.2,.14,-.1);
-    eyes(g,.34,.14,.08);
-  }else if(typeName==='crawler'){
-    M(new THREE.BoxGeometry(.34,.12,.4),0,.1,0);
-    for(const sx of[-1,1])for(const sz of[-1,1])
-      M(new THREE.BoxGeometry(.07,.16,.07),sx*.22,.08,sz*.14);
-    eyes(g,.14,.2,.07);
-  }else if(typeName==='tank'){
-    M(new THREE.BoxGeometry(.42,.3,.5),0,.22,0);
-    M(new THREE.BoxGeometry(.48,.1,.34),0,.4,0);
-    M(new THREE.BoxGeometry(.44,.22,.06),0,.2,.26);
-    eyes(g,.32,.24,.1);
-  }else if(typeName==='healer'){
-    M(new THREE.SphereGeometry(.18,10,10),0,.28,0);
-    const ring=M(new THREE.TorusGeometry(.26,.025,6,16),0,.28,0);ring.rotation.x=Math.PI/2;
-    eyes(g,.3,.16,.06);
-  }else if(typeName==='boss'){
-    M(new THREE.BoxGeometry(.36,.4,.46),0,.3,0);
-    const hd=M(new THREE.BoxGeometry(.26,.22,.24),0,.62,.08);
-    for(const sx of[-.08,0,.08])M(new THREE.ConeGeometry(.035,.12,4),sx,.78,.08);
+  const M=(geo,x,y,z,m2)=>{const m=new THREE.Mesh(geo,m2||mat);m.position.set(x,y,z);m.castShadow=true;g.add(m);return m;};
+  if(typeName==='runner'){ /* sleek dart, dorsal fin, leaning into the sprint */
+    const b=M(new THREE.ConeGeometry(.15,.52,5),0,.17,0);b.rotation.x=Math.PI/2-.18;
+    const fin=M(new THREE.BoxGeometry(.02,.14,.2),0,.3,-.06,armorMat);fin.rotation.x=-.4;
+    eyes(g,.22,.22,.05);
+  }else if(typeName==='jumper'){ /* coiled spring-legs, ready to pop */
+    M(new THREE.BoxGeometry(.28,.2,.26),0,.24,0);
+    const lL=M(new THREE.BoxGeometry(.09,.3,.12),-.19,.15,-.08,armorMat);lL.rotation.x=.55;
+    const lR=M(new THREE.BoxGeometry(.09,.3,.12),.19,.15,-.08,armorMat);lR.rotation.x=.55;
+    M(new THREE.BoxGeometry(.05,.12,.05),-.1,.18,.14);
+    M(new THREE.BoxGeometry(.05,.12,.05),.1,.18,.14);
+    eyes(g,.36,.13,.07);
+  }else if(typeName==='crawler'){ /* low six-legged scuttler with mandibles */
+    M(new THREE.BoxGeometry(.32,.11,.44),0,.1,0);
+    for(const sx of[-1,1])for(const sz of[-1,0,1])
+      M(new THREE.BoxGeometry(.06,.15,.06),sx*.21,.08,sz*.15,armorMat);
+    M(new THREE.ConeGeometry(.03,.12,4),-.06,.1,.26,boneMat).rotation.x=Math.PI/2;
+    M(new THREE.ConeGeometry(.03,.12,4),.06,.1,.26,boneMat).rotation.x=Math.PI/2;
+    eyes(g,.14,.21,.07);
+  }else if(typeName==='tank'){ /* armored slab on treads, smokestack */
+    M(new THREE.BoxGeometry(.4,.26,.48),0,.26,0);
+    M(new THREE.BoxGeometry(.14,.16,.55),-.24,.12,0,armorMat); /* treads */
+    M(new THREE.BoxGeometry(.14,.16,.55),.24,.12,0,armorMat);
+    M(new THREE.BoxGeometry(.44,.08,.3),0,.43,0,armorMat);
+    M(new THREE.CylinderGeometry(.035,.05,.16,6),-.12,.52,-.12,armorMat); /* stack */
+    M(new THREE.BoxGeometry(.4,.2,.05),0,.24,.27,boneMat); /* ram plate */
+    eyes(g,.34,.25,.1);
+  }else if(typeName==='healer'){ /* serene orb under a double halo */
+    M(new THREE.SphereGeometry(.17,10,10),0,.28,0);
+    const h1=M(new THREE.TorusGeometry(.26,.02,6,18),0,.3,0,glowMat(0x4dff7a));h1.rotation.x=Math.PI/2;
+    const h2=M(new THREE.TorusGeometry(.19,.015,6,16),0,.42,0,glowMat(0x9dffb8));h2.rotation.x=Math.PI/2;
+    g.userData.spin=h1;g.userData.spin2=h2;
+    eyes(g,.3,.15,.05);
+  }else if(typeName==='boss'){ /* hulk: crown, shoulder spikes, dread aura */
+    M(new THREE.BoxGeometry(.4,.42,.48),0,.32,0);
+    M(new THREE.BoxGeometry(.5,.14,.4),0,.56,0,armorMat);
+    M(new THREE.ConeGeometry(.06,.18,4),-.27,.62,0,boneMat);
+    M(new THREE.ConeGeometry(.06,.18,4),.27,.62,0,boneMat);
+    const hd=M(new THREE.BoxGeometry(.26,.22,.24),0,.74,.06);
+    for(const sx of[-.08,0,.08])M(new THREE.ConeGeometry(.035,.13,4),sx,.9,.06,boneMat);
+    const aura=M(new THREE.RingGeometry(.42,.5,24),0,.04,0,glowMat(0xffb020));
+    aura.rotation.x=-Math.PI/2;g.userData.spin=aura;
     eyes(hd,.02,.13,.06);
-  }else{
-    M(new THREE.BoxGeometry(.3,.34,.42),0,.26,0);
-    const hd=M(new THREE.BoxGeometry(.22,.2,.22),0,.5,.1);
+  }else if(typeName==='shield'){ /* helmeted line-breaker behind a glowing tower shield */
+    M(new THREE.BoxGeometry(.28,.32,.4),0,.26,0);
+    const hd=M(new THREE.BoxGeometry(.22,.18,.2),0,.52,.06);
+    M(new THREE.BoxGeometry(.26,.08,.22),0,.62,.04,armorMat); /* helm */
+    M(new THREE.BoxGeometry(.42,.34,.05),0,.3,.27,armorMat);
+    M(new THREE.BoxGeometry(.46,.04,.07),0,.48,.27,glowMat(0x8a93ab)); /* shield rim */
+    eyes(hd,.02,.1,.05);
+  }else{ /* grunt: the horned rabble */
+    M(new THREE.BoxGeometry(.3,.32,.4),0,.25,0);
+    const hd=M(new THREE.BoxGeometry(.22,.2,.22),0,.49,.1);
+    M(new THREE.ConeGeometry(.035,.12,4),-.09,.63,.08,boneMat);
+    M(new THREE.ConeGeometry(.035,.12,4),.09,.63,.08,boneMat);
     eyes(hd,.02,.11,.055);
-    if(typeName==='shield')M(new THREE.BoxGeometry(.4,.3,.06),0,.32,.27);
   }
   return g;
 }
@@ -855,7 +892,8 @@ function killCreep(c,src){
   if(src)src.kills++;
   kills++;gold+=Math.round(c.bounty*goldMult*DIFF.bounty);
   addScore(c.tt.boss?50:5);
-  puff(c.g.position,0xffd24a,c.tt.boss?24:7);
+  puff(c.g.position,c.tt.color,c.tt.boss?14:5); /* die in your own colors */
+  puff(c.g.position,0xffd24a,c.tt.boss?12:3);
   scene.remove(c.g);creeps.splice(i,1);
 }
 
@@ -2130,6 +2168,8 @@ function sim(dt){
       const q=new THREE.Quaternion().setFromRotationMatrix(m);
       c.g.quaternion.slerp(q,Math.min(dt*8,1));
     }
+    if(c.g.userData.spin)c.g.userData.spin.rotation.z+=dt*2.2;
+    if(c.g.userData.spin2)c.g.userData.spin2.rotation.z-=dt*3;
     c.bar.scale.x=Math.max(c.hp/c.maxHp,.001);
     c.bar.material.color.setHSL(.33*(c.hp/c.maxHp),.9,.55);
     c.bar.lookAt(camera.position);

@@ -41,6 +41,8 @@ Upgrades: tier 2 = base cost, tier 3 = 2× base (bronze → silver → gold base
 - Loot by depth: layer 1 gold, layer 2 iron, layer 3 shards/gems. Bedrock at −3.
 - 1-deep pit = speed bump · 2-deep = walker-proof cliff · walls: 1-high slows walkers/stops nothing special, 2-high stops walkers AND jumpers. Crawlers cross all of it.
 - Hazards: forest undergrowth −15% speed · desert quicksand makes pits lethal-slow · tundra ice +15% speed but frost slows last 1.5× · volcanic embers / cavern static burn % hp per second.
+- **Water is terrain** (full tiles, seeded per biome): water slows creeps to 45% and they prefer dry routes; ice (tundra lake) speeds them to 135%; lava (volcanic flow) burns 2.5% hp/s. No building or digging on it — but **placing dirt reclaims it as land** (1 dirt). Guide creeps through water, never through ice.
+- Leaderboard: `GameAPI.player('name')` tags your runs; top-10 per machine, shown on the splash (`GameAPI.leaderboard()`, CLI `lead`).
 - Waves: call early for +20+5×wave gold. Wave clear pays 30+10×wave. Biomes wake on schedule (first at w4) or **breach early** via the countdown chip (120g +60/face → expedition cache + the native tower).
 
 ## Abilities & hero
