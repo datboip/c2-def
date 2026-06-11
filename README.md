@@ -11,7 +11,7 @@ python3 -m http.server 8765 --directory .
 
 ## The rules
 
-- **One in, one out.** Every awake biome has exactly one portal (tinted to that biome's color). All routes end at the single crystal. You never seal a route — you only make it longer, slower, and deadlier.
+- **Two modes.** CLASSIC (default): ONE portal for the whole game — every biome that wakes is new land, new hazards, and its native tower, and your job is to maze them the longest possible way around the cube. SIEGE: every waking biome opens its own portal (tinted to its color) — multi-front defense; multiplayer is always siege (each joining player owns a biome + portal). Either way: all routes end at the single crystal, and you never seal a route — only make it longer, slower, deadlier.
 - **Waking the cube.** Runs start on the meadow. Surviving waves wakes biomes in a fixed order — **forest → desert → tundra → volcanic → caverns** — each bringing a new portal, its hazard, and its native tower. Difficulty sets the pace and ceiling: settler (3 biomes, every 9 waves), frontier (5, every 6), planetfall (all 6, every 4).
 - **Native towers.** cannon→meadow (starter) · tesla→forest · sniper→desert · frost→tundra · mortar→volcanic · laser→caverns. A tower built on its home biome deals **+25%**.
 - **Hazards.** forest undergrowth slows creeps · desert quicksand makes dug pits lethal-slow · tundra ice speeds creeps but frost slows last 1.5× · volcanic embers and cavern static burn % HP per second.
@@ -75,7 +75,7 @@ The game scores every run, so different models (or humans) can be compared on id
 | overrun (prestige) | −400 |
 
 **The arena protocol** (for pitting models against each other):
-1. `start 1 <seed>` — frontier, real economy, **fixed seed** so every model faces the identical scenario (same map, waves, loot dice, AI dice). Never `free`, autopilot **off** (`auto off`) — the model plays, not the director.
+1. `start 1 <seed>` — frontier, real economy, **fixed seed** so every model faces the identical scenario (same map, waves, loot dice, AI dice). Never `free`, autopilot **off** (`auto off`) — the model plays, not the director. Also fix the **mode**: `GameAPI.start(1,false,seed,'classic')` (one portal, default) or `'siege'` (portal per biome) — scorecard records it.
 2. Fixed speed (×8) and a fixed **`playSec` budget** (e.g. 60 or 300). Budget by `playSec` from `scorecard()`, not wall-clock — headless browsers throttle frames.
 3. The model may read `GUIDE.md` (full bestiary/tower/terrain data — also machine-readable at `GameAPI.grid`) and gets `state` between actions.
 4. When the budget expires, report `GameAPI.scorecard()` verbatim.

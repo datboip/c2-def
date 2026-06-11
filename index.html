@@ -290,7 +290,7 @@
     <div class="htab on" data-h="0">basics</div><div class="htab" data-h="1">terrain</div><div class="htab" data-h="2">enemies</div><div class="htab" data-h="3">controls</div>
   </div>
   <div class="hl hsec on">
-    The world is a <b>cube</b> — each face a <b>biome</b>, gravity at the core. Creeps pour from <b style="color:#a86bff">portals</b> (one per awake biome, tinted to match) toward your single <b style="color:#2de0c8">crystal</b>.<br><br>
+    The world is a <b>cube</b> — each face a <b>biome</b>, gravity at the core. Creeps march to your single <b style="color:#2de0c8">crystal</b>. In <b>CLASSIC</b> there is ONE <b style="color:#a86bff">portal</b> — wall and dig so they travel the longest possible way around the cube. In <b>SIEGE</b> every biome that wakes opens its own portal (multiplayer is always siege — each player owns one).<br><br>
     <b>WAKING THE CUBE</b> — biomes wake on a schedule, or <b>breach early</b>: click the countdown chip (costs gold, grants a cache + that biome's <b>native tower</b>). Native towers hit <b style="color:#ffd24a">+25%</b> at home: cannon·meadow, tesla·forest, sniper·desert, frost·tundra, mortar·volcanic, laser·caverns.<br><br>
     <b>YOUR HERO</b> is always fielded — it sentries when unmanned, levels up from kills, <span class="kbd">V</span> possesses it, <b>click it</b> for the skill tree, the <b>pilot</b> ability gives it AI.<br><br>
     <b>SCORE</b>: +5/kill · +100+10w per wave (+50 perfect) · +150/biome · −25/leak · −400 overrun.
@@ -320,6 +320,10 @@
   <div class="sub">ONE WORLD · SIX BIOMES · GRAVITY AT THE CORE</div>
   <div id="bestline" style="display:none;font-size:10px;color:#ffd24a;letter-spacing:.12em;margin:-10px 0 12px"></div>
   <div id="biostrip"></div>
+  <div class="lvls" id="moderow" style="margin-bottom:8px">
+    <div class="lvl on" data-m="classic" style="border-color:#e8b73a"><b style="color:#e8b73a">CLASSIC</b><small style="color:#6b7385">one portal — maze them the longest way around the cube</small></div>
+    <div class="lvl" data-m="siege"><b style="color:#ff8c2d">SIEGE</b><small style="color:#6b7385">every biome that wakes opens its own portal</small></div>
+  </div>
   <div class="lvls" id="diffrow">
     <div class="lvl" data-d="0"><b style="color:#4dd87a">I</b>settler<br><small style="color:#6b7385">3 biomes · wakes every 9 waves</small></div>
     <div class="lvl" data-d="1" style="border-color:#ffd24a"><b style="color:#ffd24a">II</b>frontier<br><small style="color:#6b7385">5 biomes · every 6 waves</small></div>
@@ -400,7 +404,7 @@ const DIFFS=[
   {name:'planetfall',unlockEvery:4,maxFaces:6,hp:1.25,exp:1.19,budget:1.2,bounty:.9,lives:9},
 ];
 let DIFF=DIFFS[1];
-let DEMO=true,FREE=false;
+let DEMO=true,FREE=false,MODE='classic'; /* classic: ONE portal, maze the whole cube · siege: every biome opens one */
 const CFG={startGold:150,startDirt:10,freeDigs:10,maxTier:3,digCost:3,digDepth:-3,reach:4.4,
   breakTime:14,earlyBonus:20,dayLen:240,wallRangeBonus:1.15};
 const SETT={sens:1,invert:false,sfx:true,alwaysDay:false};
@@ -1070,6 +1074,11 @@ function renderWavePreview(){
 function startBreak(){
   pendingQueue=composeQueue();renderWavePreview();
   breakT=CFG.breakTime;$('breakwrap').style.display='block';
+  if(wave>0&&!DEMO){ /* front and center, not lost in the corner */
+    const wb=$('wavebanner');
+    wb.textContent='WAVE '+wave+' CLEARED  ·  +'+(30+10*wave)+'g NEXT CALL';
+    wb.classList.remove('show');void wb.offsetWidth;wb.classList.add('show');
+  }
 }
 function callWave(early){
   breakT=-1;$('breakwrap').style.display='none';
@@ -1087,7 +1096,7 @@ function callWave(early){
   if(wave>=nextUnlockWave&&facesUnlocked<DIFF.maxFaces){unlockNextFace();nextUnlockWave=wave+DIFF.unlockEvery;}
   if(facesUnlocked<DIFF.maxFaces){
     const left=nextUnlockWave-wave;
-    if(left===1)showTelegraph(UNLOCK_ORDER[facesUnlocked-1]);
+    if(left===1&&MODE==='siege')showTelegraph(UNLOCK_ORDER[facesUnlocked-1]);
     else if(telegraphFor>=0&&left>1)clearTelegraph(); /* prestige rollback can stale the ghost */
   }
   spawnQueue=pendingQueue.length?pendingQueue:composeQueue();
@@ -2063,7 +2072,11 @@ $('breakbar').onclick=()=>{
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'wave'});return;}
   if(breakT>0&&!DEMO)callWave(true);
 };
-let pickedDiff=1;
+let pickedDiff=1,pickedMode='classic';
+document.querySelectorAll('#moderow .lvl').forEach(d=>d.onclick=()=>{
+  pickedMode=d.dataset.m;
+  document.querySelectorAll('#moderow .lvl').forEach(x=>x.style.borderColor=x.dataset.m===pickedMode?'#e8b73a':'#262b36');
+});
 document.querySelectorAll('#diffrow .lvl').forEach(d=>d.onclick=()=>{
   pickedDiff=+d.dataset.d;
   document.querySelectorAll('#diffrow .lvl').forEach(x=>x.style.borderColor=+x.dataset.d===pickedDiff?'#ffd24a':'#2a2f42');
@@ -2202,16 +2215,19 @@ function unlockNextFace(){
   facesUnlocked++;
   ACTIVE[f]=1;
   for(let i=f*FCELLS;i<(f+1)*FCELLS;i++)refreshTile(i);
-  const np=farCellOnFace(f);
-  PORTALS.push(np);PORTAL_BORN.push(wave);
-  const pm=addPortalMesh(f);
-  orientOnFace(pm,np,.04);
   clearFaceDecos(f); /* the dormant silhouettes wake into the real biome */
-  bfs();markRoad(np);decorateFace(f);
+  const np=farCellOnFace(f); /* camera target either way */
+  if(MODE==='siege'){ /* siege: each biome opens its own portal */
+    PORTALS.push(np);PORTAL_BORN.push(wave);
+    const pm=addPortalMesh(f);
+    orientOnFace(pm,np,.04);
+    bfs();markRoad(np);
+  }else bfs();
+  decorateFace(f);
   bfs();refreshPathDots();
   const wb=$('wavebanner');wb.textContent=BIOMES[f].name.toUpperCase()+' AWAKENS';
   wb.classList.remove('show');void wb.offsetWidth;wb.classList.add('show');
-  toast(BIOMES[f].name+' face unlocked ('+FACES[f].name+') — new portal');
+  toast(BIOMES[f].name+' face unlocked ('+FACES[f].name+')'+(MODE==='siege'?' — new portal':' — new land to maze through'));
   const nt=Object.keys(TT).find(k=>TT[k].biome===f);
   if(nt)toast(TT[nt].starter?(nt+' is home here — +25% dmg'):(nt+' tower unlocked'));
   addScore(150);
@@ -2257,14 +2273,16 @@ function resetGame(diff,demo){
   lives=DIFF.lives;
   focusActive();
   if(demo){ /* the demo fields the hero too — it's part of the game */
+    MODE='siege';
     gold=400;dirt=20;
     walker.face=0;walker.pos.copy(cellTop(0*FCELLS+(S>>1)*S+1));
     heroSpawned=true;hero.aiOwned=true;hero.auto=true;
     callWave(false);
   }
 }
-function startGame(diffIdx,free,seed){
+function startGame(diffIdx,free,seed,mode){
   srand(seed!=null?(+seed>>>0):((Math.random()*2**31)|0)); /* fixed seed => identical scenario */
+  MODE=(mode==='siege'||NET.on)?'siege':(mode==='classic'?'classic':pickedMode); /* MP always sieges — guests own portals */
   DEMO=false;FREE=!!free;autopilot=false;autoSpin=false;
   $('splash').style.display='none';$('demoTag').style.display='none';
   resetGame(DIFFS[diffIdx],false);
@@ -2873,7 +2891,7 @@ window.GameAPI={
     water:Array.from(WATER),
     path:pathCellsList(),
   };},
-  start(diffIdx,free,seed){if(diffIdx==null)diffIdx=1;startGame(diffIdx,!!free,seed);return{ok:true,diff:DIFF.name,free:FREE,seed:rngSeed};},
+  start(diffIdx,free,seed,mode){if(diffIdx==null)diffIdx=1;startGame(diffIdx,!!free,seed,mode);return{ok:true,diff:DIFF.name,free:FREE,seed:rngSeed,mode:MODE};},
   /* dry-run terrain planner: predicted routes for hypothetical edits, nothing committed.
      edits: [{cell, action:'wall'|'dig'|'chop'}, ...] — valid:false means it would seal. */
   simulate(edits){
@@ -2948,7 +2966,7 @@ window.GameAPI={
   expandCost:()=>expandCost(),
   /* the benchmark blob — one call, everything a model comparison needs */
   scorecard(){return{
-    player:playerName,score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,seed:rngSeed,
+    player:playerName,score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,seed:rngSeed,mode:MODE,
     wave,kills,lives,prestige,totalLeaks,perfectWaves,
     faces:facesUnlocked,miningLevel:mineLvl(),
     heroKills:hero.kills,heroDmg:Math.round(hero.dmgDealt),
