@@ -130,7 +130,7 @@
 <div id="hud"></div>
 <div id="ctrls">
   <div class="seg" id="segSpeed">
-    <div data-s="0" title="pause"></div><div data-s="1" class="on" title="normal"></div><div data-s="2" title="2x"></div><div data-s="4" title="4x"></div>
+    <div data-s="0" title="pause"></div><div data-s="1" class="on" title="normal"></div><div data-s="2" title="2x"></div><div data-s="4" title="4x"></div><div data-s="8" title="8x — idle mode"></div>
   </div>
   <div class="tbtn" id="btnWalk" title="walk the cube [V]"></div>
   <div class="tbtn" id="btnSpin" title="auto-rotate the cube [R]"></div>
@@ -179,7 +179,7 @@
     <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1, nothing from nowhere (the AI obeys too). Walkers climb 1 (slow), <b style="color:#e8b833">jumpers</b> hop walls, <b style="color:#8a5dd8">crawlers</b> scale anything.<br><br>
     <b>GUNS, NOT WALLS</b> — towers never block the route. Only <b>terrain</b> bends it: dig trenches, raise walls, reroute through your kill zones. A tower standing on the route gets <b style="color:#ff5e8a">trampled</b> (towers have HP) — building in the highway is a greedy gamble. The route can never be fully sealed.<br><br>
     <span class="kbd">drag</span> tower from bar · <span class="kbd">click</span> tower = upgrade/sell · <span class="kbd">V</span> walk the cube · <span class="kbd">C</span> 1st/3rd person · hold <span class="kbd">LMB</span> to keep mining · <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom<br>
-    Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% success (+5% per mining level — practice pays). Failures crumble; chop trees free, and chop before digging under them. 3 layers → bedrock: gold, then iron, then shards · <span class="kbd">N</span> calls waves early for gold · <span class="kbd">space</span> pause · <span class="kbd">1/2/3</span> speed
+    Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% success (+5% per mining level — practice pays). Failures crumble; chop trees free, and chop before digging under them. 3 layers → bedrock: gold, then iron, then shards · <span class="kbd">N</span> calls waves early for gold · <span class="kbd">space</span> pause · <span class="kbd">1/2/3/4</span> speed up to ×8
   </div>
   <button class="mbtn" id="hClose" style="margin-top:16px"><span data-ic="play"></span>got it</button>
 </div></div>
@@ -229,6 +229,7 @@ const IC=(function(){
     pause:w('<rect x="6" y="5" width="4" height="14" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" fill="currentColor" stroke="none"/>'),
     ff:w('<path d="M4 5l8 7-8 7zM12 5l8 7-8 7z" fill="currentColor" stroke="none"/>'),
     ff2:w('<path d="M3 5l7 7-7 7zM10 5l7 7-7 7z" fill="currentColor" stroke="none"/><rect x="18.5" y="5" width="2.5" height="14" fill="currentColor" stroke="none"/>'),
+    ff3:w('<path d="M2 5l6 7-6 7zM8 5l6 7-6 7zM14 5l6 7-6 7z" fill="currentColor" stroke="none"/>'),
     pick:w('<path d="M5 19L15 9"/><path d="M11 4c3-1.6 7-1 9 2-3-.6-6 0-8 2"/><path d="M14 7l3 3"/>'),
     cross:w('<circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>'),
     path:w('<circle cx="5" cy="17" r="1.6" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.6" fill="currentColor" stroke="none"/><circle cx="20" cy="7" r="1.6" fill="currentColor" stroke="none"/>'),
@@ -523,6 +524,7 @@ const dotMatM=new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opaci
 const dotMatS=new THREE.MeshBasicMaterial({color:0xff5e5e,transparent:true,opacity:.65,side:THREE.DoubleSide});
 let showPath=true;
 function refreshPathDots(){
+  routeSet=new Set(pathCellsList());
   scene.remove(pathDots);pathDots=new THREE.Group();
   if(showPath){
     let prev=-1;
@@ -678,7 +680,7 @@ function buildCreepBody(typeName,mat){
   }
   return g;
 }
-let spawnIdx=0;
+let spawnIdx=0,PORTAL_BORN=[0]; /* wave each portal opened — fresh portals ramp in gently */
 function spawnCreep(typeName){
   const t=CT[typeName];
   const hp=(9*Math.pow(DIFF.exp,wave))*(1+prestige*.25)*t.hp*DIFF.hp;
@@ -687,7 +689,9 @@ function spawnCreep(typeName){
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(.5,.05),new THREE.MeshBasicMaterial({color:0x4dff7a,side:THREE.DoubleSide}));
   bar.position.y=.78;g.add(bar);
   g.scale.setScalar(t.s);
-  const sp=PORTALS[spawnIdx++%PORTALS.length];
+  let sp=PORTALS[spawnIdx++%PORTALS.length];
+  const bi=PORTALS.indexOf(sp);
+  if(bi>0&&wave-(PORTAL_BORN[bi]||0)<2&&Math.random()<.5)sp=PORTALS[0]; /* new portal: ~50% share its first 2 waves */
   const c={g,type:typeName,tt:t,hp,maxHp:hp,speed:t.speed*(1+wave*.008),bounty:t.bounty,bar,
     cell:sp,prog:0,slowT:0,stunT:0,slowPow:.5,burn:null,healT:0,anim:Math.random()*9,
     field:FIELDS[t.cls]};
@@ -719,7 +723,8 @@ function composeQueue(){
 function renderWavePreview(){
   const counts={};for(const t of pendingQueue)counts[t]=(counts[t]||0)+1;
   $('wavepre').innerHTML=Object.keys(counts).map(k=>
-    '<div class="wp"><i style="background:#'+CT[k].color.toString(16).padStart(6,'0')+'"></i>'+k+' ×'+counts[k]+'</div>').join('');
+    '<div class="wp"><i style="background:#'+CT[k].color.toString(16).padStart(6,'0')+'"></i>'+k+' ×'+counts[k]+'</div>').join('')+
+    (PORTALS.length>1?'<div class="wp">from '+PORTALS.map(p=>'<i style="background:#'+BIOMES[faceOf(p)].pc.toString(16).padStart(6,'0')+';border-radius:50%"></i>').join('')+'</div>':'');
 }
 function startBreak(){
   pendingQueue=composeQueue();renderWavePreview();
@@ -757,6 +762,10 @@ const TT={
 };
 const towerUnlocked=k=>FREE||TT[k].starter||!!ACTIVE[TT[k].biome];
 const baseGeo=new THREE.CylinderGeometry(.26,.34,.4,7);
+const twBarGeo=new THREE.PlaneGeometry(.5,.055);
+const warnGeo=new THREE.OctahedronGeometry(.09);
+const warnMat=new THREE.MeshBasicMaterial({color:0xff3355});
+let routeSet=new Set(); /* cells the creeps currently march through — towers here get trampled */
 function buildTower(i,typeName,byPlayer){
   const tt=TT[typeName]; /* towers never touch the route, so no path validation needed */
   const g=new THREE.Group();
@@ -772,11 +781,15 @@ function buildTower(i,typeName,byPlayer){
   else if(typeName==='tesla'){M(new THREE.TorusGeometry(.14,.04,6,12),0,-.02,0,Math.PI/2);const orb=M(new THREE.SphereGeometry(.09,10,10),0,.26,0);orb.material=new THREE.MeshStandardMaterial({color:tt.color,emissive:tt.color,emissiveIntensity:1.6});}
   else{M(new THREE.BoxGeometry(.22,.18,.3),0,0,0);M(new THREE.CylinderGeometry(.035,.04,.62,8),0,.03,.42,Math.PI/2);}
   g.add(base,head);
+  const bar=new THREE.Mesh(twBarGeo,new THREE.MeshBasicMaterial({color:0x4dff7a,side:THREE.DoubleSide}));
+  bar.position.y=1.0;bar.visible=false;g.add(bar);
+  const warn=new THREE.Mesh(warnGeo,warnMat); /* red diamond: "you are standing on the route" */
+  warn.position.y=1.2;warn.visible=false;g.add(warn);
   orientOnFace(g,i,0);
   scene.add(g);
   const onWall=HMAP[i]>0;
-  const tw={g,head,headMat:hm,kick:0,tt:Object.assign({},tt),type:typeName,tier:1,cool:0,cell:i,invested:tt.cost,onWall,
-    hp:50,maxHp:50,aim:new THREE.Object3D()};
+  const tw={g,head,headMat:hm,bar,warn,kick:0,tt:Object.assign({},tt),type:typeName,tier:1,cool:0,cell:i,invested:tt.cost,onWall,
+    hp:50,maxHp:50,prio:tt.tanky?'strong':'first',aim:new THREE.Object3D()};
   if(onWall)tw.tt.range*=CFG.wallRangeBonus;
   if(faceOf(i)===tt.biome){tw.home=true;tw.tt.dmg*=1.25;} /* native biome boost */
   g.userData.tw=tw;TWR[i]=tw;towers.push(tw);
@@ -847,7 +860,7 @@ function acquire(tw){
   for(const c of creeps){
     const d=tw.g.position.distanceTo(c.g.position);
     if(d>tw.tt.range||(tw.tt.minRange&&d<tw.tt.minRange))continue;
-    const s2=tw.tt.tanky?c.hp:-(c.field.dist[c.cell]===INF?9999:c.field.dist[c.cell]);
+    const s2=tw.prio==='strong'?c.hp:tw.prio==='close'?-d:-(c.field.dist[c.cell]===INF?9999:c.field.dist[c.cell]);
     if(s2>bs){bs=s2;best=c;}
   }
   return best;
@@ -1113,6 +1126,7 @@ function dig(i){
   setHeight(i,HMAP[i]);
   puff(cellTop(i),0xc9925a,7);
   beep(150,.12,'sawtooth',.05);
+  if(HMAP[i]<0)dmgNum(cellTop(i),'depth '+(-HMAP[i]),'#c9925a');
   const depth=-HMAP[i],r=Math.random();
   if(depth===1){if(r<.25){const g2=5+((Math.random()*11)|0);gold+=g2;dmgNum(cellTop(i),'+'+g2,'#ffd24a');}}
   else if(depth===2){if(r<.3){INV.iron++;dmgNum(cellTop(i),'iron','#aab4c8');}else if(r<.45){gold+=10;dmgNum(cellTop(i),'+10','#ffd24a');}}
@@ -1418,7 +1432,8 @@ function showPanel(tw){
   let html='<b style="color:#'+TT[tw.type].color.toString(16).padStart(6,'0')+'">'+IC[tw.type]+' '+tw.type+'</b> · t'+tw.tier+'/'+CFG.maxTier+
     (tw.branch?' · <b>'+tw.branch+'</b>':'')+
     ' · '+FACES[faceOf(tw.cell)].name+(tw.onWall?' · wall':'')+(tw.home?' · home +25%':'')+'<br>'+
-    'dmg '+tt.dmg.toFixed(1)+' · '+tt.rate.toFixed(2)+'/s · rng '+tt.range.toFixed(1)+'<br>';
+    'dmg '+tt.dmg.toFixed(1)+' · '+tt.rate.toFixed(2)+'/s · rng '+tt.range.toFixed(1)+' · hp '+Math.round(tw.hp)+'/'+tw.maxHp+'<br>'+
+    '<button id="pPrio">target: '+tw.prio+'</button>';
   if(!maxed)html+='<button id="pUp" '+((gold<up&&!FREE)?'disabled':'')+'>'+IC.up+' upgrade '+up+'g</button>';
   else if(!tw.branch){
     const bc=branchCost(tw);
@@ -1432,6 +1447,11 @@ function showPanel(tw){
   ringFx(tw.cell,tt.range,tw.headMat.color.getHex());
   const u=$('pUp');
   if(u)u.onclick=()=>{if(tw.tier>=CFG.maxTier||(gold<upgradeCost(tw)&&!FREE))return;if(!FREE)gold-=upgradeCost(tw);upgradeTower(tw);showPanel(tw);};
+  $('pPrio').onclick=()=>{
+    const order=['first','strong','close'];
+    tw.prio=order[(order.indexOf(tw.prio)+1)%order.length];
+    showPanel(tw);
+  };
   document.querySelectorAll('#panel .pBr').forEach(btn=>btn.onclick=()=>{
     if(tw.branch||(gold<branchCost(tw)&&!FREE))return;
     if(!FREE)gold-=branchCost(tw);
@@ -1495,7 +1515,8 @@ addEventListener('keydown',e=>{
   if(e.key==='1'){simSpeed=1;paused=false;}
   if(e.key==='2'){simSpeed=2;paused=false;}
   if(e.key==='3'){simSpeed=4;paused=false;}
-  if(['1','2','3'].includes(e.key))document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===simSpeed));
+  if(e.key==='4'){simSpeed=8;paused=false;}
+  if(['1','2','3','4'].includes(e.key))document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===simSpeed));
   if(e.key===' '&&!menuOpen){paused=!paused;document.querySelectorAll('#segSpeed div').forEach(x=>x.classList.toggle('on',+x.dataset.s===(paused?0:simSpeed)));e.preventDefault();}
   if((e.key==='v'||e.key==='V')&&!menuOpen)(mode==='walk'?exitMode():enterWalk());
   if((e.key==='r'||e.key==='R')&&mode==='overview'){autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);}
@@ -1590,7 +1611,7 @@ function unlockNextFace(){
   ACTIVE[f]=1;
   for(let i=f*FCELLS;i<(f+1)*FCELLS;i++)refreshTile(i);
   const np=farCellOnFace(f);
-  PORTALS.push(np);
+  PORTALS.push(np);PORTAL_BORN.push(wave);
   const pm=addPortalMesh(f);
   orientOnFace(pm,np,.04);
   bfs();decorateFace(f);
@@ -1630,6 +1651,7 @@ function resetGame(diff,demo){
   bfs();decorateFace(0);
   bfs();refreshPathDots();
   wave=0;kills=0;prestige=0;goldMult=1;playSec=0;waveTotal=0;mineXp=0;
+  LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];
   spawnQueue=[];pendingQueue=[];breakT=-1;
   INV.iron=FREE?99:0;INV.shard=FREE?99:0;
   lives=DIFF.lives;
@@ -1690,6 +1712,7 @@ function sim(dt){
     if(twHere&&twHere!=='pending'){
       c.atkT=(c.atkT||0)-dt;
       if(c.atkT<=0){c.atkT=.8;
+        if(!twHere.warned){twHere.warned=true;toast(twHere.type+' is being TRAMPLED — it stands on the route');beep(200,.25,'sawtooth',.07);}
         twHere.hp-=3+wave*.4+(c.tt.boss?15:0);
         puff(twHere.g.position,0xff5e5e,3);
         if(twHere.hp<=0)destroyTower(twHere);
@@ -1739,6 +1762,14 @@ function sim(dt){
   for(const tw of towers){
     tw.kick*=Math.pow(.0001,dt);
     tw.head.position.y=.5-tw.kick*.05;
+    tw.bar.visible=tw.hp<tw.maxHp;
+    if(tw.bar.visible){
+      tw.bar.scale.x=Math.max(tw.hp/tw.maxHp,.01);
+      tw.bar.material.color.setHSL(.33*(tw.hp/tw.maxHp),.9,.55);
+      tw.bar.lookAt(camera.position);
+    }
+    tw.warn.visible=routeSet.has(tw.cell);
+    if(tw.warn.visible)tw.warn.rotation.y+=dt*4;
     tw.cool-=dt;
     const best=acquire(tw);
     if(best){
@@ -1991,7 +2022,7 @@ window.GameAPI={
   dig(i){const d0=dirt,h0=HMAP[i];dig(i);return{ok:HMAP[i]!==h0||dirt!==d0,h:HMAP[i],dirt};},
   place(i){const h0=HMAP[i];placeDirt(i);return{ok:HMAP[i]!==h0,h:HMAP[i],dirt};},
   callWave(){if(breakT<=0)return{ok:false,why:'no break active'};callWave(true);return{ok:true,wave};},
-  speed(n){if(![1,2,4].includes(n))return{ok:false,why:'1, 2 or 4'};simSpeed=n;paused=false;return{ok:true};},
+  speed(n){if(![1,2,4,8].includes(n))return{ok:false,why:'1, 2, 4 or 8'};simSpeed=n;paused=false;return{ok:true};},
   pause(b){paused=!!b;return{ok:true,paused};},
   auto(b){autopilot=!!b;return{ok:true,autopilot};},
   logs:(n)=>LOGS.slice(-(n||30)),
@@ -2026,7 +2057,7 @@ window.GameAPI={
 document.querySelectorAll('[data-ic]').forEach(el=>{el.innerHTML=IC[el.dataset.ic]||'';});
 $('biostrip').innerHTML=BIOMES.map(B=>'<div class="bio"><i style="background:#'+B.a.toString(16).padStart(6,'0')+'"></i>'+B.name+'</div>').join('');
 (function(){const sg=document.querySelectorAll('#segSpeed div');
-  sg[0].innerHTML=IC.pause;sg[1].innerHTML=IC.play;sg[2].innerHTML=IC.ff;sg[3].innerHTML=IC.ff2;})();
+  sg[0].innerHTML=IC.pause;sg[1].innerHTML=IC.play;sg[2].innerHTML=IC.ff;sg[3].innerHTML=IC.ff2;sg[4].innerHTML=IC.ff3;})();
 $('btnWalk').innerHTML=IC.pick;$('btnPath').innerHTML=IC.path;
 $('btnSpin').innerHTML=IC.cube;
 $('btnSpin').onclick=()=>{autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);};

@@ -45,9 +45,9 @@ Findings from actually playing frontier (manual ×2), settler (idle), planetfall
 
 1. ~~**Auto-chop on build**~~ ✅ DONE — building (or placing dirt) on scenery auto-chops it (+1 dirt); ghost ring shows on deco cells now.
 2. ~~**Telegraph the next biome**~~ ✅ DONE — HUD chip shows "<biome> Nw" countdown; one wave out, a tinted ghost portal + dotted preview route appear (route computed by briefly waking the face). Meadow also recolored bright spring green so it stops reading like the forest face.
-3. **Trample visibility**: towers on the route die silently. HP bars over damaged towers, red badge when a tower stands on the live route.
-4. **Soften new-portal entry**: first 2 waves from a fresh portal at ~50% spawn share.
-5. **QoL batch**: clear event LOGS on reset (bug — bleeds across runs), 8× speed for idle, wave-preview chips tinted by source portal, per-tower targeting priority, hover shows pit depth.
+3. ~~**Trample visibility**~~ ✅ DONE — HP bars over damaged towers, spinning red diamond over towers standing on the live route, one-time "is being TRAMPLED" toast, hp shown in the tower panel.
+4. ~~**Soften new-portal entry**~~ ✅ DONE — fresh portals send ~50% of their share to the meadow portal for their first 2 waves.
+5. ~~**QoL batch**~~ ✅ DONE — LOGS clear on reset, ×8 speed (key 4 / new segment), "from ●●●" portal swatches in the wave preview, per-tower targeting priority (first/strong/close — snipers default strong), dig success floats its new depth.
 6. **Trench ergonomics**: 2-deep moats are the premium defense but cost many gamble-clicks with no depth feedback; consider a dig-queue or at least depth indicators.
 
 Verdicts: settler idle pacing is healthy (wave 8, no prestige, autopilot bought tesla and mazed to 32 cells). Planetfall is appropriately brutal. Frontier's danger is entirely concentrated at biome unlocks — items 2 and 4 are the fix.
