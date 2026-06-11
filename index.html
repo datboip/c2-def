@@ -17,17 +17,15 @@
     background:linear-gradient(180deg,rgba(7,9,16,.96) 0%,rgba(7,9,16,.82) 70%,transparent);
     border-bottom:1px solid rgba(255,210,74,.14)}
   .chip{padding:5px 13px;font-size:12px;color:#cfd6e4;display:flex;align-items:center;gap:8px;
-    background:linear-gradient(170deg,rgba(24,28,42,.85),rgba(13,15,23,.85));border:1px solid rgba(255,255,255,.08);border-radius:10px;
-    box-shadow:0 3px 10px rgba(0,0,0,.35)}
-  .chip b{color:#ffd24a;font-weight:700;font-size:15px;line-height:1.1;animation:chippop .25s ease-out}
+    background:linear-gradient(170deg,rgba(24,28,42,.72),rgba(13,15,23,.72));border:1px solid rgba(255,255,255,.08);border-radius:10px;
+    box-shadow:0 3px 10px rgba(0,0,0,.35);backdrop-filter:blur(7px) saturate(1.2)}
+  .chip b{color:#ffd24a;font-weight:700;font-size:15px;line-height:1.1;font-variant-numeric:tabular-nums}
   .chip small{display:block;font-size:8px;color:#6b7385;letter-spacing:.12em;font-weight:400;line-height:1}
   .chip .cv{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
-  @keyframes chippop{from{transform:scale(1.28)}to{transform:scale(1)}}
   body.uihide #hud,body.uihide #buildbar,body.uihide #resbar,body.uihide #abilbar,body.uihide #histpanel,body.uihide #facetag,body.uihide #toast{display:none!important}
   #uirestore{display:none;position:fixed;top:10px;right:10px;z-index:30;background:rgba(20,23,34,.9);border:1px solid #3a4158;color:#8a93ab;border-radius:8px;padding:6px 10px;font:11px ui-monospace,monospace;cursor:pointer}
   body.uihide #uirestore{display:block}
-  @keyframes breachpulse{0%,100%{box-shadow:0 0 4px rgba(255,210,74,.2)}50%{box-shadow:0 0 16px rgba(255,210,74,.6)}}
-  .chip.canbreach{animation:breachpulse 1.6s ease-in-out infinite}
+  .chip.canbreach{border-color:rgba(255,210,74,.5);box-shadow:0 0 10px rgba(255,210,74,.22)} /* steady "ready" glow — no strobe */
   #ctrls{position:fixed;top:0;right:10px;height:44px;display:flex;gap:2px;align-items:center;z-index:11}
   .tbtn{background:transparent;border:none;color:#8a93ab;border-radius:8px;padding:7px 9px;cursor:pointer;user-select:none;display:flex;align-items:center;transition:color .15s,background .15s}
   .tbtn:hover{color:#ffd24a;background:rgba(255,210,74,.08)}
@@ -119,7 +117,7 @@
   #vign{position:fixed;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.42))}
   .chip b{font-variant-numeric:tabular-nums}
   #resbar{position:fixed;bottom:92px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;pointer-events:none}
-  .res{display:flex;align-items:center;gap:7px;background:linear-gradient(170deg,rgba(22,26,40,.92),rgba(13,15,23,.92));border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:6px 13px;font-size:14px;font-weight:700;color:#e6e9f2;font-variant-numeric:tabular-nums;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .res{display:flex;align-items:center;gap:7px;background:linear-gradient(170deg,rgba(22,26,40,.75),rgba(13,15,23,.75));border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:6px 13px;font-size:14px;font-weight:700;color:#e6e9f2;font-variant-numeric:tabular-nums;box-shadow:0 4px 14px rgba(0,0,0,.4);backdrop-filter:blur(7px) saturate(1.2)}
   .res small{display:block;font-size:8.5px;color:#6b7385;font-weight:400;letter-spacing:.1em;line-height:1;margin-top:2px}
   .res span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1}
   #biostrip{display:flex;gap:5px;margin-bottom:14px}
