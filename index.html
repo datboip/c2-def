@@ -66,6 +66,35 @@
   #wavebanner{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);color:#ffd24a;font-size:42px;font-weight:800;letter-spacing:.22em;pointer-events:none;opacity:0;text-shadow:0 0 30px rgba(255,210,74,.5),0 2px 10px rgba(0,0,0,.9);z-index:12}
   #wavebanner.show{animation:wb 1.8s ease-out forwards}
   @keyframes wb{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}30%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0}}
+  #victory{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;pointer-events:none;opacity:0;transition:opacity .55s}
+  #victory.show{opacity:1}
+  #victory .vbar{flex:1;background:linear-gradient(180deg,rgba(4,5,9,.78),rgba(4,5,9,.3))}
+  #victory .vbar:last-child{background:linear-gradient(0deg,rgba(4,5,9,.78),rgba(4,5,9,.3))}
+  #victory .vmid{border-top:1px solid #ffd24a;border-bottom:1px solid #ffd24a;background:rgba(10,12,18,.85);text-align:center;padding:26px 12px;font-family:'Oxanium',ui-monospace,monospace}
+  #victory .vmid h2{color:#ffd24a;font-size:38px;letter-spacing:.3em;margin:0 0 10px;font-weight:800;text-shadow:0 0 32px rgba(255,210,74,.45)}
+  #victory .vmid #vsub{color:#9aa3b5;font-size:12px;letter-spacing:.16em;line-height:1.9}
+  #victory .vmid #vsub b{color:#2de0c8}
+  #legacy{margin:0 0 12px;border:1px solid #262b36;border-radius:10px;background:rgba(13,16,24,.6);overflow:hidden}
+  #legHead{display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:pointer;font-family:'Oxanium',ui-monospace,monospace;letter-spacing:.16em;font-size:11px;color:#9aa3b5}
+  #legHead:hover{background:#141722}
+  #legHead b{color:#ffd24a}
+  #legShards{margin-left:auto;color:#2de0c8;display:flex;align-items:center;gap:4px}
+  #legShards .ic{width:13px;height:13px}
+  #legArrow{font-style:normal;color:#6b7385;width:10px;text-align:center}
+  #legBody{display:none;border-top:1px solid #262b36;padding:6px 9px 8px}
+  #legacy.open #legBody{display:block}
+  .lrow{display:flex;align-items:center;gap:9px;padding:6px 1px;border-bottom:1px solid rgba(255,255,255,.045);font-size:11px;color:#cfd6e4;line-height:1.45}
+  .lrow:last-of-type{border-bottom:none}
+  .lrow>.ic{width:15px;height:15px;flex:none;color:#8a93ab}
+  .lrow small{color:#6b7385;display:block;font-size:10px}
+  .lpips{display:flex;gap:3px;margin-left:auto;flex:none}
+  .lpips i{width:7px;height:7px;border-radius:2px;background:#262b36;display:inline-block}
+  .lpips i.on{background:#ffd24a}
+  .lbuy{flex:none;display:flex;align-items:center;gap:3px;font-family:inherit;font-size:10px;letter-spacing:.06em;background:#141722;border:1px solid #2de0c8;color:#2de0c8;border-radius:5px;padding:3px 8px;cursor:pointer}
+  .lbuy .ic{width:11px;height:11px}
+  .lbuy:hover:not(:disabled){background:#1a2530}
+  .lbuy:disabled{border-color:#262b36;color:#4a4f5e;cursor:default}
+  .lhint{font-size:10px;color:#6b7385;padding:6px 1px 1px;letter-spacing:.04em;line-height:1.6}
   .menu{position:fixed;inset:0;background:rgba(5,6,11,.72);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:50}
   .menu .card{position:relative;background:linear-gradient(160deg,#151827,#0f1119);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:28px 34px;min-width:340px;max-width:560px;color:#cfd6e4;box-shadow:0 24px 70px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.05);overflow:hidden}
   .menu .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#ffd24a,#2de0c8 60%,transparent)}
@@ -271,6 +300,7 @@
 <div id="flash"></div>
 <div id="vign"></div>
 <div id="wavebanner"></div>
+<div id="victory"><div class="vbar"></div><div class="vmid"><h2>VICTORY</h2><div id="vsub"></div></div><div class="vbar"></div></div>
 <div class="menu" id="pausemenu"><div class="card">
   <h2>MENU</h2>
   <div class="statgrid" id="stats"></div>
@@ -304,7 +334,7 @@
     <b>PATH DOTS</b>: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling — reroute them through red. 1-deep pits slow walkers, 2-deep stop them. The route can never be fully sealed.
   </div>
   <div class="hl hsec">
-    <b style="color:#d4533b">grunt</b> fodder · <b style="color:#3b7bd4">runner</b> fast, fragile — slow it · <b style="color:#9b59c9">tank</b> 2.8× hp, stalls on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor — big hits · <b style="color:#c07840">burrower</b> (w8+) first hit sends it underground 3s — water/ice/road deny the dive · <b style="color:#aee8ff">wisp</b> (w9+, night) half damage moving, DOUBLE while slowed · <b style="color:#d44fb0">swarm-mother</b> (w10+) splits into 4 spawn on death · <b style="color:#49e0d2">saboteur</b> (w12+) shorts one tower 4s · <b style="color:#ffb020">boss</b> (every 5th) regenerates — burn + freeze + focus fire.<br><br>
+    <b style="color:#d4533b">grunt</b> fodder · <b style="color:#3b7bd4">runner</b> fast, fragile — slow it · <b style="color:#9b59c9">tank</b> 2.8× hp, stalls on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor — big hits · <b style="color:#c07840">burrower</b> (w8+) first hit sends it underground 3s — water/ice/road deny the dive · <b style="color:#aee8ff">wisp</b> (w9+, night) half damage moving, DOUBLE while slowed · <b style="color:#d44fb0">swarm-mother</b> (w10+) splits into 4 spawn on death · <b style="color:#49e0d2">saboteur</b> (w12+) shorts one tower 4s · <b style="color:#ffb020">boss</b> (every 5th) regenerates — burn + freeze + focus fire · <b style="color:#ffd24a">THE WARDEN</b> (w20, then every 10th endless wave) phase colossus: armored 50% + crushes adjacent towers → armor cracks but it STOMPS (stuns towers 2s) → enrages ×1.6 speed + spawns brood — a leak costs 6 lives.<br><br>
     <b>HAZARDS</b>: forest undergrowth slows · desert quicksand makes pits lethal · tundra ice speeds creeps but frost sticks 1.5× · volcanic embers &amp; cavern static burn hp. Night = all creeps +15%, red eyes.
   </div>
   <div class="hl hsec">
@@ -332,6 +362,10 @@
     <div class="lvl" data-d="2"><b style="color:#ff5e8a">III</b>planetfall<br><small style="color:#6b7385">all 6 · every 4 waves</small></div>
   </div>
   <div style="font-size:10px;color:#6b7385;margin:-4px 0 12px;letter-spacing:.04em">each biome that wakes adds a portal, its hazard, and unlocks its native tower</div>
+  <div id="legacy">
+    <div id="legHead"><b>LEGACY</b><span>permanent upgrades</span><span id="legShards"></span><i id="legArrow">+</i></div>
+    <div id="legBody"></div>
+  </div>
   <button class="mbtn" id="spTut" style="text-align:center;border-color:#2de0c8;color:#2de0c8">FIRST TIME? — GUIDED TUTORIAL</button>
   <button class="mbtn" id="spPlay" style="text-align:center;border-color:#ffd24a;color:#ffd24a">PLAY</button>
   <button class="mbtn" id="spFree" style="text-align:center;border-color:#2de0c8;color:#2de0c8">FREE PLAY — sandbox, everything unlocked</button>
@@ -447,6 +481,47 @@ function addScore(n){
   score+=n;
   if(score>bestScore&&!FREE){bestScore=score;try{localStorage.setItem('c2best',bestScore);}catch(e){}}
 }
+/* ============ ENDGAME / LEGACY ============
+   Wave 20 is THE WARDEN (phase boss). Killing it = victory; continuing = ENDLESS
+   (waves compound +8% hp past 20, every 10th wave another Warden, +60% hp each).
+   Score banks LEGACY SHARDS (1 per 1,000 score, on victory/overrun/quit) spent on
+   permanent meta-upgrades — localStorage 'c2meta'. */
+let ENDLESS=false,victShown=false,victChoice=false,wardenSeen=0,deepWave=0,heroFreeSkills=0;
+const METAUP={
+  gold:{label:'seed capital',d:'+25 starting gold per level',icon:'gold'},
+  dirt:{label:'packed earth',d:'+3 starting dirt per level',icon:'dirt'},
+  luck:{label:'prospector',d:'+3% mining success per level',icon:'pick'},
+  dmg:{label:'arsenal',d:'+4% tower damage per level',icon:'cannon'},
+  hero:{label:'veteran',d:'hero starts with 1 free skill per level',icon:'bot'},
+};
+const META={shards:0,up:{gold:0,dirt:0,luck:0,dmg:0,hero:0}};
+(function(){try{const m=JSON.parse(localStorage.getItem('c2meta')||'{}');
+  if(m&&typeof m.shards==='number')META.shards=Math.max(0,m.shards|0);
+  if(m&&m.up)for(const k in META.up)META.up[k]=Math.min(3,Math.max(0,+m.up[k]||0));
+}catch(e){}})();
+function metaSave(){try{localStorage.setItem('c2meta',JSON.stringify(META));}catch(e){}}
+const metaCost=lv=>[2,4,8][lv]; /* shards for the NEXT level */
+function buyMeta(k){
+  if(META.up[k]==null)return{ok:false,why:'gold | dirt | luck | dmg | hero'};
+  if(META.up[k]>=3)return{ok:false,why:'maxed'};
+  const c=metaCost(META.up[k]);
+  if(META.shards<c)return{ok:false,why:'need '+c+' shards'};
+  META.shards-=c;META.up[k]++;metaSave();
+  renderLegacy();sfx('skillup');
+  return{ok:true,upgrade:k,level:META.up[k],shards:META.shards};
+}
+let shardsBankedRun=0;
+function bankShards(){ /* floor(score/1000), delta-banked so one run can never double-pay */
+  if(FREE||DEMO)return 0;
+  const due=Math.floor(Math.max(0,score)/1000)-shardsBankedRun;
+  if(due<=0)return 0;
+  shardsBankedRun+=due;META.shards+=due;metaSave();
+  logEvent('legacy shards +'+due);
+  return due;
+}
+/* per-run derived bonuses — set in startGame AFTER CFG defaults, CFG itself never
+   mutated. An EXPLICIT seed = arena/comparison run: meta force-disabled. */
+const MRUN={on:false,gold:0,dirt:0,luck:0,dmg:1,hero:0};
 let simSpeed=1,paused=false,playSec=0,autopilot=true,selectedType=null,breakT=-1,waveTotal=0;
 const INV={iron:0,shard:0};
 const creeps=[],towers=[],shots=[],parts=[],fx=[];
@@ -1106,6 +1181,16 @@ const SFX={
   sabo:t=>{for(let i=0;i<3;i++)nz(t+i*.05,{dur:.05,vol:.08,filter:'bandpass',fq:1500+i*900,Q:8});
     tone(t,{type:'square',f:300,f1:95,dur:.25,vol:.05,filter:'lowpass',fq:1100});},
   whoosh:t=>{nz(t,{dur:.22,vol:.05,fq:600,fq1:2200,a:.06,rate:1.1});},
+  stomp:t=>{ /* the Warden's foot: deep slab + ground rumble + debris hiss */
+    tone(t,{f:62,f1:26,dur:.5,vol:.22});
+    nz(t,{dur:.32,vol:.2,fq:420,fq1:50,a:.002});
+    nz(t+.1,{dur:.3,vol:.07,fq:240,fq1:80,rate:.5});},
+  victory:t=>{ /* rising triad + crown note + air — the cube holds */
+    [392,523.25,659.25,783.99].forEach((f,i)=>{
+      tone(t+i*.15,{type:'triangle',f,dur:.45,vol:.06,a:.012});
+      tone(t+i*.15,{type:'sawtooth',f,dur:.45,vol:.018,a:.012,filter:'lowpass',fq:2100});});
+    tone(t+.6,{type:'triangle',f:1046.5,dur:.85,vol:.06,a:.02});
+    nz(t+.6,{dur:.55,vol:.03,filter:'highpass',fq:3200,a:.12});},
   confirm:t=>{tone(t,{type:'triangle',f:740,f1:1110,dur:.16,vol:.055,a:.005});
     nz(t,{dur:.03,vol:.03,filter:'highpass',fq:3000,a:.001});},
 };
@@ -1260,6 +1345,10 @@ const CT={
   saboteur:{color:0x49e0d2,speed:1.6,hp:1,bounty:22,s:.95,cost:30,cls:'jump',climbMul:1,sabo:4,minWave:12,rare:true},
   wisp:  {color:0xaee8ff,speed:1.25,hp:1.1,bounty:20,s:1,cost:24,cls:'climb',climbMul:.6,wisp:true,minWave:9,night:true,rare:true},
   boss:  {color:0xffb020,speed:.75,hp:15, bounty:150,s:2,   cost:0, cls:'walk', climbMul:.7,boss:true,regen:.012},
+  /* THE WARDEN — wave-20 phase boss (then every 10th endless wave). hp ~ two whole
+     waves. P1 armored (50% dmg, crushes adjacent towers) · P2 stomps (stuns towers)
+     · P3 enraged (×1.6 speed, spawns brood). A leak costs 6 lives. */
+  warden:{color:0xffd24a,speed:.55,hp:30,bounty:250,s:2.6,cost:0,cls:'walk',climbMul:.45,boss:true,warden:true,leak:6,minWave:20},
 };
 const eyeGeo=new THREE.BoxGeometry(.05,.05,.02);
 const eyeMat=new THREE.MeshBasicMaterial({color:0xffffff});
@@ -1358,6 +1447,25 @@ function buildCreepBody(typeName,mat){
     const ring=M(new THREE.TorusGeometry(.16,.015,5,14),0,.12,0,glowMat(0x6ab8e8));ring.rotation.x=Math.PI/2;
     g.userData.spin=ring;
     eyes(g,.42,.13,.05);
+  }else if(typeName==='warden'){ /* armored colossus: layered plate over a burning core */
+    M(new THREE.BoxGeometry(.5,.5,.42),0,.42,0,armorMat);                /* torso slab */
+    M(new THREE.BoxGeometry(.56,.16,.48),0,.7,0,armorMat);              /* chest plate */
+    M(new THREE.BoxGeometry(.6,.12,.4),0,.16,0,armorMat);               /* skirt */
+    const core=M(new THREE.SphereGeometry(.11,10,10),0,.48,.23,glowMat(0xffd24a));
+    g.userData.core=core;                                               /* phases relight it */
+    for(const sx of[-1,1]){
+      M(new THREE.BoxGeometry(.2,.18,.24),sx*.38,.74,0,armorMat);       /* pauldrons */
+      M(new THREE.BoxGeometry(.13,.4,.16),sx*.42,.42,.02);              /* arms */
+      M(new THREE.BoxGeometry(.17,.15,.19),sx*.43,.16,.05,boneMat);     /* fists */
+      M(new THREE.BoxGeometry(.17,.24,.2),sx*.15,.02,0,armorMat);       /* legs */
+      M(new THREE.ConeGeometry(.05,.2,4),sx*.38,.92,0,boneMat);         /* shoulder spikes */
+    }
+    const hd=M(new THREE.BoxGeometry(.26,.2,.22),0,.94,.05,armorMat);
+    M(new THREE.BoxGeometry(.3,.06,.26),0,1.06,.03,boneMat);            /* crown plate */
+    for(const sx of[-.1,0,.1])M(new THREE.ConeGeometry(.04,.16,4),sx,1.16,.03,boneMat);
+    const aura=M(new THREE.RingGeometry(.52,.62,28),0,.03,0,glowMat(0xffd24a));
+    aura.rotation.x=-Math.PI/2;g.userData.spin=aura;
+    eyes(hd,.02,.12,.07);
   }else{ /* grunt: the horned rabble */
     M(new THREE.BoxGeometry(.3,.32,.4),0,.25,0);
     const hd=M(new THREE.BoxGeometry(.22,.2,.22),0,.49,.1);
@@ -1370,7 +1478,9 @@ function buildCreepBody(typeName,mat){
 let spawnIdx=0,PORTAL_BORN=[0]; /* wave each portal opened — fresh portals ramp in gently */
 function spawnCreep(typeName,atCell,mother){ /* atCell: mid-route births (swarm-mother splits) */
   const t=CT[typeName];
-  const hp=(9*Math.pow(DIFF.exp,wave))*(1+prestige*.25)*t.hp*DIFF.hp;
+  let hp=(9*Math.pow(DIFF.exp,wave))*(1+prestige*.25)*t.hp*DIFF.hp;
+  if(wave>20)hp*=Math.pow(1.08,wave-20); /* endless: compounding pressure past the Warden */
+  if(t.warden)hp*=1+.6*wardenSeen++;     /* each returning Warden is 60% tougher */
   const mat=new THREE.MeshStandardMaterial({color:t.color,roughness:.7});
   const g=buildCreepBody(typeName,mat);
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(.5,.05),new THREE.MeshBasicMaterial({color:0x4dff7a,side:THREE.DoubleSide}));
@@ -1386,7 +1496,7 @@ function spawnCreep(typeName,atCell,mother){ /* atCell: mid-route births (swarm-
   }
   const c={g,type:typeName,tt:t,hp,maxHp:hp,speed:t.speed*(1+wave*.008),bounty:t.bounty,bar,nid:++NET.creepSeq,
     cell,spawnPortal:sp,prog:0,slowT:0,stunT:0,burrowT:0,slowPow:.5,burn:null,healT:0,anim:Math.random()*9,
-    field:FIELDS[t.cls]};
+    phase:t.warden?1:0,field:FIELDS[t.cls]};
   if(mother)c.speed*=.9+rnd()*.2; /* hatchlings scatter at slightly different paces */
   g.position.copy(cellTop(cell));
   const F2=FACES[faceOf(cell)];
@@ -1397,6 +1507,7 @@ function damageCreep(c,dmg,src){
   if(c.burrowT>0)return; /* underground — untouchable until it surfaces */
   if(c.tt.wisp)dmg*=(c.slowT>0||c.stunT>0?2:.5); /* spectral in motion; pinned = solid */
   if(c.tt.armor)dmg*=(1-c.tt.armor);
+  if(c.phase===1)dmg*=.5; /* Warden phase 1: armored — half damage until the plate cracks */
   if(src)src.dmgDealt+=Math.min(dmg,Math.max(c.hp,0)); /* credit what actually landed */
   c.hp-=dmg;
   if(c.hp<=0){killCreep(c,src);return;}
@@ -1415,6 +1526,17 @@ function killCreep(c,src){
   puff(c.g.position,0xffd24a,c.tt.boss?12:3);
   sfx(c.tt.boss?'bosskill':'kill');
   scene.remove(c.g);creeps.splice(i,1);
+  if(c.tt.warden){ /* the colossus falls: payout, fanfare — first kill at 20 is VICTORY */
+    gold+=500;
+    dmgNum(c.g.position,'+500','#ffd24a');
+    puff(c.g.position,0xffd24a,24);puff(c.g.position,0xff8c2d,16);
+    shakeT=Math.max(shakeT,.5);
+    const wb=$('wavebanner');wb.textContent='THE WARDEN FALLS';
+    wb.classList.remove('show');void wb.offsetWidth;wb.classList.add('show');
+    sfx('victory');
+    logEvent('THE WARDEN falls — +500g');
+    if(!DEMO&&!FREE&&!ENDLESS&&!victShown)victoryShow();
+  }
   if(c.tt.split){ /* swarm-mother: her death is a birth — spawn inherit her route (and fresh nids) */
     for(let k=0;k<c.tt.split;k++)spawnCreep('spawn',c.cell,c);
     dmgNum(c.g.position,'SPLIT ×'+c.tt.split,'#ff8ad4');
@@ -1425,6 +1547,7 @@ function killCreep(c,src){
 let spawnQueue=[],pendingQueue=[],spawnTimer=0;
 function composeQueue(){
   const w=wave+1,budget=(16+w*9)*DIFF.budget,q=[]; /* retuned after the dangling-else fix made towers actually fire */
+  if(w===20||(w>20&&w%10===0))return['warden']; /* THE WARDEN replaces the whole wave */
   if(w%5===0){q.push('boss');let b=budget*.5;while(b>0){q.push(rnd()<.5?'grunt':'runner');b-=12;}}
   else{
     const avail=Object.keys(CT).filter(k=>{const t=CT[k];
@@ -1439,12 +1562,27 @@ function composeQueue(){
 function renderWavePreview(){
   const counts={};for(const t of pendingQueue)counts[t]=(counts[t]||0)+1;
   $('wavepre').innerHTML=Object.keys(counts).map(k=>
+    k==='warden'?'<div class="wp" style="border-color:#ffd24a;color:#ffd24a;letter-spacing:.12em"><i style="background:#ffd24a;border-radius:50%"></i><b>THE WARDEN</b></div>':
     '<div class="wp"><i style="background:#'+CT[k].color.toString(16).padStart(6,'0')+'"></i>'+k+' ×'+counts[k]+'</div>').join('')+
     (PORTALS.length>1?'<div class="wp">from '+PORTALS.map(p=>'<i style="background:#'+BIOMES[faceOf(p)].pc.toString(16).padStart(6,'0')+';border-radius:50%"></i>').join('')+'</div>':'');
+}
+function victoryShow(){ /* non-blocking letterbox; the break bar becomes the ENDLESS button */
+  victShown=true;victChoice=true;
+  recordScore();
+  const sh=bankShards();
+  $('vsub').innerHTML='THE WARDEN FALLS — THE CUBE HOLDS<br>legacy shards <b>+'+sh+'</b> · CONTINUE for endless, or quit via the menu';
+  const v=$('victory');
+  v.style.display='flex';void v.offsetWidth;v.classList.add('show');
+  setTimeout(()=>{v.classList.remove('show');setTimeout(()=>{v.style.display='none';},600);},6500);
+  toast('VICTORY — legacy shards +'+sh);
 }
 function startBreak(){
   pendingQueue=composeQueue();renderWavePreview();
   breakT=CFG.breakTime;$('breakwrap').style.display='block';
+  if(victChoice){ /* victory: no countdown — hold until the player opts into ENDLESS */
+    breakT=999;$('breakbar').textContent='CONTINUE — ENDLESS';
+    return;
+  }
   if(wave>0&&!DEMO){ /* front and center, not lost in the corner */
     const wb=$('wavebanner');
     wb.textContent='WAVE '+wave+' CLEARED  ·  +'+(30+10*wave)+'g NEXT CALL';
@@ -1463,6 +1601,8 @@ function callWave(early){
   leaksThisWave=0;
   if(early){const b=CFG.earlyBonus+5*wave;gold+=b;toast('early call +'+b+'g');}
   wave++;
+  deepWave=Math.max(deepWave,wave);
+  if(wave>20&&!ENDLESS){ENDLESS=true;victChoice=false;toast('ENDLESS — the cube does not sleep');logEvent('endless mode begins');}
   /* first biome wakes early (wave 4) so the arsenal opens before the waves get mean; the rest follow the difficulty cadence */
   if(wave>=nextUnlockWave&&facesUnlocked<DIFF.maxFaces){unlockNextFace();nextUnlockWave=wave+DIFF.unlockEvery;}
   if(facesUnlocked<DIFF.maxFaces){
@@ -1472,7 +1612,7 @@ function callWave(early){
   }
   spawnQueue=pendingQueue.length?pendingQueue:composeQueue();
   pendingQueue=[];waveTotal=spawnQueue.length;
-  const wb=$('wavebanner');wb.textContent='WAVE '+wave;
+  const wb=$('wavebanner');wb.textContent='WAVE '+wave+(spawnQueue.includes('warden')?' — THE WARDEN':'');
   wb.classList.remove('show');void wb.offsetWidth;wb.classList.add('show');
   sfx('horn');
 }
@@ -1524,6 +1664,7 @@ function buildTower(i,typeName,byPlayer){
   const onWall=HMAP[i]>0;
   const tw={g,head,headMat:hm,base,bar,warn,kick:0,tt:Object.assign({},tt),type:typeName,tier:1,cool:0,cell:i,invested:tt.cost,onWall,
     hp:50,maxHp:50,prio:tt.tanky?'strong':'first',kills:0,dmgDealt:0,aim:new THREE.Object3D()};
+  tw.tt.dmg*=MRUN.dmg; /* LEGACY arsenal bonus — 1 unless meta is active this run */
   if(onWall)tw.tt.range*=CFG.wallRangeBonus;
   if(faceOf(i)===tt.biome){tw.home=true;tw.tt.dmg*=1.25;} /* native biome boost */
   g.userData.tw=tw;TWR[i]=tw;towers.push(tw);
@@ -1912,7 +2053,7 @@ $('abilbar').addEventListener('pointerdown',e=>{
 /* ============ DIG / PLACE ============ */
 /* mining is a gamble: pay to roll, get better with practice */
 const mineLvl=()=>Math.floor(Math.sqrt(mineXp/5));
-const mineChance=()=>Math.min(.95,.6+mineLvl()*.05);
+const mineChance=()=>Math.min(.95,.6+mineLvl()*.05+MRUN.luck); /* MRUN.luck: LEGACY prospector (0 unless meta active) */
 function rollMine(){
   const lv=mineLvl();
   const ok=FREE||rnd()<mineChance();
@@ -2041,6 +2182,12 @@ function buyHeroSkill(k){
   const s=HSK[k];
   if(!s)return{ok:false,why:'firepower | trigger... use the key names: dmg rate range speed'};
   if(s.lv>=s.max)return{ok:false,why:'maxed'};
+  if(heroFreeSkills>0){ /* LEGACY veteran: free points skip the level gate and the bill */
+    heroFreeSkills--;s.lv++;
+    toast('hero '+s.label+' lv'+s.lv+' — legacy point spent');
+    sfx('skillup');
+    return{ok:true,skill:k,level:s.lv,legacy:true};
+  }
   if(!FREE&&heroLvl()<hskTotal()+1)return{ok:false,why:'hero needs level '+(hskTotal()+1)+' — '+hero.kills+'/'+(3*(hskTotal()+1)*(hskTotal()+1))+' kills'};
   const c=hskCost();
   if(!FREE&&(gold<c.gold||INV.iron<c.iron))return{ok:false,why:'need '+c.gold+'g + '+c.iron+' iron'};
@@ -2355,9 +2502,10 @@ function showHeroPanel(){
   let html='<b style="color:#2de0c8">'+IC.bot+' HERO · LEVEL '+heroLvl()+'</b> · '+hero.kills+' kills ('+heroNextLvlKills()+' for lv'+(heroLvl()+1)+') · '+
     (hero.dmgDealt>=1000?(hero.dmgDealt/1000).toFixed(1)+'k':Math.round(hero.dmgDealt))+' dmg'+
     (hero.aiOwned?(hero.auto?' · pilot ON':' · pilot off'):'')+'<br>'+
-    'dmg '+heroDmg().toFixed(0)+' · rng '+heroRange().toFixed(1)+' · spd ×'+heroSpeed().toFixed(2)+'<br>';
+    'dmg '+heroDmg().toFixed(0)+' · rng '+heroRange().toFixed(1)+' · spd ×'+heroSpeed().toFixed(2)+'<br>'+
+    (heroFreeSkills>0?'<span style="color:#ffd24a">'+heroFreeSkills+' LEGACY point'+(heroFreeSkills>1?'s':'')+' — next skill is free</span><br>':'');
   for(const k in HSK){const s=HSK[k];
-    html+='<button class="pHsk" data-k="'+k+'" '+((s.lv>=s.max||(!FREE&&(gold<c.gold||INV.iron<c.iron)))?'disabled':'')+
+    html+='<button class="pHsk" data-k="'+k+'" '+((s.lv>=s.max||(!FREE&&heroFreeSkills<=0&&(gold<c.gold||INV.iron<c.iron)))?'disabled':'')+
       ' style="display:block;width:100%;text-align:left;margin-right:0">'+IC.up+' <b>'+s.label+'</b> '+s.lv+'/'+s.max+' · '+s.d+'</button>';
   }
   html+='<small style="color:#8a93ab">next level: '+c.gold+'g + '+c.iron+' iron</small>';
@@ -2420,7 +2568,9 @@ $('mLeaveFP').onclick=()=>{closeMenu(false);exitMode();};
 $('mHelp').onclick=()=>{$('pausemenu').style.display='none';$('helpmenu').style.display='flex';makePortraits();};
 $('hClose').onclick=()=>{$('helpmenu').style.display='none';if(menuOpen)$('pausemenu').style.display='flex';else if(!DEMO)paused=false;};
 $('mQuit').onclick=()=>{
+  bankShards(); /* the run ends here — its score pays out before the reset wipes it */
   closeMenu(false);exitMode();
+  renderLegacy();
   DEMO=true;autopilot=true;autoSpin=true;gold=400;
   $('splash').style.display='flex';$('demoTag').style.display='block';
   resetGame(DIFFS[1],true);
@@ -2451,6 +2601,26 @@ $('breakbar').onclick=()=>{
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'wave'});return;}
   if(breakT>0&&!DEMO)callWave(true);
 };
+/* LEGACY panel on the splash — permanent upgrades bought with banked shards */
+function renderLegacy(){
+  $('legShards').innerHTML=IC.shard+META.shards;
+  $('legBody').innerHTML=Object.keys(METAUP).map(k=>{
+    const u=METAUP[k],lv=META.up[k],c=lv<3?metaCost(lv):null;
+    return '<div class="lrow">'+IC[u.icon]+'<span><b style="color:#cfd6e4">'+u.label+'</b><small>'+u.d+'</small></span>'+
+      '<span class="lpips">'+[0,1,2].map(i2=>'<i class="'+(i2<lv?'on':'')+'"></i>').join('')+'</span>'+
+      (c!=null?'<button class="lbuy" data-mk="'+k+'"'+(META.shards<c?' disabled':'')+'>'+c+IC.shard+'</button>'
+              :'<button class="lbuy" disabled>MAX</button>')+'</div>';
+  }).join('')+'<div class="lhint">1 shard per 1,000 score — banked at victory, overrun, or quit. Seeded arena runs ignore these bonuses.</div>';
+}
+$('legHead').onclick=()=>{
+  const open=$('legacy').classList.toggle('open');
+  $('legArrow').textContent=open?'-':'+';
+};
+$('legBody').addEventListener('click',e=>{
+  const b=e.target.closest('[data-mk]');
+  if(b)buyMeta(b.dataset.mk);
+});
+renderLegacy();
 let pickedDiff=1,pickedMode='classic';
 document.querySelectorAll('#moderow .lvl').forEach(d=>d.onclick=()=>{
   pickedMode=d.dataset.m;
@@ -2644,6 +2814,9 @@ function resetGame(diff,demo){
   bfs();refreshPathDots();
   wave=0;kills=0;prestige=0;goldMult=1;playSec=0;waveTotal=0;mineXp=0;
   score=0;leaksThisWave=0;totalLeaks=0;perfectWaves=0;surgeT=0;leakLog.length=0;
+  ENDLESS=false;victShown=false;victChoice=false;wardenSeen=0;deepWave=0;shardsBankedRun=0;heroFreeSkills=0;
+  MRUN.on=false;MRUN.gold=0;MRUN.dirt=0;MRUN.luck=0;MRUN.dmg=1;MRUN.hero=0; /* startGame re-derives */
+  $('victory').classList.remove('show');$('victory').style.display='none';
   LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];freeDigs=CFG.freeDigs;
   heroSpawned=false;hero.cool=0;hero.auto=false;hero.aiOwned=false;hero.kills=0;hero.dmgDealt=0;avatar.visible=false;
   for(const k in HSK)HSK[k].lv=0;
@@ -2669,7 +2842,19 @@ function startGame(diffIdx,free,seed,mode){
   walker.face=0;
   walker.pos.copy(cellTop(0*FCELLS+(S>>1)*S+1));
   heroSpawned=true; /* the hero takes the field from wave zero */
-  gold=FREE?99999:CFG.startGold;dirt=FREE?999:CFG.startDirt;
+  /* LEGACY meta bonuses — derived AFTER CFG defaults, CFG itself untouched. An
+     EXPLICIT seed marks an arena/comparison run: meta is force-disabled so every
+     model faces identical conditions (scorecard reports meta:false). */
+  MRUN.on=seed==null&&!FREE;
+  if(MRUN.on){
+    MRUN.gold=25*META.up.gold;MRUN.dirt=3*META.up.dirt;MRUN.luck=.03*META.up.luck;
+    MRUN.dmg=1+.04*META.up.dmg;MRUN.hero=META.up.hero;heroFreeSkills=MRUN.hero;
+  }
+  gold=FREE?99999:CFG.startGold+MRUN.gold;dirt=FREE?999:CFG.startDirt+MRUN.dirt;
+  if(MRUN.on&&(MRUN.gold||MRUN.dirt||MRUN.luck||MRUN.dmg>1||MRUN.hero))
+    toast('LEGACY: '+[MRUN.gold?'+'+MRUN.gold+'g':'',MRUN.dirt?'+'+MRUN.dirt+' dirt':'',
+      MRUN.luck?'+'+Math.round(MRUN.luck*100)+'% mining':'',MRUN.dmg>1?'+'+Math.round((MRUN.dmg-1)*100)+'% tower dmg':'',
+      MRUN.hero?MRUN.hero+' hero skill'+(MRUN.hero>1?'s':''):''].filter(Boolean).join(' · '));
   renderBar();
   startBreak();breakT=999;
   $('breakbar').textContent=FREE?'SPAWN WAVE (free mode)':'START — build, dig, then call the wave';
@@ -2706,20 +2891,64 @@ function sim(dt){
       if(c.healT<=0){c.healT=2;
         for(const o of creeps)if(o!==c&&o.g.position.distanceTo(c.g.position)<1.6&&o.hp<o.maxHp){
           o.hp=Math.min(o.maxHp,o.hp+o.maxHp*.08);puff(o.g.position,0x4dff7a,2);}}}
+    if(c.tt.warden){ /* THE WARDEN: 3 phases, fixed-cadence timers (deterministic) */
+      const ph=c.hp>c.maxHp*.66?1:c.hp>c.maxHp*.33?2:3;
+      if(ph!==c.phase){
+        c.phase=ph;
+        const wb=$('wavebanner');
+        wb.textContent=ph===2?'THE WARDEN CRACKS':'THE WARDEN ENRAGES';
+        wb.classList.remove('show');void wb.offsetWidth;wb.classList.add('show');
+        puff(c.g.position,ph===2?0xffd24a:0xff5e5e,16);
+        sfx(ph===2?'crumble':'alarm');
+        const core=c.g.userData.core;
+        if(core){core.material.emissiveIntensity=ph===2?2:2.6;
+          if(ph===3){core.material.color.setHex(0xff5e5e);core.material.emissive.setHex(0xff5e5e);}}
+        toast(ph===2?'the Warden\'s armor cracks — full damage now':'the Warden ENRAGES — faster, birthing brood');
+        logEvent('Warden phase '+ph);
+      }
+      if(c.phase===1){ /* armored colossus: crushes any tower within one cell */
+        c.crushT=(c.crushT||0)-dt;
+        if(c.crushT<=0){c.crushT=.8;
+          for(const j of[c.cell,...ADJ[c.cell]]){
+            const tw2=TWR[j];
+            if(!tw2||tw2==='pending')continue;
+            tw2.hp-=(3+wave*.4+15)*3; /* instant trample tick ×3 */
+            puff(tw2.g.position,0xff5e5e,5);sfx('trample');
+            if(tw2.hp<=0)destroyTower(tw2);
+          }
+        }
+      }else if(c.phase===2){ /* periodic STOMP: stuns nearby towers, shakes the world */
+        c.stompT=(c.stompT==null?6:c.stompT)-dt;
+        if(c.stompT<=0){c.stompT=6;
+          shakeT=Math.max(shakeT,.6);sfx('stomp');ringFx(c.cell,2.5,0xffd24a);
+          let n=0;
+          for(const tw2 of towers)if(tw2.g.position.distanceTo(c.g.position)<2.5){
+            tw2.saboT=Math.max(tw2.saboT||0,2);tw2.headMat.emissiveIntensity=.05;n++;}
+          if(n)toast('WARDEN STOMP — '+n+' tower'+(n>1?'s':'')+' stunned');
+        }
+      }else{ /* enraged: brood every 5s (reuses the swarm-mother birth path — fresh nids) */
+        c.minionT=(c.minionT==null?5:c.minionT)-dt;
+        if(c.minionT<=0){c.minionT=5;
+          for(let k2=0;k2<2;k2++)spawnCreep('spawn',c.cell,c);
+          puff(c.g.position,0xff8ad4,8);
+        }
+      }
+    }
     if(c.cell===CRYSTAL){
       scene.remove(c.g);creeps.splice(ci,1);
-      if(!FREE)lives--;
+      if(!FREE)lives-=(c.tt.leak||1); /* the Warden breaching costs 6, not 1 */
       addScore(-25);leaksThisWave++;totalLeaks++;
       const pb=BIOMES[faceOf(c.spawnPortal)].name;
       leakLog.push({wave,type:c.type,portalBiome:pb});if(leakLog.length>30)leakLog.shift();
       logEvent('leak: '+c.type+' via '+pb+' portal');
       shakeT=.5;$('flash').style.opacity=.5;
       sfx('alarm');
-      toast('crystal hit — '+lives+' lives');
+      toast(c.tt.leak?'THE WARDEN BREACHED — −'+c.tt.leak+' lives ('+lives+' left)':'crystal hit — '+lives+' lives');
       if(lives<=0){
         addScore(-400);recordScore();
+        const sh=bankShards(); /* the run's score pays out legacy shards here too */
         prestige++;goldMult=1+prestige*.3;lives=DIFF.lives;wave=Math.max(0,wave-6);
-        spawnQueue=[];toast('OVERRUN — prestige '+prestige+' (+'+Math.round((goldMult-1)*100)+'% gold)');
+        spawnQueue=[];toast('OVERRUN — prestige '+prestige+' (+'+Math.round((goldMult-1)*100)+'% gold)'+(sh?' · legacy shards +'+sh:''));
       }
       continue;
     }
@@ -2762,6 +2991,7 @@ function sim(dt){
     }
     const a=cellTop(c.cell),b=cellTop(target);
     let sp=c.speed*(isNight?1.15:1);
+    if(c.phase===3)sp*=1.6; /* enraged Warden */
     const hz=BIOMES[faceOf(c.cell)].hz;
     if(hz){
       if(hz.mul)sp*=hz.mul;
@@ -3300,12 +3530,13 @@ window.GameAPI={
     hero:heroSpawned?{face:walker.face,faceName:FACES[walker.face].name,auto:hero.auto,aiOwned:hero.aiOwned,kills:hero.kills,dmgDealt:Math.round(hero.dmgDealt),
       skills:Object.fromEntries(Object.keys(HSK).map(k=>[k,HSK[k].lv])),skillCost:hskCost()}:null,
     recentLeaks:leakLog.slice(-10),surge:surgeT>0?+surgeT.toFixed(1):0,seed:rngSeed,
+    endless:ENDLESS,victory:victShown,
     facesUnlocked,activeFaces:Array.from(ACTIVE),
     breakSec:breakT>0&&breakT<900?Math.ceil(breakT):0,waitingForStart:breakT>=900,
     crystal:CRYSTAL,portals:[...PORTALS],
     nextWave:pendingQueue.reduce((a,k)=>(a[k]=(a[k]||0)+1,a),{}),
     queuedSpawns:spawnQueue.length,
-    creeps:creeps.map(c=>({type:c.type,cell:c.cell,hp:+c.hp.toFixed(1),maxHp:+c.maxHp.toFixed(1),cls:c.tt.cls,burrowed:c.burrowT>0||undefined})),
+    creeps:creeps.map(c=>({type:c.type,cell:c.cell,hp:+c.hp.toFixed(1),maxHp:+c.maxHp.toFixed(1),cls:c.tt.cls,burrowed:c.burrowT>0||undefined,phase:c.phase||undefined})),
     towers:towers.map(t=>({type:t.type,cell:t.cell,tier:t.tier,onWall:t.onWall,home:!!t.home,hp:Math.round(t.hp),branch:t.branch||null,prio:t.prio,kills:t.kills,dmgDealt:Math.round(t.dmgDealt)})),
     unlockedTowers:Object.keys(TT).filter(towerUnlocked),
     hmap:Array.from(HMAP),
@@ -3383,11 +3614,21 @@ window.GameAPI={
     towers:towers.map(tw=>{const b=acquire(tw);return{type:tw.type,cool:+tw.cool.toFixed(2),
       acquired:b?b.type:null,nearest:creeps.length?Math.min(...creeps.map(c=>tw.g.position.distanceTo(c.g.position))).toFixed(2):null,range:tw.tt.range};})}),
   unlock(){const b=facesUnlocked;unlockNextFace();return{ok:facesUnlocked>b,faces:facesUnlocked};},
+  warp(n){ /* testing tool (like unlock): jump the wave counter during a break —
+              the NEXT called wave composes as wave n+1 (warp(19) => Warden next) */
+    n=+n;if(!(n>=0&&n<999))return{ok:false,why:'wave 0-998'};
+    if(breakT<=0)return{ok:false,why:'only during a break'};
+    wave=n;deepWave=Math.max(deepWave,wave);
+    pendingQueue=composeQueue();renderWavePreview();
+    logEvent('debug: warped to wave '+wave);
+    return{ok:true,wave};
+  },
   expand(){return expandNow();},
   expandCost:()=>expandCost(),
   /* the benchmark blob — one call, everything a model comparison needs */
   scorecard(){return{
     player:playerName,score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,seed:rngSeed,mode:MODE,
+    meta:MRUN.on,endless:ENDLESS,deepWave,shards:META.shards, /* meta:false on seeded arena runs */
     wave,kills,lives,prestige,totalLeaks,perfectWaves,
     faces:facesUnlocked,miningLevel:mineLvl(),
     heroKills:hero.kills,heroDmg:Math.round(hero.dmgDealt),
@@ -3407,6 +3648,10 @@ window.GameAPI={
     guests:[...NET.guests.values()].map(g=>({name:g.name,face:g.face})),
     mirrorPos:first?first.g.position.toArray().map(v=>+v.toFixed(3)):null};},
   leaderboard(){return getLeaderboard();},
+  /* LEGACY meta: banked shards + permanent upgrades (localStorage c2meta) */
+  meta(){return{shards:META.shards,up:Object.assign({},META.up),activeRun:MRUN.on,
+    run:{gold:MRUN.gold,dirt:MRUN.dirt,luck:MRUN.luck,dmg:MRUN.dmg,hero:MRUN.hero,freeSkills:heroFreeSkills}};},
+  buyMeta(k){return buyMeta(k);},
   branch(i,idx){const tw=TWR[i];
     if(!tw)return{ok:false,why:'no tower there'};
     if(tw.tier<CFG.maxTier)return{ok:false,why:'reach tier '+CFG.maxTier+' first'};

@@ -26,8 +26,11 @@ const HELP = `commands (JSON out):
   speed <1|2|4|8> | pause | resume | auto <on|off>
   ability <golem|freeze|strike>
   unlock                       wake the next biome (sandbox/testing)
+  warp <n>                     jump wave counter during a break (testing; warp 19 => Warden next)
   walk | look <yaw> <pitch> | tool <0|1|2> | act [btn] | exit   first-person controls
   score                        benchmark scorecard (for AI model comparisons)
+  meta [upgrade]               LEGACY shards/upgrades; with arg = buy (gold|dirt|luck|dmg|hero)
+  eval <js>                    raw JS in the page (debugging; no ';')
   logs [n] | errors | debug    introspection
   shot [file.png]              screenshot
   help | quit`;
@@ -98,6 +101,7 @@ async function launchBrowser() {
       case 'ability': return page.evaluate(k => GameAPI.ability(k), a);
       case 'hero':    return a ? page.evaluate(k => GameAPI.heroSkill(k), a) : page.evaluate(() => GameAPI.state().hero);
       case 'unlock':  return page.evaluate(() => GameAPI.unlock());
+      case 'warp':    return page.evaluate(n => GameAPI.warp(n), +a); /* testing: jump wave counter */
       case 'walk':    return page.evaluate(() => GameAPI.fp.enter());
       case 'exit':    return page.evaluate(() => GameAPI.fp.exit());
       case 'look':    return page.evaluate(([y, p]) => GameAPI.fp.look(y, p), [+a, b == null ? null : +b]);
@@ -113,6 +117,14 @@ async function launchBrowser() {
         do { await new Promise(r => setTimeout(r, 2000)); card = await page.evaluate(() => GameAPI.scorecard()); }
         while (card.playSec < target);
         return card;
+      }
+      case 'meta':    return a ? page.evaluate(k => GameAPI.buyMeta(k), a) : page.evaluate(() => GameAPI.meta());
+      case 'eval': {  /* raw JS in the page (no ';' — the -e splitter eats them).
+                         eval is deliberate: this is a local dev/debug CLI executing the
+                         operator's own input against their own localhost game page —
+                         same trust boundary as the browser console. */
+        const code = parts.slice(1).join(' ');
+        return page.evaluate(c => { try { return JSON.parse(JSON.stringify(eval(c)) || 'null'); } catch (e) { return { ok: false, why: String(e && e.message || e) }; } }, code);
       }
       case 'logs':    return page.evaluate(n => GameAPI.logs(n), +a || 30);
       case 'errors':  return page.evaluate(() => GameAPI.errors());

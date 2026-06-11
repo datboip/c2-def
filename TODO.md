@@ -31,13 +31,14 @@ python3 -m http.server 8765 --directory .   # serve
 - Day/night (night = +15% creep speed, red eyes), per-biome hazards, sun/moon synced to light.
 - `window.GameAPI` — full agent control surface (also `GameAPI.fp.*` for walking). Balance was tuned with it.
 - **#22 content variety (2026-06-11)**: 4 new creeps — burrower w8+ (first hit sends it under 3s; water/ice/road deny the dive), swarm-mother w10+ (death-splits into 4 spawn with fresh nids), saboteur w12+ (shorts one tower 4s, spark tether), night-only wisp w9+ (50% dmg moving / 2× slowed) — lightly weighted in composeQueue; plus 1-2 seeded landmark set-pieces per biome (standing-stone circle, sandstone arch, glinting monolith, smoking vent, hollow stump, varied crystal clusters), all choppable DEC scenery off the route. Bestiary/portraits/GameAPI.grid updated.
+- **#10 endgame (2026-06-11)**: THE WARDEN wave-20 phase boss (armored colossus, glowing core; P1 50% armor + crushes towers within 1 cell, P2 6s-cadence STOMP stuns towers in 2.5 + shake, P3 ×1.6 speed + 2 brood/5s via the swarm-mother birth path; leak = 6 lives, kill = +500g + victory) · ENDLESS continuation (break bar → CONTINUE — ENDLESS; +8%/wave hp compounding past 20, Warden every 10th wave at +60% hp each; scorecard reports endless/deepWave) · LEGACY meta (localStorage `c2meta`: floor(score/1000) shards banked at victory/overrun/quit; splash LEGACY panel, 5 upgrades ×3 lv at 2/4/8 shards; derived in start(), **disabled when an explicit seed is passed** — scorecard meta:false, see README arena note) · new sfx stomp/victory · `GameAPI.warp(n)` + play.js `warp`/`meta`/`eval` for testing. Stats graphs (the last bit of old item 4) still open.
 
 ## Open (priority order)
 
 1. **Multiplayer** — biggest item. Owner's design: **each player owns a face/biome** — every join wakes one more face; each player defends their own portal lane toward the shared crystal; host-authoritative sim over a dumb WebSocket relay (a ~70-line `server.js` relay + gunner-mode client exist in an earlier claude.ai artifact of the flat-map version — port the pattern, not the code). FP gunner mode for guests is the proven fun loop.
 2. **CLI driver** — tiny Node+Playwright wrapper around `GameAPI` so an agent can play from a terminal (`node play.js state`, `node play.js build 0,5,3 cannon`). All the hooks exist already.
 3. **Audio & ambience** — footsteps in walk mode, core/portal hum, per-tower fire sounds (partial: synth `beep()` exists), volume slider.
-4. **Endgame** — wave-20 phase boss, endless mode, persistent prestige meta-upgrades, stats graphs. Balance beyond wave ~10 is untested; the autopilot survives to ~wave 7+ on frontier but humans play better.
+4. ~~**Endgame**~~ ✅ DONE (see Done list) — only **stats graphs** remain from this item. Balance note: wave 15+ income still outpaces sinks; the Warden + endless are now the sink, but mid-game tuning could use a pass with `GameAPI.warp`.
 5. **Nice-to-haves logged along the way:** block-place wireframe ghost in walk mode, TP camera wall-clipping, walk-mode footstep bobbing, golem upgrade tiers.
 
 ## Playtest wishlist (from 4 scripted GameAPI runs, 2026-06-10)
