@@ -267,6 +267,21 @@
   .ab .ic{width:20px;height:20px;filter:drop-shadow(0 0 4px currentColor)}
   .ab .cd{position:absolute;inset:0;background:rgba(7,9,16,.72);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#ffd24a}
   .ab small{color:#8a93ab;display:block}
+  /* ====== WORKSHOP (crafting) — same cockpit language as the menus ====== */
+  .wrow{display:flex;align-items:center;gap:11px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:12px;color:#cfd6e4;line-height:1.5}
+  .wrow:last-of-type{border-bottom:none}
+  .wrow>.ic{width:20px;height:20px;flex:none;color:#8a93ab}
+  .wrow.own>.ic{color:var(--teal)}
+  .wrow>span:first-of-type{min-width:0}
+  .wrow small{display:block;color:var(--ink2);font-size:10px}
+  .wcost{margin-left:auto;flex:none;display:flex;gap:4px;align-items:center;color:#9aa3b5;font-size:11px;font-variant-numeric:tabular-nums;font-family:'Oxanium',ui-monospace,monospace}
+  .wcost .ic{width:12px;height:12px}
+  .wbuy{flex:none;font-family:'Oxanium',ui-monospace,monospace;font-size:10px;letter-spacing:.12em;background:var(--panel2);border:1px solid var(--acc);color:var(--acc);border-radius:3px;padding:5px 12px;cursor:pointer;transition:background .1s ease-out}
+  .wbuy:hover:not(:disabled){background:#1b202c}
+  .wbuy:active{transform:translateY(1px)}
+  .wbuy:disabled{border-color:var(--line);color:#4a4f5e;cursor:default}
+  .wown{flex:none;font-family:'Oxanium',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:var(--teal);border:1px solid rgba(45,224,200,.4);border-radius:3px;padding:5px 10px}
+  #lenstip{display:none;position:fixed;z-index:12;pointer-events:none;background:rgba(10,12,18,.93);border:1px solid var(--line);border-left:2px solid var(--acc);padding:4px 9px;font:10px/1.5 'Inter',ui-monospace,monospace;letter-spacing:.06em;color:#cfd6e4}
 </style>
 </head>
 <body>
@@ -292,9 +307,11 @@
   <div class="slot" data-t="0"><span data-ic="pick"></span><small>dig</small></div>
   <div class="slot" data-t="1"><span data-ic="dirt"></span><small>place</small></div>
   <div class="slot" data-t="2"><span data-ic="cross"></span><small>gun</small></div>
+  <div class="slot" data-t="3" id="slotBucket" style="display:none"><span data-ic="bucket"></span><small>bucket</small></div>
 </div>
 <div id="panel"></div>
 <div id="facetag"></div>
+<div id="lenstip"></div>
 <div id="xhair"></div>
 <div id="dmgnums"></div>
 <div id="flash"></div>
@@ -329,7 +346,7 @@
   </div>
   <div class="hl hsec">
     <b>GUNS, NOT WALLS</b> — towers never bend the route; only <b>terrain</b> does. Towers standing on the route get <b style="color:#ff5e8a">trampled</b>.<br><br>
-    <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1. Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% +5%/level; your first 10 digs are free and guaranteed. Layers drop gold → iron → shards, bedrock at 3.<br><br>
+    <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1. Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% +5%/level; your first 10 digs are free and guaranteed. Layers drop gold → iron → shards, bedrock at 3. Press <span class="kbd">K</span> for the <b>WORKSHOP</b>: picks gate harder biomes (iron pick → frozen tundra, crystal pick → volcanic/caverns), the <b>bucket</b> moves liquids, the shovel and prospector lens sweeten mining.<br><br>
     <b>WATER</b> slows creeps to 45% (they prefer dry routes) · <b>ice</b> speeds them up · <b>lava</b> burns. Place dirt on water to reclaim it as land.<br><br>
     <b>PATH DOTS</b>: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling — reroute them through red. 1-deep pits slow walkers, 2-deep stop them. The route can never be fully sealed.
   </div>
@@ -342,9 +359,14 @@
     <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom · <span class="kbd">N</span> call wave early · <span class="kbd">space</span> pause · <span class="kbd">1/2/3/4</span> speed to ×8<br>
     <span class="kbd">V</span> man the hero · <span class="kbd">C</span> 1st/3rd person · <span class="kbd">WASD</span> move · hold <span class="kbd">LMB</span> mine · <span class="kbd">RMB</span> place · <span class="kbd">Q/E</span> tools<br>
     <span class="kbd">Q/W/E/R/T/Y</span> select towers · <span class="kbd">G</span> dig · <span class="kbd">F</span> wall · <span class="kbd">Z/X/C/B/P/J</span> abilities<br>
-    <span class="kbd">H</span> history · <span class="kbd">U</span> hide all UI · <span class="kbd">O</span> auto-rotate · <span class="kbd">Esc</span> menu / cancel
+    <span class="kbd">K</span> workshop (craft tools) · <span class="kbd">H</span> history · <span class="kbd">U</span> hide all UI · <span class="kbd">O</span> auto-rotate · <span class="kbd">Esc</span> menu / cancel
   </div>
   <button class="mbtn" id="hClose" style="margin-top:16px"><span data-ic="play"></span>got it</button>
+</div></div>
+<div class="menu" id="workshop"><div class="card" style="min-width:430px;max-width:500px">
+  <h2>WORKSHOP</h2>
+  <div id="wsBody"></div>
+  <button class="mbtn" id="wsClose" style="margin-top:14px;text-align:center">BACK TO THE FIELD [K]</button>
 </div></div>
 <div id="tut" style="display:none"><b id="tutStep"></b> <span id="tutText"></span> <u id="tutSkip">skip tutorial</u></div>
 <div id="splash"><div class="inner">
@@ -428,6 +450,12 @@ const IC=(function(){
     bot:w('<rect x="5" y="7" width="14" height="11" rx="2"/><circle cx="9.5" cy="12" r="1.2" fill="currentColor"/><circle cx="14.5" cy="12" r="1.2" fill="currentColor"/><path d="M12 7V4M8 4h8M9 18v2M15 18v2"/>'),
     freeze:w('<path d="M12 2v20M4 6l16 12M20 6L4 18"/><circle cx="12" cy="12" r="2.6"/>'),
     strike:w('<path d="M12 2v6M12 8L9 5M12 8l3-3"/><circle cx="12" cy="15" r="4.5"/><path d="M12 12.5v5M9.5 15h5"/>'),
+    bucket:w('<path d="M5 9h14l-1.6 10.5H6.6z"/><path d="M8 9a4 4 0 018 0"/><path d="M7.4 13.5h9.2" opacity=".5"/>'),
+    pickiron:w('<path d="M5 19L15 9"/><path d="M11 4c3-1.6 7-1 9 2-3-.6-6 0-8 2"/><path d="M14 7l3 3"/><path d="M13 2c3.5-1 7.5 0 9.5 2.5" opacity=".55"/>'),
+    pickcrystal:w('<path d="M5 19L14 10"/><path d="M14 7l3 3"/><path d="M17 3l4 4-4 4-4-4z"/>'),
+    shovel:w('<path d="M12 7v6"/><path d="M9 4h6M12 4v3"/><path d="M8 13h8v2a4 4 0 01-8 0z"/>'),
+    lens:w('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/><path d="M7.5 11.5l2-2.5 2.5 3" opacity=".6"/>'),
+    hammer:w('<path d="M4 20l6.5-6.5"/><path d="M10.5 13.5l-2-2 4.5-4.5c1.6-1.6 4.2-1.6 5.8 0l1.2 1.2-3 3-1.5-1.5-3 3z"/>'),
   };
 })();
 const $=id=>document.getElementById(id);
@@ -1799,7 +1827,7 @@ function aiDig(){
   const path=pathCellsList(),cands=[];
   for(const pi of path){
     for(const j of ADJ[pi]){
-      if(!ACTIVE[faceOf(j)]||isEdgeCell(j)||TWR[j]||DEC[j]||WATER[j]||HMAP[j]<=CFG.digDepth+1||PORTALS.includes(j)||j===CRYSTAL||creepOn(j))continue;
+      if(!ACTIVE[faceOf(j)]||isEdgeCell(j)||TWR[j]||DEC[j]||WATER[j]||HMAP[j]<=CFG.digDepth+1||PORTALS.includes(j)||j===CRYSTAL||creepOn(j)||!hasTool(digToolFor(j)))continue; /* same pick gates as the player */
       if(path.includes(j))continue;
       cands.push(j);
     }
@@ -1808,7 +1836,7 @@ function aiDig(){
   const kit=freeDigs>0;
   if(!kit&&gold<CFG.digCost)return false;
   const i=cands[(rnd()*cands.length)|0];
-  if(!kit&&!rollMine()){gold-=CFG.digCost;puff(cellTop(i),0x8a8f9c,3);return false;} /* AI gambles on the same table */
+  if(!kit&&!rollMine(shovelBonus(i))){gold-=CFG.digCost;puff(cellTop(i),0x8a8f9c,3);return false;} /* AI gambles on the same table */
   if(!tryEdit(()=>{HMAP[i]--;},()=>{HMAP[i]++;}))return false;
   if(kit)freeDigs--;else gold-=CFG.digCost;
   aiDirt++;setHeight(i,HMAP[i]);
@@ -1845,6 +1873,16 @@ function director(dt){
   if(!autopilot)return;
   directorTimer-=dt;if(directorTimer>0)return;
   directorTimer=2.2+rnd()*2.4;
+  /* tool progression: an awake biome our pick can't bite = craft the missing pick
+     the moment it's affordable (the AI shops at the same workshop, same costs) */
+  for(let f2=0;f2<FN;f2++)if(ACTIVE[f2]){
+    const nk=DIG_TIER[BIOMES[f2].name];
+    if(!hasTool(nk)){
+      const c2=TOOLS[nk].cost;
+      if((c2.gold||0)<=gold&&(c2.iron||0)<=INV.iron&&(c2.shard||0)<=INV.shard)craftTool(nk,true);
+      break;
+    }
+  }
   const bossSoon=pendingQueue.includes('boss')||spawnQueue.includes('boss');
   const haveSniper=towers.some(t=>t.type==='sniper');
   const types=Object.keys(TT).filter(towerUnlocked);
@@ -2062,13 +2100,124 @@ $('abilbar').addEventListener('pointerdown',e=>{
   if(b&&!DEMO)useAbility(b.dataset.a);
 });
 
+/* ============ CRAFTING / TOOLS (the WORKSHOP) ============
+   One-time crafts from mining loot, kept for the run. Pick tier gates DIGGING
+   by face biome NAME (never index): meadow/forest/desert = stone pick,
+   tundra = iron pick (frozen ground — also any cell beside ice), volcanic +
+   caverns = crystal pick (basalt/crystalbed). Multiplayer is host-authoritative:
+   tools belong to the ROOM — guests' craft/bucket requests forward like every
+   other act and the shared purse pays. */
+const TOOLS={
+  stonepick:{label:'STONE PICK',short:'stone pick',icon:'pick',cost:{},d:'digs meadow, forest and desert ground',starter:true},
+  ironpick:{label:'IRON PICK',short:'iron pick',icon:'pickiron',cost:{iron:3},d:'bites through frozen tundra ground',
+    deny:'the ground here is frozen solid — craft an IRON PICK'},
+  crystalpick:{label:'CRYSTAL PICK',short:'crystal pick',icon:'pickcrystal',cost:{shard:2,gold:50},d:'cracks volcanic basalt and cavern crystalbed',
+    deny:'basalt and crystalbed shrug off lesser picks — craft a CRYSTAL PICK'},
+  bucket:{label:'BUCKET',short:'bucket',icon:'bucket',cost:{iron:2},d:'scoop a liquid tile, pour it somewhere useful — one load at a time'},
+  shovel:{label:'SHOVEL',short:'shovel',icon:'shovel',cost:{iron:1},d:'+10% mining success on soft ground (cap stays 95%)'},
+  lens:{label:'PROSPECTOR LENS',short:'lens',icon:'lens',cost:{shard:1},d:'the dig cursor reveals what the next layer holds'},
+};
+const TOOLBOX={stonepick:true,ironpick:false,crystalpick:false,bucket:false,shovel:false,lens:false};
+const hasTool=k=>FREE||!!TOOLBOX[k];
+const DIG_TIER={meadow:'stonepick',forest:'stonepick',desert:'stonepick',tundra:'ironpick',volcanic:'crystalpick',caverns:'crystalpick'};
+function digToolFor(i){ /* hardness by biome NAME; frozen flavor: soft ground beside ice still needs iron */
+  let need=DIG_TIER[BIOMES[faceOf(i)].name]||'stonepick';
+  if(need==='stonepick')for(const j of ADJ[i])if(WATER[j]===2){need='ironpick';break;}
+  return need;
+}
+const shovelBonus=i=>hasTool('shovel')&&digToolFor(i)==='stonepick'?.1:0;
+let carriedLiquid=0; /* bucket cargo: 0 none · 1 water · 3 lava · 4 quicksand (WATER codes) */
+const LIQNAME={1:'water',2:'ice',3:'lava',4:'quicksand'};
+function craftTool(k,byAI){
+  if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'craft',tool:k});return{ok:true,forwarded:true};}
+  const t=TOOLS[k];
+  if(!t)return{ok:false,why:Object.keys(TOOLS).join(' | ')};
+  if(hasTool(k))return{ok:false,why:'already owned'};
+  const c=t.cost;
+  if((c.gold||0)>gold)return{ok:false,why:'need '+c.gold+'g'};
+  if((c.iron||0)>INV.iron)return{ok:false,why:'need '+c.iron+' iron'};
+  if((c.shard||0)>INV.shard)return{ok:false,why:'need '+c.shard+' shard'+(c.shard>1?'s':'')};
+  gold-=c.gold||0;INV.iron-=c.iron||0;INV.shard-=c.shard||0;
+  TOOLBOX[k]=true;
+  toast((byAI?'AI ':'')+'crafted: '+t.label);
+  sfx('skillup');
+  barCache='';renderBar();
+  $('slotBucket').style.display=hasTool('bucket')?'':'none';
+  if(wsOpen)renderWorkshop();
+  NET.dirtyStatic=true;
+  return{ok:true,tool:k};
+}
+/* ===== loot is a HASH of (seed, cell, depth), not the live RNG stream =====
+   so the PROSPECTOR LENS can peek for free: deterministic per seed, and a
+   peek can NEVER advance rngState / change later rolls. dig() pays out the
+   exact same table the lens reads. */
+function lootRoll(i,depth,salt){ /* one-shot mulberry32 — never touches rngState */
+  let s2=(rngSeed^Math.imul(i+1,0x9E3779B9)^Math.imul(depth+1,0x85EBCA6B)^Math.imul((salt|0)+1,0xC2B2AE35))>>>0;
+  s2=s2+0x6D2B79F5|0;
+  let t2=Math.imul(s2^s2>>>15,1|s2);
+  t2=t2+Math.imul(t2^t2>>>7,61|t2)^t2;
+  return((t2^t2>>>14)>>>0)/4294967296;
+}
+function lootAt(i,depth){ /* the ONE loot table — dig() pays it out, the lens reads it */
+  const r=lootRoll(i,depth,0);
+  if(depth<=1)return r<.25?{kind:'gold',amt:5+((lootRoll(i,depth,1)*11)|0)}:null;
+  if(depth===2)return r<.3?{kind:'iron'}:r<.45?{kind:'gold',amt:10}:null;
+  return r<.28?{kind:'shard'}:r<.45?{kind:'gem',amt:30}:null;
+}
+const lootLabel=p=>!p?'nothing':p.kind==='gold'?'gold seam +'+p.amt:p.kind==='gem'?'gem +'+p.amt:p.kind==='shard'?'shards':'iron';
+let lensTipCell=-2;
+function lensTip(i,e){ /* PROSPECTOR LENS readout riding the dig cursor */
+  const el=$('lenstip');
+  if(i<0||!hasTool('lens')||WATER[i]||DEC[i]||isEdgeCell(i)||HMAP[i]<=CFG.digDepth){el.style.display='none';lensTipCell=-2;return;}
+  if(i!==lensTipCell){lensTipCell=i;el.textContent='LENS · next layer: '+lootLabel(lootAt(i,-HMAP[i]+1));}
+  el.style.display='block';
+  if(e){el.style.left=(e.clientX+16)+'px';el.style.top=(e.clientY+14)+'px';}
+}
+/* ===== BUCKET — liquid logistics. Matter conserved: scoop = carry (one load),
+   pour = place. Scooping deliberately does NOT let neighbours reflood the bed
+   (that would conjure liquid from nothing); digging beside liquid still floods
+   as ever (floodIfBesideLiquid). Route validity via the same tryEdit/bfs. */
+function bucketAct(i){
+  if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'bucket',cell:i});return;}
+  if(!hasTool('bucket')){toast('craft a BUCKET in the workshop first');sfx('deny');return;}
+  if(!(i>=0&&i<N))return;
+  if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
+  if(WATER[i]){ /* SCOOP: the tile becomes its dug-out bed at current height */
+    if(WATER[i]===2){toast('ice is frozen solid — the bucket needs liquid');sfx('deny');return;}
+    if(carriedLiquid){toast('the bucket is full of '+LIQNAME[carriedLiquid]+' — pour it out first');sfx('deny');return;}
+    const w=WATER[i];
+    if(!tryEdit(()=>{WATER[i]=0;},()=>{WATER[i]=w;})){toast('would seal the route');return;}
+    carriedLiquid=w;
+    const sm=WSURF.get(i);if(sm){scene.remove(sm);WSURF.delete(i);}
+    refreshTile(i);
+    puff(cellTop(i),w===3?0xff7a2d:0x3b7bd4,6);
+    toast('scooped '+LIQNAME[w]+' — click land to pour');
+    logEvent('bucket: scooped '+LIQNAME[w]);
+    sfx('splash');
+  }else{ /* POUR */
+    if(!carriedLiquid){toast('the bucket is empty — click a liquid to scoop');sfx('deny');return;}
+    if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL){toast("can't pour there");sfx('deny');return;}
+    if(isEdgeCell(i)){toast('edge blocks hold the cube together — pour inside the border');sfx('deny');return;}
+    if(DEC[i]){toast('scenery in the way — chop it first');return;}
+    if(HMAP[i]>0){toast('liquid would run straight off a wall — pour on level ground or into a pit');return;}
+    const w=carriedLiquid;
+    if(!tryEdit(()=>{WATER[i]=w;},()=>{WATER[i]=0;})){toast('would seal the route');return;}
+    carriedLiquid=0;
+    refreshTile(i);addWaterSurface(i);
+    puff(cellTop(i),w===3?0xff7a2d:0x3b7bd4,7);
+    toast('poured '+LIQNAME[w]);
+    logEvent('bucket: poured '+LIQNAME[w]);
+    sfx('splash');
+  }
+}
+
 /* ============ DIG / PLACE ============ */
 /* mining is a gamble: pay to roll, get better with practice */
 const mineLvl=()=>Math.floor(Math.sqrt(mineXp/5));
-const mineChance=()=>Math.min(.95,.6+mineLvl()*.05+MRUN.luck); /* MRUN.luck: LEGACY prospector (0 unless meta active) */
-function rollMine(){
+const mineChance=(bonus)=>Math.min(.95,.6+mineLvl()*.05+MRUN.luck+(bonus||0)); /* MRUN.luck: LEGACY prospector · bonus: SHOVEL on soft ground */
+function rollMine(bonus){
   const lv=mineLvl();
-  const ok=FREE||rnd()<mineChance();
+  const ok=FREE||rnd()<mineChance(bonus);
   mineXp+=ok?2:1;
   if(mineLvl()>lv){toast('mining level '+mineLvl()+' — '+Math.round(mineChance()*100)+'% success');addScore(30);}
   return ok;
@@ -2090,10 +2239,12 @@ function dig(i){
   if(WATER[i]){toast(WATER[i]===3?'that is lava':WATER[i]===4?'quicksand — fill it with dirt':'water — fill it with dirt or go around');return;}
   if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');sfx('deny');return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
+  const toolNeed=digToolFor(i); /* pick gates by biome NAME — see TOOLS */
+  if(!hasTool(toolNeed)){toast(TOOLS[toolNeed].deny);sfx('deny');return;}
   const kit=freeDigs>0; /* surveyor's kit: opening digs are free and never crumble */
   if(!kit){
     if(!FREE&&gold<CFG.digCost){toast('need '+CFG.digCost+'g to dig');return;}
-    if(!rollMine()){ /* failed roll: the block crumbles, the gold is spent anyway */
+    if(!rollMine(shovelBonus(i))){ /* failed roll: the block crumbles, the gold is spent anyway */
       if(!FREE)gold-=CFG.digCost;
       puff(cellTop(i),0x8a8f9c,4);
       dmgNum(cellTop(i),'crumbled','#8a93ab');
@@ -2109,10 +2260,14 @@ function dig(i){
   puff(cellTop(i),0xc9925a,7);
   sfx('dig');
   if(HMAP[i]<0)dmgNum(cellTop(i),'depth '+(-HMAP[i]),'#c9925a');
-  const depth=-HMAP[i],r=rnd();
-  if(depth===1){if(r<.25){const g2=5+((rnd()*11)|0);gold+=g2;dmgNum(cellTop(i),'+'+g2,'#ffd24a');}}
-  else if(depth===2){if(r<.3){INV.iron++;dmgNum(cellTop(i),'iron','#aab4c8');}else if(r<.45){gold+=10;dmgNum(cellTop(i),'+10','#ffd24a');}}
-  else{if(r<.28){INV.shard++;dmgNum(cellTop(i),'shard','#2de0c8');}else if(r<.45){gold+=30;dmgNum(cellTop(i),'gem +30','#2de0c8');}}
+  /* loot from the (seed,cell,depth) hash — see lootAt: lens-peekable, stream-free */
+  const depth=-HMAP[i],loot=lootAt(i,depth);
+  if(loot){
+    if(loot.kind==='iron'){INV.iron++;dmgNum(cellTop(i),'iron','#aab4c8');}
+    else if(loot.kind==='shard'){INV.shard++;dmgNum(cellTop(i),'shard','#2de0c8');}
+    else if(loot.kind==='gem'){gold+=loot.amt;dmgNum(cellTop(i),'gem +'+loot.amt,'#2de0c8');}
+    else{gold+=loot.amt;dmgNum(cellTop(i),'+'+loot.amt,'#ffd24a');}
+  }
   floodIfBesideLiquid(i);
 }
 /* water finds its level: digging beside a liquid floods the new hole (fill with dirt to reclaim) */
@@ -2279,6 +2434,7 @@ function exitMode(){
 function showFPUI(b){
   $('xhair').style.display=b?'block':'none';
   $('hotbar').style.display=b?'flex':'none';
+  $('slotBucket').style.display=hasTool('bucket')?'':'none';
   $('buildbar').style.display=b?'none':'flex';
   $('facetag').textContent=b?'FACE: '+FACES[walker.face].name:'';
 }
@@ -2297,7 +2453,7 @@ function tryLock(){
 document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement){lockFallback=false;return;}
   fpFiring=false;
-  if(mode!=='overview'&&!menuOpen&&!DEMO&&!lockFallback)openMenu();
+  if(mode!=='overview'&&!menuOpen&&!DEMO&&!lockFallback&&!wsOpen)openMenu();
 });
 let fbDown=false,fbMoved=false,fbX=0,fbY=0,fbBtn=0;
 document.addEventListener('mousemove',e=>{
@@ -2340,11 +2496,13 @@ function fpAction(btn){
   if(camTrans.active)return;
   if(btn===2){const i=aimedTile();if(i>=0)placeDirt(i);return;}
   if(tool===2){fpFire();return;}
+  if(tool===3){const i=aimedTile();if(i>=0)bucketAct(i);return;} /* bucket slot (when crafted) */
   const i=aimedTile();
   if(i>=0)(tool===0?dig:placeDirt)(i);
 }
 function setTool(t){
-  tool=((t%3)+3)%3;
+  const n=hasTool('bucket')?4:3; /* the bucket adds a 4th hotbar slot */
+  tool=((t%n)+n)%n;
   document.querySelectorAll('#hotbar .slot').forEach((s2,i)=>s2.classList.toggle('on',i===tool));
 }
 document.querySelectorAll('#hotbar .slot').forEach(s2=>s2.addEventListener('pointerdown',e=>{setTool(+s2.dataset.t);e.stopPropagation();}));
@@ -2364,17 +2522,18 @@ function ghostAt(e,type){
   const hit=castAt(e,tiles,false);
   if(hit){
     const i=hit.object.userData.i;
-    if(type==='__dig'||type==='__wall'){ /* terraform cursor: small tinted ring */
+    if(type==='__dig'||type==='__wall'||type==='__bucket'){ /* terraform cursor: small tinted ring */
       if(ACTIVE[faceOf(i)]&&!TWR[i]&&!PORTALS.includes(i)&&i!==CRYSTAL){
         const F=FACES[faceOf(i)];
         ghostRing.scale.setScalar(.55);
         ghostRing.position.copy(cellTop(i)).addScaledVector(F.n,.04);
         ghostRing.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
-        ghostRing.material.color.setHex(type==='__dig'?0xc9925a:0x8ee8d8);
+        ghostRing.material.color.setHex(type==='__dig'?0xc9925a:type==='__bucket'?0x4dd8ff:0x8ee8d8);
         ghostRing.visible=true;
+        lensTip(type==='__dig'?i:-1,e);
         return i;
       }
-      ghostRing.visible=false;return -1;
+      ghostRing.visible=false;lensTip(-1);return -1;
     }
     if(ACTIVE[faceOf(i)]&&!TWR[i]&&!WATER[i]&&HMAP[i]>=0&&!PORTALS.includes(i)&&i!==CRYSTAL){ /* deco cells OK — build auto-chops */
       const F=FACES[faceOf(i)];
@@ -2410,7 +2569,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
   if(e.button===1)e.preventDefault(); /* middle button drags to orbit; a clean click (no drag) toggles path on release */
   if(mode==='walk'){
     if(document.pointerLockElement){
-      if(e.button===0){fpFiring=true;if(tool!==2){fpMining=true;mineT=.45;}} /* hold LMB to keep mining */
+      if(e.button===0){fpFiring=true;if(tool===0||tool===1){fpMining=true;mineT=.45;}} /* hold LMB to keep mining (not gun/bucket) */
       fpAction(e.button);return;
     }
     if(lockFallback){fbDown=true;fbMoved=false;fbX=e.clientX;fbY=e.clientY;fbBtn=e.button;capture(e);return;}
@@ -2425,7 +2584,7 @@ addEventListener('pointerup',e=>{
     if(!fbMoved&&mode==='walk'&&!menuOpen)fpAction(fbBtn);}
 });
 renderer.domElement.addEventListener('pointerup',e=>{
-  held=false;ghostRing.visible=false;
+  held=false;ghostRing.visible=false;lensTip(-1);
   if(menuOpen||DEMO||dragType||mode!=='overview')return;
   if(e.button===1){if(!dragging){showPath=!showPath;refreshPathDots();$('btnPath').classList.toggle('on',showPath);$('mPath').checked=showPath;}return;}
   if(e.button===2){ /* command link: right-click sends the hero */
@@ -2447,6 +2606,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
     const i=hit.object.userData.i;
     if(selectedType==='__dig'){dig(i);return;}      /* tools stay armed for painting */
     if(selectedType==='__wall'){placeDirt(i);return;}
+    if(selectedType==='__bucket'){bucketAct(i);return;}
     tryBuy(i,selectedType);
     selectedType=null;renderBar();return;
   }
@@ -2495,7 +2655,7 @@ $('buildbar').addEventListener('pointerdown',e=>{
   const b=e.target.closest('.bb');if(!b)return;
   const t=b.dataset.t;if(!t)return; /* locked tower card */
   if(t==='__auto'){autopilot=!autopilot;toast('autopilot '+(autopilot?'on':'off'));renderBar();hidePanel();return;}
-  if(t==='__dig'||t==='__wall'){ /* terraform tools work from god view too — click tiles, Esc to put away */
+  if(t==='__dig'||t==='__wall'||t==='__bucket'){ /* terraform tools work from god view too — click tiles, Esc to put away */
     selectedType=(selectedType===t?null:t);
     hidePanel();renderBar();return;
   }
@@ -2517,6 +2677,7 @@ function renderBar(){
   }
   html+='<div class="bb'+(selectedType==='__dig'?' sel':'')+'" data-t="__dig" style="color:#c9925a"><span class="hk">G</span><span class="ico">'+IC.pick+'</span><span style="color:#cfd6e4">dig</span><br><span class="c">'+(freeDigs>0&&!FREE?freeDigs+' free':CFG.digCost+'g roll')+'</span></div>';
   html+='<div class="bb'+(selectedType==='__wall'?' sel':'')+((dirt<1&&!FREE)?' poor':'')+'" data-t="__wall" style="color:#8ee8d8"><span class="hk">F</span><span class="ico">'+IC.dirt+'</span><span style="color:#cfd6e4">wall</span><br><span class="c">1 dirt</span></div>';
+  if(hasTool('bucket'))html+='<div class="bb'+(selectedType==='__bucket'?' sel':'')+'" data-t="__bucket" style="color:#4dd8ff"><span class="hk">G</span><span class="ico">'+IC.bucket+'</span><span style="color:#cfd6e4">bucket</span><br><span class="c">'+(carriedLiquid?LIQNAME[carriedLiquid]:'empty')+'</span></div>';
   html+='<div class="bb'+(autopilot?' sel':'')+'" data-t="__auto" style="color:#8a93ab"><span class="ico">'+IC.cube+'</span><span style="color:#cfd6e4">auto</span><br><span class="c">'+(autopilot?'ON':'OFF')+'</span></div>';
   if(html===barCache)return; /* skip DOM churn when nothing changed */
   barCache=html;
@@ -2647,6 +2808,47 @@ $('legBody').addEventListener('click',e=>{
   if(b)buyMeta(b.dataset.mk);
 });
 renderLegacy();
+/* ============ WORKSHOP panel — craft tools from mining loot (hotkey K) ============ */
+let wsOpen=false;
+function renderWorkshop(){
+  let html='<div style="display:flex;gap:14px;font-size:11px;color:#9aa3b5;padding:0 2px 9px;border-bottom:1px solid var(--line)">'+
+    '<span style="color:#ffd24a">'+IC.gold+' '+(FREE?'∞':gold)+'</span>'+
+    '<span style="color:#aab4c8">'+IC.iron+' '+INV.iron+'</span>'+
+    '<span style="color:#2de0c8">'+IC.shard+' '+INV.shard+'</span>'+
+    (carriedLiquid?'<span style="color:#4dd8ff">'+IC.bucket+' carrying '+LIQNAME[carriedLiquid]+'</span>':'')+'</div>';
+  for(const k of Object.keys(TOOLS)){
+    const t=TOOLS[k],own=hasTool(k),c=t.cost;
+    const afford=FREE||((c.gold||0)<=gold&&(c.iron||0)<=INV.iron&&(c.shard||0)<=INV.shard);
+    const cost=t.starter?'<span style="color:#6b7385">standard issue</span>':
+      [c.gold?'<span style="color:#ffd24a">'+c.gold+'g</span>':'',
+       c.iron?'<span style="color:#aab4c8">'+c.iron+'</span>'+IC.iron:'',
+       c.shard?'<span style="color:#2de0c8">'+c.shard+'</span>'+IC.shard:''].filter(Boolean).join('<span style="color:#3a4158">+</span>');
+    html+='<div class="wrow'+(own?' own':'')+'">'+IC[t.icon]+
+      '<span><b style="color:#cfd6e4">'+t.label+'</b><small>'+t.d+'</small></span>'+
+      '<span class="wcost">'+cost+'</span>'+
+      (own?'<span class="wown">OWNED</span>':'<button class="wbuy" data-wk="'+k+'"'+(afford?'':' disabled')+'>CRAFT</button>')+'</div>';
+  }
+  html+='<div class="lhint">picks gate digging — stone digs meadow/forest/desert · iron bites frozen tundra (and ground beside ice) · crystal cracks volcanic basalt and cavern crystalbed. G cycles dig/bucket in god view; the bucket is hotbar slot 4 on foot.</div>';
+  $('wsBody').innerHTML=html;
+}
+function openWorkshop(){
+  if(DEMO)return;
+  wsOpen=true;
+  if(!NET.on)paused=true;
+  if(document.pointerLockElement)document.exitPointerLock();
+  renderWorkshop();
+  $('workshop').style.display='flex';
+}
+function closeWorkshop(){
+  wsOpen=false;$('workshop').style.display='none';
+  if(!menuOpen){
+    if(!NET.on)paused=false;
+    if(mode!=='overview'&&!lockFallback)tryLock();
+  }
+}
+$('wsClose').onclick=()=>closeWorkshop();
+$('wsBody').addEventListener('click',e=>{const b=e.target.closest('[data-wk]');if(b)craftTool(b.dataset.wk);});
+$('resbar').addEventListener('click',e=>{if(e.target.closest('#wsBtn'))openWorkshop();});
 let pickedDiff=1,pickedMode='classic';
 document.querySelectorAll('#moderow .lvl').forEach(d=>d.onclick=()=>{
   pickedMode=d.dataset.m;
@@ -2679,7 +2881,13 @@ addEventListener('keydown',e=>{
   if(mode==='overview'&&!menuOpen){
     const kk=e.key.toLowerCase();
     for(const tk in TKEY)if(TKEY[tk]===kk&&towerUnlocked(tk)){selectedType=(selectedType===tk?null:tk);hidePanel();barCache='';renderBar();return;}
-    if(kk==='g'||kk==='f'){const tool2=kk==='g'?'__dig':'__wall';selectedType=(selectedType===tool2?null:tool2);hidePanel();barCache='';renderBar();return;}
+    if(kk==='g'){ /* G cycles the hand tools: dig → bucket (when owned) → away */
+      const order=hasTool('bucket')?['__dig','__bucket',null]:['__dig',null];
+      selectedType=order[(order.indexOf(selectedType)+1)%order.length];
+      if(!selectedType){ghostRing.visible=false;lensTip(-1);}
+      hidePanel();barCache='';renderBar();return;
+    }
+    if(kk==='f'){selectedType=(selectedType==='__wall'?null:'__wall');hidePanel();barCache='';renderBar();return;}
     for(const ak in AKEY)if(AKEY[ak]===kk){useAbility(ak);return;}
   }
   if((e.key==='n'||e.key==='N')&&breakT>0)callWave(true);
@@ -2688,11 +2896,13 @@ addEventListener('keydown',e=>{
   if((e.key==='c'||e.key==='C')&&mode==='walk'){walkView=walkView==='fp'?'tp':'fp';toast('camera: '+(walkView==='fp'?'first':'third')+' person');}
   if((e.key==='h'||e.key==='H')&&!menuOpen){showHist=!showHist;$('btnHist').classList.toggle('on',showHist);}
   if((e.key==='u'||e.key==='U')&&!menuOpen)document.body.classList.toggle('uihide');
+  if((e.key==='k'||e.key==='K')&&!menuOpen)(wsOpen?closeWorkshop():openWorkshop());
   if(e.key==='Escape'){
+    if(wsOpen){closeWorkshop();return;}
     if($('helpmenu').style.display==='flex'){$('helpmenu').style.display='none';if(!menuOpen)paused=false;return;}
     if(menuOpen){closeMenu(true);return;}
     if(mode!=='overview'){if(lockFallback)openMenu();return;}
-    if(selectedType){selectedType=null;renderBar();hidePanel();ghostRing.visible=false;return;}
+    if(selectedType){selectedType=null;renderBar();hidePanel();ghostRing.visible=false;lensTip(-1);return;}
     openMenu();
   }
 });
@@ -2848,6 +3058,11 @@ function resetGame(diff,demo){
   for(const k in HSK)HSK[k].lv=0;
   spawnQueue=[];pendingQueue=[];breakT=-1;
   INV.iron=FREE?99:0;INV.shard=FREE?99:0;
+  for(const k in TOOLBOX)TOOLBOX[k]=(k==='stonepick'); /* tools are per-run crafts */
+  carriedLiquid=0;if(tool>2)setTool(0);
+  if(selectedType==='__bucket')selectedType=null;
+  wsOpen=false;$('workshop').style.display='none';$('lenstip').style.display='none';
+  $('slotBucket').style.display='none';
   lives=DIFF.lives;
   focusActive();
   if(demo){ /* the demo fields the hero too — it's part of the game */
@@ -3132,7 +3347,7 @@ function updateWalk(dt){
   fpCool-=dt;
   if(hero.jumpT>0)hero.jumpT-=dt;
   if(fpFiring&&document.pointerLockElement&&tool===2&&!camTrans.active)fpFire();
-  if(fpMining&&document.pointerLockElement&&tool!==2&&!camTrans.active){
+  if(fpMining&&document.pointerLockElement&&tool<2&&!camTrans.active){
     mineT-=dt;
     if(mineT<=0){mineT=.35;fpAction(0);} /* hold-to-mine */
   }
@@ -3194,7 +3409,7 @@ function updateWalk(dt){
 
 /* ============ MAIN LOOP ============ */
 const clock=new THREE.Clock();
-let hudT=0,frameNo=0,hudCache='',resCache='',histCache='',showHist=true,lastTickMs=performance.now();
+let hudT=0,frameNo=0,hudCache='',resCache='',histCache='',lensCache='',showHist=true,lastTickMs=performance.now();
 function tick(){
   requestAnimationFrame(tick);
   lastTickMs=performance.now();
@@ -3338,7 +3553,9 @@ function tick(){
       '<div class="res" style="color:#ffd24a">'+IC.gold+'<span>'+(FREE?'∞':gold)+'<small>GOLD</small></span></div>'+
       '<div class="res" style="color:#c9925a">'+IC.dirt+'<span>'+(FREE?'∞':dirt)+'<small>DIRT</small></span></div>'+
       (INV.iron?'<div class="res" style="color:#aab4c8">'+IC.iron+'<span>'+INV.iron+'<small>IRON</small></span></div>':'')+
-      (INV.shard?'<div class="res" style="color:#2de0c8">'+IC.shard+'<span>'+INV.shard+'<small>SHARD</small></span></div>':'');
+      (INV.shard?'<div class="res" style="color:#2de0c8">'+IC.shard+'<span>'+INV.shard+'<small>SHARD</small></span></div>':'')+
+      (carriedLiquid?'<div class="res" style="color:#4dd8ff">'+IC.bucket+'<span>'+LIQNAME[carriedLiquid]+'<small>BUCKET</small></span></div>':'')+
+      '<div class="res" id="wsBtn" style="color:#e8b73a;pointer-events:auto;cursor:pointer" title="craft tools — WORKSHOP [K]">'+IC.hammer+'<span>'+Object.keys(TOOLS).filter(hasTool).length+'/'+Object.keys(TOOLS).length+'<small>WORKSHOP · K</small></span></div>';
     if(resHtml!==resCache){resCache=resHtml;$('resbar').innerHTML=resHtml;}
     /* activity history: what you and the AI have been doing, newest first */
     $('histpanel').style.display=(showHist&&!DEMO)?'flex':'none';
@@ -3348,6 +3565,12 @@ function tick(){
       if(histHtml!==histCache){histCache=histHtml;$('histpanel').innerHTML=histHtml;}
     }
     renderBar();renderAbil();
+    if(mode==='walk'&&hasTool('lens')&&tool===0){ /* PROSPECTOR LENS rides the aim */
+      const li=aimedTile();
+      let lt='FACE: '+FACES[walker.face].name;
+      if(li>=0&&!WATER[li]&&!DEC[li]&&!isEdgeCell(li)&&HMAP[li]>CFG.digDepth)lt+=' · LENS: '+lootLabel(lootAt(li,-HMAP[li]+1));
+      if(lt!==lensCache){lensCache=lt;$('facetag').textContent=lt;}
+    }
     tutTick();
   }
   renderer.render(scene,camera);
@@ -3431,13 +3654,16 @@ function hostMsg(m){
     else if(m.k==='upgrade')r=A.upgrade(m.cell);
     else if(m.k==='sell')r=A.sell(m.cell);
     else if(m.k==='wave')r=A.callWave();
+    else if(m.k==='craft')r=A.craft(m.tool); /* room toolbox — shared purse pays */
+    else if(m.k==='bucket')r=A.bucket(m.cell);
     if(r&&r.ok===false&&r.why)netSend({to:m.from,t:'deny',why:r.why});
   }
 }
 function sendStatic(){
   const decs=[];for(let i=0;i<N;i++)if(DEC[i])decs.push(i);
   netSend({t:'static',hmap:Array.from(HMAP),water:Array.from(WATER),road:Array.from(ROAD),
-    active:Array.from(ACTIVE),decs,portals:PORTALS.slice(),crystal:CRYSTAL});
+    active:Array.from(ACTIVE),decs,portals:PORTALS.slice(),crystal:CRYSTAL,
+    tools:Object.keys(TOOLBOX).filter(k=>TOOLBOX[k]),carried:carriedLiquid});
 }
 let netT=0;
 function netHostPump(dt){
@@ -3466,6 +3692,12 @@ function guestMsg(m){
     NET.silent=true;
     for(const i of m.decs)if(!DEC[i]){const g=buildDeco(BIOMES[faceOf(i)].deco);orientOnFace(g,i,0);scene.add(g);DEC[i]=g;}
     NET.silent=false;
+    if(m.tools){ /* the room's toolbox mirrors host-side state */
+      for(const k in TOOLBOX)TOOLBOX[k]=m.tools.includes(k);
+      carriedLiquid=m.carried||0;
+      barCache='';$('slotBucket').style.display=hasTool('bucket')?'':'none';
+      if(wsOpen)renderWorkshop();
+    }
     while(portalMeshes.length<PORTALS.length){
       const idx=portalMeshes.length;
       const pm=addPortalMesh(faceOf(PORTALS[idx]));
@@ -3545,6 +3777,8 @@ window.GameAPI={
   decode:i=>({face:faceOf(i),faceName:FACES[faceOf(i)].name,u:i%S,v:((i%FCELLS)/S)|0}),
   grid:{S,faces:FACES.map(F=>F.name),
     biomes:BIOMES.map((B,f)=>({face:f,name:B.name,hazard:B.hz?B.hz.label:null})),
+    tools:Object.keys(TOOLS).map(k=>({name:k,label:TOOLS[k].label,cost:TOOLS[k].cost,effect:TOOLS[k].d,starter:!!TOOLS[k].starter})),
+    digTiers:DIG_TIER, /* biome NAME -> required pick */
     towers:Object.keys(TT).map(k=>({type:k,cost:TT[k].cost,range:TT[k].range,dmg:TT[k].dmg,rate:TT[k].rate,homeBiome:TT[k].biome})),
     creeps:Object.keys(CT).map(k=>({type:k,hpMult:CT[k].hp,speed:CT[k].speed,cls:CT[k].cls,bounty:CT[k].bounty,
       armor:CT[k].armor||0,minWave:CT[k].minWave||1,boss:!!CT[k].boss,healer:!!CT[k].healer,regen:CT[k].regen||0,climbMul:CT[k].climbMul,
@@ -3553,6 +3787,7 @@ window.GameAPI={
     demo:DEMO,free:FREE,paused,simSpeed,autopilot,mode,
     score,wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
     mining:{xp:mineXp,level:mineLvl(),chance:+mineChance().toFixed(2),freeDigs},
+    tools:{owned:Object.keys(TOOLS).filter(hasTool),carried:carriedLiquid?LIQNAME[carriedLiquid]:null},
     hero:heroSpawned?{face:walker.face,faceName:FACES[walker.face].name,auto:hero.auto,aiOwned:hero.aiOwned,kills:hero.kills,dmgDealt:Math.round(hero.dmgDealt),
       skills:Object.fromEntries(Object.keys(HSK).map(k=>[k,HSK[k].lv])),skillCost:hskCost()}:null,
     recentLeaks:leakLog.slice(-10),surge:surgeT>0?+surgeT.toFixed(1):0,seed:rngSeed,
@@ -3580,7 +3815,9 @@ window.GameAPI={
       if(!(i>=0&&i<N))return fail('bad cell');
       if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return fail('occupied cell '+i);
       if(e.action==='wall'){if(DEC[i])return fail('scenery at '+i);if(HMAP[i]>=2)return fail('max height at '+i);HMAP[i]++;undo.push(()=>HMAP[i]--);}
-      else if(e.action==='dig'){if(DEC[i])return fail('scenery at '+i);if(isEdgeCell(i))return fail('edge block at '+i);if(HMAP[i]<=CFG.digDepth)return fail('bedrock at '+i);HMAP[i]--;undo.push(()=>HMAP[i]++);
+      else if(e.action==='dig'){if(DEC[i])return fail('scenery at '+i);if(isEdgeCell(i))return fail('edge block at '+i);if(HMAP[i]<=CFG.digDepth)return fail('bedrock at '+i);
+        const tn=digToolFor(i);if(!hasTool(tn))return fail('need '+TOOLS[tn].short); /* same pick gates as dig() */
+        HMAP[i]--;undo.push(()=>HMAP[i]++);
         let fw=0;for(const j of ADJ[i])if(WATER[j]&&WATER[j]!==2){fw=WATER[j];break;}
         if(fw){WATER[i]=fw;undo.push(()=>{WATER[i]=0;});}}
       else if(e.action==='chop'){if(!DEC[i])return fail('nothing to chop at '+i);const d=DEC[i];DEC[i]=null;undo.push(()=>{DEC[i]=d;});}
@@ -3628,6 +3865,17 @@ window.GameAPI={
     tw.prio=p;return{ok:true,prio:p};
   },
   dig(i){const d0=dirt,h0=HMAP[i];dig(i);return{ok:HMAP[i]!==h0||dirt!==d0,h:HMAP[i],dirt};},
+  craft(k){return craftTool(k);},
+  bucket(i){if(!(i>=0&&i<N))return{ok:false,why:'bad cell'};
+    if(NET.on&&NET.role==='guest'){bucketAct(i);return{ok:true,forwarded:true};}
+    const w0=WATER[i],c0=carriedLiquid;bucketAct(i);
+    return(WATER[i]!==w0||carriedLiquid!==c0)?{ok:true,water:WATER[i],carried:carriedLiquid?LIQNAME[carriedLiquid]:null}
+      :{ok:false,why:LOGS.length?LOGS[LOGS.length-1].msg:'rejected'};},
+  peek(i){ /* PROSPECTOR LENS: a pure read — never consumes RNG rolls */
+    if(!hasTool('lens'))return{ok:false,why:'craft a PROSPECTOR LENS first'};
+    if(!(i>=0&&i<N))return{ok:false,why:'bad cell'};
+    if(HMAP[i]<=CFG.digDepth)return{ok:false,why:'bedrock'};
+    return{ok:true,depth:-HMAP[i]+1,holds:lootLabel(lootAt(i,-HMAP[i]+1))};},
   place(i){const h0=HMAP[i];placeDirt(i);return{ok:HMAP[i]!==h0,h:HMAP[i],dirt};},
   callWave(){if(breakT<=0)return{ok:false,why:'no break active'};callWave(true);return{ok:true,wave};},
   speed(n){if(![1,2,4,8].includes(n))return{ok:false,why:'1, 2, 4 or 8'};simSpeed=n;paused=false;return{ok:true};},

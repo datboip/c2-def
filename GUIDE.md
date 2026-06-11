@@ -51,6 +51,21 @@ Upgrades: tier 2 = base cost, tier 3 = 2× base (bronze → silver → gold base
 - Leaderboard: `GameAPI.player('name')` tags your runs; top-10 per machine, shown on the splash (`GameAPI.leaderboard()`, CLI `lead`).
 - Waves: call early for +20+5×wave gold. Wave clear pays 30+10×wave. Biomes wake on schedule (first at w4) or **breach early** via the countdown chip (120g +60/face → expedition cache + the native tower).
 
+## Tools (the WORKSHOP — hotkey K)
+
+One-time crafts from mining loot, kept for the run. **Picks gate digging by the face's biome name** — machine-readable at `GameAPI.grid.tools` / `GameAPI.grid.digTiers`; craft via `GameAPI.craft(name)` (CLI `craft`). In multiplayer the toolbox belongs to the room (host-authoritative).
+
+| tool | cost | effect |
+|---|---|---|
+| stone pick | — standard issue | digs meadow, forest, desert |
+| iron pick | 3 iron | digs tundra (frozen ground — also any soft cell beside ice) |
+| crystal pick | 2 shards + 50g | digs volcanic + caverns (basalt/crystalbed) |
+| bucket | 2 iron | scoop a liquid tile / pour it on land or into a pit — matter conserved, one load at a time (`GameAPI.bucket(i)`; god view: G cycles dig→bucket; walk mode: hotbar slot 4) |
+| shovel | 1 iron | +10% mining success on soft ground (cap stays 95%) |
+| prospector lens | 1 shard | dig cursor/aim shows the next layer's loot; `GameAPI.peek(i)` — a pure read, never consumes RNG rolls |
+
+The AI director obeys the same gates and greedily crafts the pick its newest biome needs once it can afford it.
+
 ## Abilities & hero
 
 - **golem** 120g+3 iron — walks to creeps, AoE slams, 75s. **freeze** 1 shard — 85% slow everything 3s. **strike** 100g — 6 shells on the route. **pilot** 2 shards once — your hero auto-roams and hunts.

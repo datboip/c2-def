@@ -22,6 +22,7 @@ python3 -m http.server 8765 --directory .
 - **Abilities** (right bar): golem (120g + 3 iron) hunts and slams, freeze (1 shard) hard-slows everything, airstrike (100g) carpets the route. Tier-3 towers buy one of two branch specializations at 3× base cost.
 - **Path dots show speed:** green = full pace, yellow = slowed, red = crawling. Kill zones belong on red.
 - **Mining is a gamble with a skill curve.** Every dig costs 3g to roll: 60% base success, +5% per mining level (cap 95%), XP for every attempt. Failures crumble the block and keep your gold. Chopping trees/scenery is free (+1 dirt) — and must happen before the ground under them can be dug. Successful digs go inward toward bedrock (3 layers): layer 1 drops gold, 2 iron, 3 shards/gems. The AI rolls on the same table.
+- **CRAFTING — the WORKSHOP.** Mining loot becomes tools: press **K** (or the hammer chip beside the resources). One-time crafts, kept for the run. Everyone starts with the **STONE PICK** (digs meadow/forest/desert). **IRON PICK** (3 iron) bites frozen tundra ground — without it the dig is denied. **CRYSTAL PICK** (2 shards + 50g) cracks volcanic basalt and cavern crystalbed. **BUCKET** (2 iron) scoops a liquid tile and pours it elsewhere — matter conserved, one load at a time, and pouring can never seal the route. **SHOVEL** (1 iron) +10% mining success on soft ground (cap stays 95%). **PROSPECTOR LENS** (1 shard) — the dig cursor reveals what the next layer holds (a pure peek: it never consumes RNG rolls). Hardness is mapped by biome *name*; the AI director crafts at the same workshop with the same costs. In multiplayer the toolbox belongs to the room — guests' craft requests run host-side.
 - **Wave 20 is THE WARDEN.** A phase boss replaces the whole wave: phase 1 it's armored (50% damage) and **crushes any tower within one cell**; below 66% the armor cracks but it **STOMPS** every ~6s (towers in range stunned 2s); below 33% it enrages — ×1.6 speed, birthing brood. Killing it pays +500g and the boss score — and is **victory**. If it breaches the crystal it costs **6 lives**.
 - **ENDLESS after victory.** The break bar becomes CONTINUE — ENDLESS (or quit via the menu). Past wave 20, creep hp compounds +8% per wave, and **every 10th wave another Warden** arrives, +60% hp per appearance. Score keeps accruing; `scorecard()` reports `endless` and `deepWave`.
 - **LEGACY shards (meta-progression).** Every run banks `floor(score/1000)` shards at victory, overrun, or quit (localStorage `c2meta`). Spend them on the splash screen's LEGACY panel: five permanent upgrades (start gold / start dirt / mining luck / tower damage / free hero skills), 3 levels each at 2/4/8 shards. Bonuses are derived at `start()` — base CFG is never mutated — and are **disabled on seeded runs** (see arena protocol).
@@ -105,6 +106,11 @@ GameAPI.state()                  // full JSON snapshot: gold, lives, creeps, tow
 GameAPI.build(GameAPI.cell(0,5,3), 'cannon')   // → {ok, spent} or {ok:false, why}
 GameAPI.upgrade(i) / GameAPI.sell(i)
 GameAPI.dig(i) / GameAPI.place(i)              // terraform (matter-conserving)
+GameAPI.craft('ironpick')        // WORKSHOP — ironpick | crystalpick | bucket | shovel | lens
+                                 //   state().tools lists owned + carried liquid;
+                                 //   GameAPI.grid.tools / grid.digTiers = costs & pick gates
+GameAPI.bucket(i)                // scoop a liquid tile / pour the carried one (needs bucket)
+GameAPI.peek(i)                  // prospector lens: next layer's loot — never consumes RNG
 GameAPI.callWave()               // call early during a break
 GameAPI.speed(4); GameAPI.pause(true); GameAPI.auto(true)
 GameAPI.logs(50)                 // timestamped event log (builds, leaks, unlocks…)

@@ -22,12 +22,15 @@ const HELP = `commands (JSON out):
   upgrade f,u,v | sell f,u,v | branch f,u,v <0|1>
   prio f,u,v <first|strong|close>
   dig f,u,v | place f,u,v      terraform (matter-conserving)
+  craft <tool>                 workshop: ironpick|crystalpick|bucket|shovel|lens
+  bucket f,u,v                 scoop a liquid / pour the carried one (needs bucket)
+  peek f,u,v                   prospector lens: what the next layer holds
   wave                         call the next wave early
   speed <1|2|4|8> | pause | resume | auto <on|off>
   ability <golem|freeze|strike>
   unlock                       wake the next biome (sandbox/testing)
   warp <n>                     jump wave counter during a break (testing; warp 19 => Warden next)
-  walk | look <yaw> <pitch> | tool <0|1|2> | act [btn] | exit   first-person controls
+  walk | look <yaw> <pitch> | tool <0|1|2|3> | act [btn] | exit   first-person controls
   score                        benchmark scorecard (for AI model comparisons)
   meta [upgrade]               LEGACY shards/upgrades; with arg = buy (gold|dirt|luck|dmg|hero)
   eval <js>                    raw JS in the page (debugging; no ';')
@@ -93,6 +96,9 @@ async function launchBrowser() {
       }
       case 'dig':     return page.evaluate(i => GameAPI.dig(i), cell(a));
       case 'place':   return page.evaluate(i => GameAPI.place(i), cell(a));
+      case 'craft':   return page.evaluate(k => GameAPI.craft(k), a);
+      case 'bucket':  return page.evaluate(i => GameAPI.bucket(i), cell(a));
+      case 'peek':    return page.evaluate(i => GameAPI.peek(i), cell(a));
       case 'wave':    return page.evaluate(() => GameAPI.callWave());
       case 'speed':   return page.evaluate(n => GameAPI.speed(n), +a);
       case 'pause':   return page.evaluate(() => GameAPI.pause(true));
