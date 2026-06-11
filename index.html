@@ -354,7 +354,7 @@ const ADJ=[];
    hz = biome hazard: mul = ground speed factor, pitSlow = extra slow in dug pits,
         dpsPct = % of max hp burned per second while on that face, frostX = frost slow lasts longer */
 const BIOMES=[
-  {name:'meadow', a:0x3c6b4f,b:0x346045,deco:'tree',   pc:0xa86bff,hz:null},
+  {name:'meadow', a:0x6f9a4e,b:0x638c45,deco:'tree',   pc:0xa86bff,hz:null}, /* bright spring green — must NOT read like the dark forest face */
   {name:'caverns',a:0x2c2440,b:0x251e38,deco:'shard',  pc:0xc89bff,hz:{label:'crystal static',dpsPct:.012}},
   {name:'desert', a:0x9c8458,b:0x8f794e,deco:'cactus', pc:0xffd24a,hz:{label:'quicksand',pitSlow:2}},
   {name:'volcanic',a:0x4a3034,b:0x422a2e,deco:'spike', pc:0xff7a2d,hz:{label:'embers',dpsPct:.015}},
@@ -732,6 +732,11 @@ function callWave(early){
   wave++;
   /* first biome wakes early (wave 4) so the arsenal opens before the waves get mean; the rest follow the difficulty cadence */
   if(wave>=nextUnlockWave&&facesUnlocked<DIFF.maxFaces){unlockNextFace();nextUnlockWave=wave+DIFF.unlockEvery;}
+  if(facesUnlocked<DIFF.maxFaces){
+    const left=nextUnlockWave-wave;
+    if(left===1)showTelegraph(UNLOCK_ORDER[facesUnlocked-1]);
+    else if(telegraphFor>=0&&left>1)clearTelegraph(); /* prestige rollback can stale the ghost */
+  }
   spawnQueue=pendingQueue.length?pendingQueue:composeQueue();
   pendingQueue=[];waveTotal=spawnQueue.length;
   const wb=$('wavebanner');wb.textContent='WAVE '+wave;
@@ -1080,16 +1085,18 @@ function rollMine(){
   if(mineLvl()>lv)toast('mining level '+mineLvl()+' — '+Math.round(mineChance()*100)+'% success');
   return ok;
 }
+function chop(i){
+  if(!DEC[i])return false;
+  scene.remove(DEC[i]);DEC[i]=null;dirt++;
+  bfs();refreshPathDots();
+  puff(cellTop(i),0x6a8a5d,8);
+  dmgNum(cellTop(i),'+1','#c9925a');
+  beep(190,.14,'sawtooth',.05);
+  return true;
+}
 function dig(i){
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
-  if(DEC[i]){
-    scene.remove(DEC[i]);DEC[i]=null;dirt++;
-    bfs();refreshPathDots();
-    puff(cellTop(i),0x6a8a5d,8);
-    dmgNum(cellTop(i),'+1','#c9925a');
-    beep(190,.14,'sawtooth',.05);
-    return;
-  }
+  if(chop(i))return;
   if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');beep(90,.2,'sawtooth',.06);return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
   if(!FREE&&gold<CFG.digCost){toast('need '+CFG.digCost+'g to dig');return;}
@@ -1113,7 +1120,7 @@ function dig(i){
 }
 function placeDirt(i){
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
-  if(DEC[i]){toast('chop it first');return;}
+  chop(i); /* scenery auto-chops (+1 dirt) before the block lands */
   if(!FREE&&dirt<=0){toast('no dirt — dig to carry blocks');return;}
   if(HMAP[i]>=2){toast('max height');return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
@@ -1282,7 +1289,7 @@ function ghostAt(e,type){
   const hit=castAt(e,tiles,false);
   if(hit){
     const i=hit.object.userData.i;
-    if(ACTIVE[faceOf(i)]&&!TWR[i]&&!DEC[i]&&HMAP[i]>=0&&!PORTALS.includes(i)&&i!==CRYSTAL){
+    if(ACTIVE[faceOf(i)]&&!TWR[i]&&HMAP[i]>=0&&!PORTALS.includes(i)&&i!==CRYSTAL){ /* deco cells OK — build auto-chops */
       const F=FACES[faceOf(i)];
       ghostRing.scale.setScalar(TT[type].range*(HMAP[i]>0?CFG.wallRangeBonus:1));
       ghostRing.position.copy(cellTop(i)).addScaledVector(F.n,.04);
@@ -1298,7 +1305,7 @@ function tryBuy(i,type){
   if(!towerUnlocked(type)){toast(type+' unlocks with the '+BIOMES[TT[type].biome].name+' biome');return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(PORTALS.includes(i)||i===CRYSTAL)return;
-  if(DEC[i]){toast('chop the scenery first');return;}
+  chop(i); /* the build crew clears scenery for free (+1 dirt) */
   if(HMAP[i]<0){toast('fill the pit first');return;}
   if(creepOn(i)){toast('creep in the way');return;}
   if(!FREE&&gold<TT[type].cost){toast('need '+TT[type].cost+'g');return;}
@@ -1535,8 +1542,49 @@ function farCellOnFace(f){
   if(f===0)return 0*FCELLS+1*S+(S>>1); /* portal: middle of one edge */
   return f*FCELLS+(S>>1)*S+(S>>1);
 }
+/* ===== unlock telegraph: ghost portal + dotted preview of the incoming route, one wave early ===== */
+let ghostPortal=null,previewDots=null,telegraphFor=-1;
+function clearTelegraph(){
+  if(ghostPortal){scene.remove(ghostPortal);ghostPortal=null;}
+  if(previewDots){scene.remove(previewDots);previewDots=null;}
+  telegraphFor=-1;
+}
+function showTelegraph(f){
+  clearTelegraph();
+  telegraphFor=f;
+  const np=farCellOnFace(f);
+  ghostPortal=portal.clone();
+  ghostPortal.traverse(ch=>{if(ch.material){
+    ch.material=ch.material.clone();
+    ch.material.transparent=true;ch.material.opacity=.3;
+    ch.material.color.setHex(BIOMES[f].pc);
+    if(ch.material.emissive)ch.material.emissive.setHex(BIOMES[f].pc);
+  }});
+  orientOnFace(ghostPortal,np,.04);
+  scene.add(ghostPortal);
+  /* preview the route it will take: briefly wake the face, trace, restore */
+  ACTIVE[f]=1;
+  computeField(FIELDS.walk);
+  const cells=[];let i=np,g=0;
+  while(i!==-1&&i!==CRYSTAL&&g++<N){cells.push(i);i=FIELDS.walk.next[i];}
+  ACTIVE[f]=0;
+  bfs(); /* restore live fields */
+  previewDots=new THREE.Group();
+  const pm=new THREE.MeshBasicMaterial({color:BIOMES[f].pc,transparent:true,opacity:.38,side:THREE.DoubleSide});
+  for(const c of cells){
+    const F=FACES[faceOf(c)];
+    const d=new THREE.Mesh(dotGeo,pm);
+    d.position.copy(cellTop(c)).addScaledVector(F.n,.035);
+    d.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
+    previewDots.add(d);
+  }
+  scene.add(previewDots);
+  toast(BIOMES[f].name+' stirs — portal opens next wave');
+  beep(180,.3,'triangle',.05);
+}
 function unlockNextFace(){
   if(facesUnlocked>=DIFF.maxFaces)return;
+  clearTelegraph();
   const f=UNLOCK_ORDER[facesUnlocked-1];
   facesUnlocked++;
   ACTIVE[f]=1;
@@ -1573,7 +1621,7 @@ function resetGame(diff,demo){
   for(const k in ABIL)ABIL[k].t=0;
   TWR.fill(null);HMAP.fill(0);
   for(let i=0;i<N;i++)if(DEC[i]){scene.remove(DEC[i]);DEC[i]=null;}
-  facesUnlocked=1;nextUnlockWave=4;applyFaces();
+  facesUnlocked=1;nextUnlockWave=4;clearTelegraph();applyFaces();
   for(let k=portalMeshes.length-1;k>=1;k--){scene.remove(portalMeshes[k]);portalMeshes.splice(k,1);}
   CRYSTAL=0*FCELLS+(S-2)*S+(S>>1); /* crystal: middle of the opposite edge — a clean lane across the face */
   PORTALS=[farCellOnFace(0)];
@@ -1886,7 +1934,9 @@ function tick(){
           Math.round((1-(creeps.length+spawnQueue.length)/Math.max(waveTotal,1))*100)+'%"></span></span>':'')+'</div>'+
       '<div class="chip" style="color:'+(lowLives?'#ff5e8a':'#cfd6e4')+'">'+IC.heart+' <b style="color:'+(lowLives?'#ff5e8a':'#ffd24a')+'">'+lives+'</b></div>'+
       '<div class="chip" style="color:'+(isNight?'#a86bff':'#ffd24a')+'" title="'+(isNight?'night — creeps frenzy':'day')+'">'+(isNight?IC.moon:IC.sun)+'</div>'+
-      '<div class="chip" style="color:#8a93ab" title="biomes awake">'+IC.cube+' <b style="color:#8a93ab">'+facesUnlocked+'/6</b></div>';
+      '<div class="chip" style="color:#8a93ab" title="biomes awake">'+IC.cube+' <b style="color:#8a93ab">'+facesUnlocked+'/6</b></div>'+
+      (!DEMO&&facesUnlocked<DIFF.maxFaces?(()=>{const nf=UNLOCK_ORDER[facesUnlocked-1],left=Math.max(1,nextUnlockWave-wave),pc='#'+BIOMES[nf].pc.toString(16).padStart(6,'0');
+        return '<div class="chip" style="color:'+pc+'" title="next biome — new portal incoming">'+IC.skull+' <b style="color:'+pc+'">'+BIOMES[nf].name+' '+left+'w</b></div>';})():'');
     if(hudHtml!==hudCache){hudCache=hudHtml;$('hud').innerHTML=hudHtml;}
     const resHtml=DEMO?'':
       '<div class="res" style="color:#ffd24a">'+IC.gold+'<span>'+(FREE?'∞':gold)+'<small>GOLD</small></span></div>'+

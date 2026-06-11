@@ -43,8 +43,8 @@ python3 -m http.server 8765 --directory .   # serve
 
 Findings from actually playing frontier (manual ×2), settler (idle), planetfall (manual):
 
-1. **Auto-chop on build** *(top priority — lost two runs to this)*: building on a scenery cell fails with "chop the scenery first"; the best coverage spots are often treed and the silent refusal is brutal. Chop is free — just do it as part of the build, hint it in the ghost.
-2. **Telegraph the next biome** *(the unlock cliff killed 3 of 4 runs)*: HUD chip "FOREST WAKES IN 2 WAVES" + ghost portal marker and dotted preview route one wave out. The information is deterministic; hiding it just makes the wave-4 spike feel unfair instead of strategic.
+1. ~~**Auto-chop on build**~~ ✅ DONE — building (or placing dirt) on scenery auto-chops it (+1 dirt); ghost ring shows on deco cells now.
+2. ~~**Telegraph the next biome**~~ ✅ DONE — HUD chip shows "<biome> Nw" countdown; one wave out, a tinted ghost portal + dotted preview route appear (route computed by briefly waking the face). Meadow also recolored bright spring green so it stops reading like the forest face.
 3. **Trample visibility**: towers on the route die silently. HP bars over damaged towers, red badge when a tower stands on the live route.
 4. **Soften new-portal entry**: first 2 waves from a fresh portal at ~50% spawn share.
 5. **QoL batch**: clear event LOGS on reset (bug — bleeds across runs), 8× speed for idle, wave-preview chips tinted by source portal, per-tower targeting priority, hover shows pit depth.
