@@ -62,13 +62,13 @@ Findings from actually playing frontier (manual ×2), settler (idle), planetfall
 4. ~~Leak forensics~~ — every leak logs creep type + source portal; `state().recentLeaks`.
 5. ~~Timing lever~~ — `surge` ability: 80g, all towers +50% fire rate for 10s, 45s cooldown.
 
-### UI/flow wishlist round 2 (2026-06-11 review)
+### UI/flow wishlist round 2 (2026-06-11 review) — ✅ ALL DONE (2026-06-11, `shot-ui2.png`)
 
-1. **Wave-end summary card**: brief overlay after each wave — kills by tower, leaks by portal, gold earned. The data all exists (per-tower stats, leak forensics).
-2. **Build-bar hover panel**: tooltips work but a styled hover card (stats + branch preview) would beat the native title popup.
-3. **HUD scale setting** + remember hide-UI/history prefs in localStorage.
-4. **Damage ticker**: small rolling DPS readout per tower in its panel (have dmgDealt; sample over 10s).
-5. **Creep inspector**: click a creep → type, hp, speed, source portal, distance to crystal.
+1. ~~**Wave-end summary card**~~ ✅ — `#wavesum` panel (design-language v2: flat, hairlines, beveled corners, Oxanium header) below the wave banner strip at each wave clear: top-3 kills by tower type (+hero), leaks by portal, bounty gold earned (`waveGold`/`waveKills` ledger reset per wave), PERFECT flag. ~3.2s auto-hide, click dismisses; suppressed in DEMO and at speed ≥4 (spam).
+2. ~~**Build-bar hover panel**~~ ✅ — `#bhover` styled card (pointer-events:none, delegated pointerover/out so renderBar repaints can't orphan it): dmg/rate/range/HP, splash/chain/slow extras, home biome +25% note, both tier-3 branches with the 3× cost. Native `title` removed from bar items; positions above the hovered slot, zoom-aware.
+3. ~~**HUD scale setting** + prefs~~ ✅ — settings slider 0.8–1.3 (CSS `zoom` on the HUD roots); localStorage `c2prefs` persists hudScale, hide-UI, history-panel, SETT.vol/music/bob/sens/invert — loaded on boot (controls synced), saved on every change. Verified round-trip through a page reload.
+4. ~~**Damage ticker**~~ ✅ — 1Hz `dmgDealt` samples per tower into an 11-slot ring (game-time normalized so ×8 doesn't inflate); tower panel shows rolling `dps (10s)` via a targeted `#pDps` textContent write (never repaints the panel's buttons). Also in `state().towers[].dps` for agents.
+5. ~~**Creep inspector**~~ ✅ — god-view click on a creep (same castAt path as towers/hero, armed build/dig tools keep tile priority): type+class, hp/max, speed + live modifiers (slowed/stunned/burrowed/burning/sabotaging/warden phase/wisp state/night), source portal biome, walk-field cells-to-crystal (or "pocketed"), bounty. Refreshes at 4Hz (cached string), closes on click-elsewhere or death; `GameAPI.inspect(n)` for agents/tests.
 
 ### Walk-mode (1st/3rd person) wishlist — ✅ ALL DONE (2026-06-11, `shot-walkmode.png`)
 
