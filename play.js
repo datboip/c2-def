@@ -26,19 +26,25 @@ const HELP = `commands (JSON out):
   ability <golem|freeze|strike>
   unlock                       wake the next biome (sandbox/testing)
   walk | look <yaw> <pitch> | tool <0|1|2> | act [btn] | exit   first-person controls
+  score                        benchmark scorecard (for AI model comparisons)
   logs [n] | errors | debug    introspection
   shot [file.png]              screenshot
   help | quit`;
 
+const LAUNCH_ARGS = [
+  '--disable-background-timer-throttling',
+  '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+];
 async function launchBrowser() {
-  try { return await chromium.launch({ headless: !HEADED }); }
+  try { return await chromium.launch({ headless: !HEADED, args: LAUNCH_ARGS }); }
   catch (e) {
     // fall back to any cached playwright chromium (version drift between npm pkg and cache)
     const root = path.join(os.homedir(), '.cache', 'ms-playwright');
     for (const d of (fs.existsSync(root) ? fs.readdirSync(root) : []).filter(d => d.startsWith('chromium'))) {
       const exe = path.join(root, d, 'chrome-linux', 'chrome');
       if (fs.existsSync(exe)) {
-        try { return await chromium.launch({ headless: !HEADED, executablePath: exe }); } catch (_) {}
+        try { return await chromium.launch({ headless: !HEADED, executablePath: exe, args: LAUNCH_ARGS }); } catch (_) {}
       }
     }
     throw e;
@@ -86,6 +92,15 @@ async function launchBrowser() {
       case 'look':    return page.evaluate(([y, p]) => GameAPI.fp.look(y, p), [+a, b == null ? null : +b]);
       case 'tool':    return page.evaluate(n => GameAPI.fp.tool(n), +a);
       case 'act':     return page.evaluate(n => GameAPI.fp.act(n), +a || 0);
+      case 'score':   return page.evaluate(() => GameAPI.scorecard());
+      case 'bench': { /* autopilot baseline: bench [playSec=60] [diff=1] */
+        const target = +a || 60, diff = b == null ? 1 : +b;
+        await page.evaluate(d => { GameAPI.start(d, false); GameAPI.auto(true); GameAPI.callWave(); GameAPI.speed(8); }, diff);
+        let card;
+        do { await new Promise(r => setTimeout(r, 2000)); card = await page.evaluate(() => GameAPI.scorecard()); }
+        while (card.playSec < target);
+        return card;
+      }
       case 'logs':    return page.evaluate(n => GameAPI.logs(n), +a || 30);
       case 'errors':  return page.evaluate(() => GameAPI.errors());
       case 'debug':   return page.evaluate(() => GameAPI.debug());

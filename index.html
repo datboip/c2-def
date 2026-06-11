@@ -116,6 +116,10 @@
   #biostrip{display:flex;gap:5px;margin-bottom:14px}
   .bio{flex:1;text-align:center;font-size:8.5px;color:#6b7385;letter-spacing:.04em}
   .bio i{display:block;height:13px;border-radius:4px;margin-bottom:3px;border:1px solid rgba(255,255,255,.14)}
+  #histpanel{position:fixed;left:14px;top:52px;width:215px;max-height:46vh;overflow:hidden;display:none;flex-direction:column;gap:3px;z-index:9;pointer-events:none;font:10px/1.5 ui-monospace,monospace;color:#8a93ab}
+  .hist{background:rgba(13,15,23,.78);border-left:2px solid #2a2f42;border-radius:4px;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hist.ai{border-left-color:#2de0c8;color:#9fc9c2}
+  .hist b{color:#cfd6e4;font-weight:600;margin-right:4px}
   #abilbar{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:none;flex-direction:column;gap:8px;z-index:10}
   .ab{position:relative;width:56px;background:linear-gradient(170deg,rgba(28,32,48,.95),rgba(16,18,28,.95));border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 4px 6px;text-align:center;color:#cfd6e4;cursor:pointer;user-select:none;font-size:9px;line-height:1.5;box-shadow:0 4px 14px rgba(0,0,0,.4);transition:transform .1s,border-color .15s}
   .ab:hover{border-color:#ffd24a;transform:translateX(-2px)}
@@ -135,10 +139,12 @@
   <div class="tbtn" id="btnWalk" title="walk the cube [V]"></div>
   <div class="tbtn" id="btnSpin" title="auto-rotate the cube [R]"></div>
   <div class="tbtn" id="btnPath" title="path preview [middle mouse]"></div>
+  <div class="tbtn" id="btnHist" title="activity history [H]"></div>
   <div class="tbtn" id="btnHelp" title="how to play"></div>
   <div class="tbtn" id="btnMenu" title="menu [Esc]"></div>
 </div>
 <div id="toast"></div>
+<div id="histpanel"></div>
 <div id="breakwrap"><div id="breakbar"></div><div id="wavepre"></div></div>
 <div id="buildbar"></div>
 <div id="resbar"></div>
@@ -175,6 +181,7 @@
     <b>WAKING THE CUBE</b> — you start on the meadow. Biomes wake in order: <b>forest → desert → tundra → volcanic → caverns</b>, on a schedule set by difficulty — or <b>breach early</b> by clicking the countdown chip (costs gold, comes with an expedition cache + the biome's native tower). Every portal sits at its face's <b>far edge</b>: the invasion marches the full face, over the rim, and onward — one continuous front.<br><br>
     <b>NATIVE TOWERS</b> — cannon starts with you (meadow). tesla→forest · sniper→desert · frost→tundra · mortar→volcanic · laser→caverns. A tower on its home biome hits <b style="color:#ffd24a">+25%</b>.<br><br>
     <b>HAZARDS</b> — forest undergrowth slows creeps · desert quicksand makes pits lethal-slow · tundra ice speeds them up but frost slows stick longer · volcanic embers and cavern static burn HP over time.<br><br>
+    <b>KNOW YOUR ENEMY</b> — <b style="color:#d4533b">grunt</b> basic fodder · <b style="color:#3b7bd4">runner</b> fast but fragile, slows wreck it · <b style="color:#9b59c9">tank</b> 2.8× hp, nearly stops on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-high walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) pulses heals, kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor, big single hits beat it · <b style="color:#ffb020">boss</b> (every 5th) regenerates — focus fire, freeze, burn.<br><br>
     <b>PATH DOTS</b> read the route's speed: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling. Reroute them through red.<br><br>
     <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1, nothing from nowhere (the AI obeys too). Walkers climb 1 (slow), <b style="color:#e8b833">jumpers</b> hop walls, <b style="color:#8a5dd8">crawlers</b> scale anything.<br><br>
     <b>GUNS, NOT WALLS</b> — towers never block the route. Only <b>terrain</b> bends it: dig trenches, raise walls, reroute through your kill zones. A tower standing on the route gets <b style="color:#ff5e8a">trampled</b> (towers have HP) — building in the highway is a greedy gamble. The route can never be fully sealed.<br><br>
@@ -187,6 +194,7 @@
 <div id="splash"><div class="inner">
   <h1>C² DEFENSE<br><span>CUBE SQUARED</span></h1>
   <div class="sub">ONE WORLD · SIX BIOMES · GRAVITY AT THE CORE</div>
+  <div id="bestline" style="display:none;font-size:10px;color:#ffd24a;letter-spacing:.12em;margin:-10px 0 12px"></div>
   <div id="biostrip"></div>
   <div class="lvls" id="diffrow">
     <div class="lvl" data-d="0"><b style="color:#4dd87a">I</b>settler<br><small style="color:#6b7385">3 biomes · wakes every 9 waves</small></div>
@@ -226,6 +234,7 @@ const IC=(function(){
     shard:w('<path d="M12 3l5 9-5 9-5-9z"/>'),
     wave:w('<path d="M4 7l5 5-5 5M11 7l5 5-5 5"/>'),
     skull:w('<path d="M12 3a8 8 0 00-8 8c0 3 1.6 5 3.5 6V20h9v-3c1.9-1 3.5-3 3.5-6a8 8 0 00-8-8z"/><circle cx="9" cy="11" r="1.4" fill="currentColor"/><circle cx="15" cy="11" r="1.4" fill="currentColor"/>'),
+    list:w('<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.1" fill="currentColor"/><circle cx="4" cy="12" r="1.1" fill="currentColor"/><circle cx="4" cy="18" r="1.1" fill="currentColor"/>'),
     play:w('<path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none"/>'),
     pause:w('<rect x="6" y="5" width="4" height="14" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" fill="currentColor" stroke="none"/>'),
     ff:w('<path d="M4 5l8 7-8 7zM12 5l8 7-8 7z" fill="currentColor" stroke="none"/>'),
@@ -270,12 +279,22 @@ const CFG={startGold:150,startDirt:10,freeDigs:10,maxTier:3,digCost:3,digDepth:-
   breakTime:14,earlyBonus:20,dayLen:240,wallRangeBonus:1.15};
 const SETT={sens:1,invert:false,sfx:true,alwaysDay:false};
 let gold=CFG.startGold,dirt=CFG.startDirt,lives=12,wave=0,kills=0,prestige=0,goldMult=1,mineXp=0,freeDigs=CFG.freeDigs;
+/* SCORE — the benchmark number, so humans and AI models can compare runs:
+   +5/kill (+50 boss) · +100+10w per wave cleared (+50 if perfect) · +150 per biome
+   +30 per mining level · −25 per leak · −400 per overrun. Best persists locally. */
+let score=0,leaksThisWave=0,totalLeaks=0,perfectWaves=0;
+let bestScore=0;try{bestScore=+(localStorage.getItem('c2best')||0);}catch(e){}
+function addScore(n){
+  score+=n;
+  if(score>bestScore&&!FREE){bestScore=score;try{localStorage.setItem('c2best',bestScore);}catch(e){}}
+}
 let simSpeed=1,paused=false,playSec=0,autopilot=true,selectedType=null,breakT=-1,waveTotal=0;
 const INV={iron:0,shard:0};
 const creeps=[],towers=[],shots=[],parts=[],fx=[];
 const toasts=[],LOGS=[];
+function logEvent(m){LOGS.push({t:+playSec.toFixed(1),wave,msg:m});if(LOGS.length>300)LOGS.shift();}
 function toast(t){
-  LOGS.push({t:+playSec.toFixed(1),wave,msg:t});if(LOGS.length>300)LOGS.shift();
+  logEvent(t);
   toasts.push(t);if(toasts.length>3)toasts.shift();$('toast').innerHTML=toasts.join('<br>');
 }
 
@@ -712,6 +731,7 @@ function killCreep(c,src){
   const i=creeps.indexOf(c);if(i<0)return;
   if(src)src.kills++;
   kills++;gold+=Math.round(c.bounty*goldMult*DIFF.bounty);
+  addScore(c.tt.boss?50:5);
   puff(c.g.position,0xffd24a,c.tt.boss?24:7);
   scene.remove(c.g);creeps.splice(i,1);
 }
@@ -740,7 +760,13 @@ function startBreak(){
 }
 function callWave(early){
   breakT=-1;$('breakwrap').style.display='none';
-  if(wave>0){const b=30+10*wave;gold+=b;toast('wave '+wave+' clear +'+b+'g');}
+  if(wave>0){
+    const b=30+10*wave;gold+=b;toast('wave '+wave+' clear +'+b+'g');
+    const perfect=leaksThisWave===0;
+    if(perfect)perfectWaves++;
+    addScore(100+10*wave+(perfect?50:0));
+  }
+  leaksThisWave=0;
   if(early){const b=CFG.earlyBonus+5*wave;gold+=b;toast('early call +'+b+'g');}
   wave++;
   /* first biome wakes early (wave 4) so the arsenal opens before the waves get mean; the rest follow the difficulty cadence */
@@ -810,6 +836,7 @@ function buildTower(i,typeName,byPlayer){
   ringFx(i,tw.tt.range,tt.color);
   puff(g.position,0xbfc8da,8);
   if(byPlayer)toast('built '+typeName+(onWall?' on wall':'')+(tw.home?' · home biome +25%':''));
+  else logEvent('AI built '+typeName+' on '+FACES[faceOf(i)].name.toLowerCase());
   return tw;
 }
 const upgradeCost=tw=>TT[tw.type].cost*tw.tier;
@@ -935,6 +962,7 @@ function aiDig(){
   if(!tryEdit(()=>{HMAP[i]--;},()=>{HMAP[i]++;}))return false;
   if(kit)freeDigs--;else gold-=CFG.digCost;
   aiDirt++;setHeight(i,HMAP[i]);
+  logEvent('AI dug spoil ('+aiDirt+' carried)');
   puff(cellTop(i),0xc9925a,5);
   return true;
 }
@@ -959,6 +987,7 @@ function mazeWall(){
   if(!tryEdit(()=>{HMAP[best]=1;},()=>{HMAP[best]=0;}))return false;
   aiDirt--;setHeight(best,1);refreshPathDots();
   puff(cellTop(best),0x7a6346,7);
+  logEvent('AI walled — route now '+pathCellsList().length+' cells');
   return true;
 }
 function director(dt){
@@ -1000,11 +1029,13 @@ function director(dt){
     /* the director's prime directive: the longest possible route — every wall that stretches it is free damage */
   }else if(upT&&towers.length>=4&&gold>=upgradeCost(upT)&&Math.random()<.65){
     gold-=upgradeCost(upT);upgradeTower(upT);
+    logEvent('AI upgraded '+upT.type+' to t'+upT.tier);
   }else if(cands.length&&gold>=cost&&(saveFor||towers.length<5||Math.random()<.3)){
     const tw=buildTower(cands[0].i,type,false);
     if(tw){gold-=cost;if(type===saveFor)saveFor=null;}
   }else if(upT&&gold>=upgradeCost(upT)){
     gold-=upgradeCost(upT);upgradeTower(upT);
+    logEvent('AI upgraded '+upT.type+' to t'+upT.tier);
   }else{
     const br=towers.find(t=>t.tier>=CFG.maxTier&&!t.branch&&t.kills>=12);
     if(br&&gold>=branchCost(br)){gold-=branchCost(br);branchTower(br,(Math.random()*2)|0);}
@@ -1164,7 +1195,7 @@ function rollMine(){
   const lv=mineLvl();
   const ok=FREE||Math.random()<mineChance();
   mineXp+=ok?2:1;
-  if(mineLvl()>lv)toast('mining level '+mineLvl()+' — '+Math.round(mineChance()*100)+'% success');
+  if(mineLvl()>lv){toast('mining level '+mineLvl()+' — '+Math.round(mineChance()*100)+'% success');addScore(30);}
   return ok;
 }
 function chop(i){
@@ -1564,7 +1595,9 @@ function openMenu(){
     '<span>wave</span><b>'+wave+'</b><span>kills</span><b>'+kills+'</b>'+
     '<span>towers</span><b>'+towers.length+'</b><span>faces</span><b>'+facesUnlocked+'/6</b>'+
     '<span>prestige</span><b>'+prestige+'</b><span>time</span><b>'+Math.floor(playSec/60)+'m '+Math.floor(playSec%60)+'s</b>'+
-    '<span>mining</span><b>lv '+mineLvl()+' · '+Math.round(mineChance()*100)+'%</b><span>dirt carried</span><b>'+(FREE?'∞':dirt)+'</b>';
+    '<span>mining</span><b>lv '+mineLvl()+' · '+Math.round(mineChance()*100)+'%</b><span>dirt carried</span><b>'+(FREE?'∞':dirt)+'</b>'+
+    '<span>score</span><b style="color:#ffd24a">'+score+'</b><span>best</span><b>'+bestScore+'</b>'+
+    '<span>perfect waves</span><b>'+perfectWaves+'</b><span>leaks</span><b>'+totalLeaks+'</b>';
   $('pausemenu').style.display='flex';
 }
 function closeMenu(resume){
@@ -1621,6 +1654,7 @@ addEventListener('keydown',e=>{
   if((e.key==='q'||e.key==='Q')&&mode==='walk')setTool(tool-1);
   if((e.key==='e'||e.key==='E')&&mode==='walk')setTool(tool+1);
   if((e.key==='c'||e.key==='C')&&mode==='walk'){walkView=walkView==='fp'?'tp':'fp';toast('camera: '+(walkView==='fp'?'first':'third')+' person');}
+  if((e.key==='h'||e.key==='H')&&!menuOpen){showHist=!showHist;$('btnHist').classList.toggle('on',showHist);}
   if(e.key==='Escape'){
     if($('helpmenu').style.display==='flex'){$('helpmenu').style.display='none';if(!menuOpen)paused=false;return;}
     if(menuOpen){closeMenu(true);return;}
@@ -1734,6 +1768,7 @@ function unlockNextFace(){
   toast(BIOMES[f].name+' face unlocked ('+FACES[f].name+') — new portal');
   const nt=Object.keys(TT).find(k=>TT[k].biome===f);
   if(nt)toast(TT[nt].starter?(nt+' is home here — +25% dmg'):(nt+' tower unlocked'));
+  addScore(150);
   barCache='';renderBar();
   beep(220,.4,'sawtooth',.07);setTimeout(()=>beep(330,.4,'sawtooth',.07),200);
   if(mode==='overview'){
@@ -1764,6 +1799,7 @@ function resetGame(diff,demo){
   bfs();decorateFace(0);
   bfs();refreshPathDots();
   wave=0;kills=0;prestige=0;goldMult=1;playSec=0;waveTotal=0;mineXp=0;
+  score=0;leaksThisWave=0;totalLeaks=0;perfectWaves=0;
   LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];freeDigs=CFG.freeDigs;
   heroSpawned=false;hero.cool=0;hero.auto=false;hero.aiOwned=false;hero.kills=0;hero.dmgDealt=0;avatar.visible=false;
   spawnQueue=[];pendingQueue=[];breakT=-1;
@@ -1815,10 +1851,12 @@ function sim(dt){
     if(c.cell===CRYSTAL){
       scene.remove(c.g);creeps.splice(ci,1);
       if(!FREE)lives--;
+      addScore(-25);leaksThisWave++;totalLeaks++;
       shakeT=.5;$('flash').style.opacity=.5;
       beep(300,.3,'sawtooth',.08);setTimeout(()=>beep(180,.35,'sawtooth',.08),120);
       toast('crystal hit — '+lives+' lives');
       if(lives<=0){
+        addScore(-400);
         prestige++;goldMult=1+prestige*.3;lives=DIFF.lives;wave=Math.max(0,wave-6);
         spawnQueue=[];toast('OVERRUN — prestige '+prestige+' (+'+Math.round((goldMult-1)*100)+'% gold)');
       }
@@ -1994,7 +2032,7 @@ function updateWalk(dt){
 
 /* ============ MAIN LOOP ============ */
 const clock=new THREE.Clock();
-let hudT=0,frameNo=0,hudCache='',resCache='';
+let hudT=0,frameNo=0,hudCache='',resCache='',histCache='',showHist=true;
 function tick(){
   requestAnimationFrame(tick);
   if((++frameNo&1)===0)renderer.shadowMap.needsUpdate=true;
@@ -2085,6 +2123,7 @@ function tick(){
     /* top strip: battle state. bottom cluster: spendable resources, next to where you spend them */
     const lowLives=lives<=4;
     const hudHtml=
+      (DEMO?'':'<div class="chip" title="score — best '+bestScore+'">'+IC.star+' <b>'+score+'</b></div>')+
       '<div class="chip">'+IC.wave+' <b>'+wave+'</b>'+
         (waveTotal&&(creeps.length+spawnQueue.length)?
           ' <span style="display:inline-block;width:54px;height:5px;background:#222738;border-radius:3px;margin-left:5px"><span style="display:block;height:100%;border-radius:3px;background:#ffd24a;width:'+
@@ -2102,6 +2141,13 @@ function tick(){
       (INV.iron?'<div class="res" style="color:#aab4c8">'+IC.iron+'<span>'+INV.iron+'<small>IRON</small></span></div>':'')+
       (INV.shard?'<div class="res" style="color:#2de0c8">'+IC.shard+'<span>'+INV.shard+'<small>SHARD</small></span></div>':'');
     if(resHtml!==resCache){resCache=resHtml;$('resbar').innerHTML=resHtml;}
+    /* activity history: what you and the AI have been doing, newest first */
+    $('histpanel').style.display=(showHist&&!DEMO)?'flex':'none';
+    if(showHist&&!DEMO){
+      const histHtml=LOGS.slice(-14).reverse().map(l=>
+        '<div class="hist'+(l.msg.startsWith('AI ')?' ai':'')+'"><b>w'+l.wave+'</b>'+l.msg+'</div>').join('');
+      if(histHtml!==histCache){histCache=histHtml;$('histpanel').innerHTML=histHtml;}
+    }
     renderBar();renderAbil();
   }
   renderer.render(scene,camera);
@@ -2116,10 +2162,12 @@ window.GameAPI={
   decode:i=>({face:faceOf(i),faceName:FACES[faceOf(i)].name,u:i%S,v:((i%FCELLS)/S)|0}),
   grid:{S,faces:FACES.map(F=>F.name),
     biomes:BIOMES.map((B,f)=>({face:f,name:B.name,hazard:B.hz?B.hz.label:null})),
-    towers:Object.keys(TT).map(k=>({type:k,cost:TT[k].cost,range:TT[k].range,dmg:TT[k].dmg,rate:TT[k].rate,homeBiome:TT[k].biome}))},
+    towers:Object.keys(TT).map(k=>({type:k,cost:TT[k].cost,range:TT[k].range,dmg:TT[k].dmg,rate:TT[k].rate,homeBiome:TT[k].biome})),
+    creeps:Object.keys(CT).map(k=>({type:k,hpMult:CT[k].hp,speed:CT[k].speed,cls:CT[k].cls,bounty:CT[k].bounty,
+      armor:CT[k].armor||0,minWave:CT[k].minWave||1,boss:!!CT[k].boss,healer:!!CT[k].healer,regen:CT[k].regen||0,climbMul:CT[k].climbMul}))},
   state(){return{
     demo:DEMO,free:FREE,paused,simSpeed,autopilot,mode,
-    wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
+    score,wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
     mining:{xp:mineXp,level:mineLvl(),chance:+mineChance().toFixed(2),freeDigs},
     hero:heroSpawned?{face:walker.face,faceName:FACES[walker.face].name,auto:hero.auto,aiOwned:hero.aiOwned,kills:hero.kills,dmgDealt:Math.round(hero.dmgDealt)}:null,
     facesUnlocked,activeFaces:Array.from(ACTIVE),
@@ -2169,6 +2217,16 @@ window.GameAPI={
   unlock(){const b=facesUnlocked;unlockNextFace();return{ok:facesUnlocked>b,faces:facesUnlocked};},
   expand(){return expandNow();},
   expandCost:()=>expandCost(),
+  /* the benchmark blob — one call, everything a model comparison needs */
+  scorecard(){return{
+    score,best:bestScore,free:FREE,demo:DEMO,diff:DIFF.name,
+    wave,kills,lives,prestige,totalLeaks,perfectWaves,
+    faces:facesUnlocked,miningLevel:mineLvl(),
+    heroKills:hero.kills,heroDmg:Math.round(hero.dmgDealt),
+    towers:towers.length,towerTiers:towers.reduce((a,t)=>a+t.tier,0),
+    routeLen:pathCellsList().length,
+    playSec:Math.round(playSec),
+  };},
   ability(k){return useAbility(k)?{ok:true,cooldown:ABIL[k].cd}:{ok:false,why:ABIL[k]?(ABIL[k].t>0?'on cooldown':'cannot afford'):'unknown ability'};},
   branch(i,idx){const tw=TWR[i];
     if(!tw)return{ok:false,why:'no tower there'};
@@ -2198,9 +2256,13 @@ window.GameAPI={
 document.querySelectorAll('[data-ic]').forEach(el=>{el.innerHTML=IC[el.dataset.ic]||'';});
 $('biostrip').innerHTML=BIOMES.map(B=>'<div class="bio"><i style="background:#'+B.a.toString(16).padStart(6,'0')+'"></i>'+B.name+'</div>').join('');
 $('hud').addEventListener('click',e=>{if(e.target.closest('#nextbio'))expandNow();});
+if(bestScore>0){$('bestline').style.display='block';$('bestline').textContent='BEST SCORE · '+bestScore;}
 (function(){const sg=document.querySelectorAll('#segSpeed div');
   sg[0].innerHTML=IC.pause;sg[1].innerHTML=IC.play;sg[2].innerHTML=IC.ff;sg[3].innerHTML=IC.ff2;sg[4].innerHTML=IC.ff3;})();
 $('btnWalk').innerHTML=IC.pick;$('btnPath').innerHTML=IC.path;
+$('btnHist').innerHTML=IC.list;
+$('btnHist').classList.add('on');
+$('btnHist').onclick=()=>{showHist=!showHist;$('btnHist').classList.toggle('on',showHist);};
 $('btnSpin').innerHTML=IC.cube;
 $('btnSpin').onclick=()=>{autoSpin=!autoSpin;$('btnSpin').classList.toggle('on',autoSpin);};
 $('btnSpin').classList.toggle('on',true);

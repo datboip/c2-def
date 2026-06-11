@@ -46,6 +46,33 @@ node play.js --headed  # watch the browser while you drive
 
 Cells are `face,u,v` (faces: 0 TOP · 1 BOTTOM · 2 EAST · 3 WEST · 4 SOUTH · 5 NORTH). Covers everything: build/upgrade/sell/branch/prio, dig/place, waves/speed/abilities, first-person (`walk`, `look`, `tool`, `act`), `state`/`logs`/`debug`/`shot file.png`.
 
+## Benchmarking AI models
+
+The game scores every run, so different models (or humans) can be compared on identical terms:
+
+| event | score |
+|---|---|
+| creep kill / boss kill | +5 / +50 |
+| wave cleared | +100 + 10×wave |
+| perfect wave (zero leaks) | +50 bonus |
+| biome awakened | +150 |
+| mining level | +30 |
+| leak | −25 |
+| overrun (prestige) | −400 |
+
+**The arena protocol** (for pitting models against each other):
+1. `start 1` — frontier, real economy. Never `free`, autopilot **off** (`auto off`) — the model plays, not the director.
+2. Fixed speed (×8) and a fixed **`playSec` budget** (e.g. 60 or 300). Budget by `playSec` from `scorecard()`, not wall-clock — headless browsers throttle frames.
+3. The model may read `GUIDE.md` (full bestiary/tower/terrain data — also machine-readable at `GameAPI.grid`) and gets `state` between actions.
+4. When the budget expires, report `GameAPI.scorecard()` verbatim.
+
+Via CLI: `node play.js -e "start 1; auto off; ...model's moves...; score"`. Sanity baseline: `node play.js -e "bench 60"` runs the built-in autopilot under the same budget.
+
+| player | score | wave | perfect | leaks | notes |
+|---|---|---|---|---|---|
+| built-in autopilot | **4600** | 17 | 15 | 4 | frontier · 60 playSec · ×8 |
+| *your model here* | | | | | |
+
 ## AI / automation API
 
 The game is fully drivable by an agent — `window.GameAPI` is exposed for the browser console, Playwright/CDP `evaluate`, or any MCP browser tool. Cells are global indices: `cell = face*121 + v*11 + u`.
