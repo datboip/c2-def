@@ -63,6 +63,21 @@
   #xhair{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;width:5px;height:5px;border-radius:50%;background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.8);z-index:8}
   #compass{display:none;position:fixed;right:18px;bottom:16px;width:90px;height:90px;z-index:9;pointer-events:none;opacity:.92}
   #dmgnums{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:7}
+  /* ===== guidance pointers: corner-bracket pulse (same language as .bb.sel) + Oxanium tag.
+     #guide is NOT a HUDROOT — it stays unzoomed so getBoundingClientRect px map 1:1. */
+  #guide{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:30}
+  .gd{position:absolute;transform:translate(-50%,-50%)}
+  .gd .gbox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);animation:gdp .9s ease-in-out infinite}
+  .gd .gbox i{position:absolute;width:9px;height:9px;border:2px solid var(--acc)}
+  .gd .gbox i:nth-child(1){top:0;left:0;border-right:none;border-bottom:none}
+  .gd .gbox i:nth-child(2){top:0;right:0;border-left:none;border-bottom:none}
+  .gd .gbox i:nth-child(3){bottom:0;left:0;border-right:none;border-top:none}
+  .gd .gbox i:nth-child(4){bottom:0;right:0;border-left:none;border-top:none}
+  .gd b{position:absolute;left:50%;transform:translateX(-50%);font:600 10px 'Oxanium',ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);background:rgba(10,12,18,.92);border:1px solid var(--line);padding:3px 8px;white-space:nowrap}
+  @keyframes gdp{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.09)}}
+  /* hero-panel command-row flash (guidance after a command-link denial) */
+  .gflash{animation:gfl .5s ease-out 4}
+  @keyframes gfl{0%{background:rgba(45,224,200,.3);border-color:var(--teal)}100%{background:transparent}}
   #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,40,70,.55));opacity:0;transition:opacity .6s;z-index:6}
   #wavebanner{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);color:#ffd24a;font-size:42px;font-weight:800;letter-spacing:.22em;pointer-events:none;opacity:0;text-shadow:0 0 30px rgba(255,210,74,.5),0 2px 10px rgba(0,0,0,.9);z-index:12}
   #wavebanner.show{animation:wb 1.8s ease-out forwards}
@@ -345,6 +360,7 @@
 <div id="bhover"></div>
 <div id="xhair"></div>
 <div id="dmgnums"></div>
+<div id="guide"></div>
 <div id="flash"></div>
 <div id="vign"></div>
 <div id="wavebanner"></div>
@@ -1624,6 +1640,58 @@ function updateDmgNums(dt){
   }
 }
 
+/* ===== guidance pointers: pointAt(target,label,ms) — corner-bracket pulse + Oxanium tag
+   that TRACKS its target every frame. target: cell index | Vector3 | Object3D (screen-projected)
+   | CSS selector string (re-queried per frame — the cached HUD strings repaint and orphan nodes,
+   so we never hold a node reference). Denials and the tutorial point at the real thing. ===== */
+const GUIDES=[],gdV=new THREE.Vector3(),gdV2=new THREE.Vector3();
+let guideCmdFlash=false; /* set by the command-link denial; next hero-panel open flashes the row */
+function pointAt(target,label,ms){
+  if(DEMO)return;
+  const life=(ms||2500)/1000;
+  for(const g of GUIDES)if(g.label===label){g.life=life;return;} /* denial spam refreshes, never stacks */
+  const el=document.createElement('div');el.className='gd';
+  el.innerHTML='<span class="gbox"><i></i><i></i><i></i><i></i></span><b></b>';
+  el.lastChild.textContent=label;
+  $('guide').appendChild(el);
+  GUIDES.push({el,target,label,life,t:0});
+  while(GUIDES.length>3)GUIDES.shift().el.remove();
+}
+function guideClear(){while(GUIDES.length)GUIDES.pop().el.remove();guideCmdFlash=false;}
+function guideRect(t){ /* → {x,y,w,h} in screen px, or null while the target is hidden */
+  if(typeof t==='string'){
+    const el=document.querySelector(t);if(!el)return null;
+    const r=el.getBoundingClientRect(); /* visual px even under HUD zoom — #guide is unzoomed */
+    if(!r.width&&!r.height)return null;
+    return{x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height};
+  }
+  if(typeof t==='number')gdV.copy(cellTop(t));
+  else if(t.isVector3)gdV.copy(t);
+  else{if(!t.visible)return null;t.getWorldPosition(gdV);}
+  gdV2.setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(.6).add(gdV); /* world handle → px scale */
+  gdV.project(camera);gdV2.project(camera);
+  if(gdV.z>1)return null; /* behind the camera (far side of the cube still projects — fine, brackets lead the eye) */
+  const x=(gdV.x+1)/2*W(),y=(1-gdV.y)/2*H();
+  const s=Math.min(120,Math.max(40,Math.abs((gdV2.x+1)/2*W()-x)*2));
+  return{x,y,w:s,h:s};
+}
+function updateGuides(dt){
+  for(let i=GUIDES.length-1;i>=0;i--){
+    const g=GUIDES[i];g.life-=dt;g.t+=dt;
+    if(g.life<=0){g.el.remove();GUIDES.splice(i,1);continue;}
+    const r=guideRect(g.target);
+    if(!r){g.el.style.display='none';continue;}
+    g.el.style.display='block';
+    g.el.style.left=r.x+'px';g.el.style.top=r.y+'px';
+    const bx=g.el.firstChild,lb=g.el.lastChild;
+    bx.style.width=(r.w+10)+'px';bx.style.height=(r.h+10)+'px';
+    const below=r.y<H()*.72; /* label flips above the box near the bottom edge (build bar) */
+    lb.style.top=below?(r.h/2+13)+'px':'';
+    lb.style.bottom=below?'':(r.h/2+13)+'px';
+    g.el.style.opacity=Math.min(1,g.t/.15,g.life/.3);
+  }
+}
+
 /* ============ CREEPS ============ */
 const CT={
   grunt: {color:0xd4533b,speed:1.4,hp:1,  bounty:8,  s:1,   cost:10,cls:'walk', climbMul:.55},
@@ -2505,7 +2573,7 @@ function lensTip(i,e){ /* PROSPECTOR LENS readout riding the dig cursor */
    as ever (floodIfBesideLiquid). Route validity via the same tryEdit/bfs. */
 function bucketAct(i){
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'bucket',cell:i});return;}
-  if(!hasTool('bucket')){toast('craft a BUCKET in the workshop first');sfx('deny');return;}
+  if(!hasTool('bucket')){toast('craft a BUCKET in the workshop first');sfx('deny');pointAt('#wsBtn','craft it — WORKSHOP [K]');return;}
   if(!(i>=0&&i<N))return;
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(WATER[i]){ /* SCOOP: the tile becomes its dug-out bed at current height */
@@ -2561,12 +2629,12 @@ function dig(i){
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'dig',cell:i});return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(chop(i))return;
-  if(isEdgeCell(i)){toast('edge blocks hold the cube together — dig inside the border');sfx('deny');return;}
+  if(isEdgeCell(i)){toast('edge blocks hold the cube together — dig inside the border');sfx('deny');digDenyFx(i);return;}
   if(WATER[i]){toast(WATER[i]===3?'that is lava':WATER[i]===4?'quicksand — fill it with dirt':'water — fill it with dirt or go around');return;}
-  if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');sfx('deny');return;}
+  if(HMAP[i]<=CFG.digDepth){toast('bedrock — the core is right there');sfx('deny');digDenyFx(i);return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
   const toolNeed=digToolFor(i); /* pick gates by biome NAME — see TOOLS */
-  if(!hasTool(toolNeed)){toast(TOOLS[toolNeed].deny);sfx('deny');return;}
+  if(!hasTool(toolNeed)){toast(TOOLS[toolNeed].deny);sfx('deny');pointAt('#wsBtn','craft it — WORKSHOP [K]');return;}
   const kit=freeDigs>0; /* surveyor's kit: opening digs are free and never crumble */
   if(!kit){
     if(!FREE&&gold<CFG.digCost){toast('need '+CFG.digCost+'g to dig');return;}
@@ -2612,7 +2680,7 @@ function placeDirt(i){
   if(NET.on&&NET.role==='guest'){netSend({t:'act',k:'place',cell:i});return;}
   if(!ACTIVE[faceOf(i)]){toast('locked face');return;}
   if(WATER[i]){ /* reclamation: a block of dirt turns water back into land */
-    if(!FREE&&dirt<1){toast('no dirt — dig to carry blocks');return;}
+    if(!FREE&&dirt<1){toast('no dirt — dig to carry blocks');pointAt('#dirtRes','dig blocks to carry dirt');return;}
     if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
     WATER[i]=0;if(!FREE)dirt--;
     const sm=WSURF.get(i);if(sm){scene.remove(sm);WSURF.delete(i);}
@@ -2622,7 +2690,7 @@ function placeDirt(i){
     return;
   }
   chop(i); /* scenery auto-chops (+1 dirt) before the block lands */
-  if(!FREE&&dirt<=0){toast('no dirt — dig to carry blocks');return;}
+  if(!FREE&&dirt<=0){toast('no dirt — dig to carry blocks');pointAt('#dirtRes','dig blocks to carry dirt');return;}
   if(HMAP[i]>=2){toast('max height');return;}
   if(TWR[i]||PORTALS.includes(i)||i===CRYSTAL)return;
   if(creepOn(i)){toast('creep in the way');return;}
@@ -2638,7 +2706,7 @@ let mode='overview',menuOpen=false;
 let camYaw=.7,camPitch=.45,camDist=26,autoSpin=true,downBtn=0;
 const camPan=new THREE.Vector3(); /* middle-drag strafe offset */
 let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='tp',lockToastT=0,faceSwapT=0;
-let buildIdx=0,aimPulse=0,aimWireCell=-1,reorientT=0,tpK=1,bobT=0,bobAmp=0,stepAcc=0,stepAlt=0; /* walk-mode polish state */
+let buildIdx=0,aimPulse=0,aimDenyT=0,aimWireCell=-1,reorientT=0,tpK=1,bobT=0,bobAmp=0,stepAcc=0,stepAlt=0; /* walk-mode polish state */
 const walker={face:0,pos:new THREE.Vector3(),fwd:new THREE.Vector3(1,0,0)};
 const avatar=(function(){ /* the hero, v2: arms, visor (no creep eyes!), backpack, swinging limbs */
   const g=new THREE.Group();
@@ -2813,7 +2881,12 @@ function aimedTile(){
 const aimWire=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.98,.98,.98)),
   new THREE.LineBasicMaterial({color:0xffd24a,transparent:true,opacity:.9}));
 aimWire.visible=false;scene.add(aimWire);
+function digDenyFx(i){ /* bedrock/edge denial: red-flash the aim wireframe (walk) / red ring (god view) */
+  aimDenyT=.5;
+  if(mode==='overview')ringFx(i,.55,0xff5e8a);
+}
 function updateAimWire(raw){
+  if(aimDenyT>0)aimDenyT=Math.max(0,aimDenyT-raw);
   if(aimPulse>0)aimPulse=Math.max(0,aimPulse-raw*3.5);
   if(mode!=='walk'||DEMO||camTrans.active||tool===2){aimWire.visible=false;aimWireCell=-1;return;}
   const i=aimedTile();
@@ -2827,6 +2900,7 @@ function updateAimWire(raw){
   aimWire.scale.setScalar(1.035+aimPulse*.16); /* slightly proud of the block — never z-fights the top face. crack-flash pulses per roll */
   const bt=walkBuildType();
   aimWire.material.color.setHex(aimPulse>.55?0xffffff:tool===0?0xffd24a:tool===1?0x8ee8d8:tool===3?0x4dd8ff:bt?TT[bt].color:0xffffff);
+  if(aimDenyT>0)aimWire.material.color.setHex(0xff5e8a); /* denial flash wins over tool color */
   aimWire.material.opacity=.9+aimPulse*.1;
   aimWire.visible=true;
 }
@@ -3014,6 +3088,8 @@ renderer.domElement.addEventListener('pointerup',e=>{
         if(ACTIVE[faceOf(i)]){hero.moveTo=cellTop(i).clone();ringFx(i,.55,0x2de0c8);sfx('order');}}
     }else if(!dragging&&heroSpawned&&HSK.command.lv===0&&!DEMO){
       if((lockToastT-=0)<=0){lockToastT=2;toast('unlock COMMAND LINK in the hero skill tree to order him around');}
+      pointAt(avatar,'click him — unlock COMMAND LINK'); /* bracket the hero himself, not just words */
+      guideCmdFlash=true;
     }
     return;
   }
@@ -3161,6 +3237,11 @@ function showHeroPanel(){
   html+='<small style="color:#8a93ab">next level: '+c.gold+'g + '+c.iron+' iron</small>';
   $('panel').innerHTML=html;$('panel').style.display='block';
   document.querySelectorAll('#panel .pHsk').forEach(b=>b.onclick=()=>{if(buyHeroSkill(b.dataset.k).ok)showHeroPanel();});
+  if(guideCmdFlash){ /* you got here off a command-link denial — flash the row you came for */
+    const b=document.querySelector('#panel .pHsk[data-k="command"]');
+    if(b)b.classList.add('gflash');
+    guideCmdFlash=false;
+  }
 }
 function showPanel(tw){
   panelTw=tw;inspCreep=null;
@@ -3593,7 +3674,7 @@ function resetGame(diff,demo){
   ENDLESS=false;victShown=false;victChoice=false;wardenSeen=0;deepWave=0;shardsBankedRun=0;heroFreeSkills=0;
   MRUN.on=false;MRUN.gold=0;MRUN.dirt=0;MRUN.luck=0;MRUN.dmg=1;MRUN.hero=0; /* startGame re-derives */
   $('victory').classList.remove('show');$('victory').style.display='none';
-  LOGS.length=0;toasts.length=0;$('toast').innerHTML='';PORTAL_BORN=[0];freeDigs=CFG.freeDigs;
+  LOGS.length=0;toasts.length=0;$('toast').innerHTML='';guideClear();PORTAL_BORN=[0];freeDigs=CFG.freeDigs;
   heroSpawned=false;hero.cool=0;hero.auto=false;hero.aiOwned=false;hero.kills=0;hero.dmgDealt=0;avatar.visible=false;
   for(const k in HSK)HSK[k].lv=0;
   spawnQueue=[];pendingQueue=[];breakT=-1;
@@ -3965,6 +4046,7 @@ function tick(){
   if(!paused)playSec+=raw;
   if(mode==='walk')updateWalk(raw);
   updateDmgNums(raw);
+  updateGuides(raw);
   netHostPump(raw);netGuestLerp(raw);
   if(!paused)for(let k=0;k<simSpeed;k++)sim(raw);
   if(!paused){ /* DPS ticker: 1Hz samples of cumulative dmgDealt, ~10s window (game-time normalized) */
@@ -4122,7 +4204,7 @@ function tick(){
     const resHtml=DEMO?'':
       (freeDigs>0&&!FREE?'<div class="res" style="color:#8ee8d8">'+IC.pick+'<span>'+freeDigs+'<small>FREE DIGS</small></span></div>':'')+
       '<div class="res" style="color:#ffd24a">'+IC.gold+'<span>'+(FREE?'∞':gold)+'<small>GOLD</small></span></div>'+
-      '<div class="res" style="color:#c9925a">'+IC.dirt+'<span>'+(FREE?'∞':dirt)+'<small>DIRT</small></span></div>'+
+      '<div class="res" id="dirtRes" style="color:#c9925a">'+IC.dirt+'<span>'+(FREE?'∞':dirt)+'<small>DIRT</small></span></div>'+ /* static id: part of the cached string, guidance re-queries it */
       (INV.iron?'<div class="res" style="color:#aab4c8">'+IC.iron+'<span>'+INV.iron+'<small>IRON</small></span></div>':'')+
       (INV.shard?'<div class="res" style="color:#2de0c8">'+IC.shard+'<span>'+INV.shard+'<small>SHARD</small></span></div>':'')+
       (carriedLiquid?'<div class="res" style="color:#4dd8ff">'+IC.bucket+'<span>'+LIQNAME[carriedLiquid]+'<small>BUCKET</small></span></div>':'')+
@@ -4587,20 +4669,26 @@ function makePortraits(){
 
 /* ===== guided tutorial: watches what you do and advances ===== */
 const TUT={on:false,step:0,baseRoute:0};
-const TUTS=[
-  {t:'Drag a CANNON from the bottom bar onto the grass beside the gold road.',done:()=>towers.length>0},
-  {t:'Select the DIG tool and click a tile near the road — your first 10 digs are free and always succeed.',done:()=>freeDigs<CFG.freeDigs||dirt>CFG.startDirt},
-  {t:'Now bend their route: select WALL and click a tile ON the road. Watch the dots reroute around it.',done:()=>dirt<TUT.d3||pathCellsList().length>TUT.baseRoute},
-  {t:'Call the wave — the glowing bar at the top (or press N). Early calls pay bonus gold.',done:()=>wave>=1},
-  {t:'Survive! Your cyan HERO fights too — click him anytime to train his skills.',done:()=>wave>=1&&creeps.length===0&&spawnQueue.length===0},
+const TUTS=[ /* each step also POINTS at its real button/cell (at:) — words alone don't teach */
+  {t:'Drag a CANNON from the bottom bar onto the grass beside the gold road.',done:()=>towers.length>0,
+    at:()=>pointAt('#buildbar .bb[data-t="cannon"]','CANNON — drag it out',4000)},
+  {t:'Select the DIG tool and click a tile near the road — your first 10 digs are free and always succeed.',done:()=>freeDigs<CFG.freeDigs||dirt>CFG.startDirt,
+    at:()=>pointAt('#buildbar .bb[data-t="__dig"]','DIG tool',4000)},
+  {t:'Now bend their route: select WALL and click a tile ON the road. Watch the dots reroute around it.',done:()=>dirt<TUT.d3||pathCellsList().length>TUT.baseRoute,
+    at:()=>{pointAt('#buildbar .bb[data-t="__wall"]','WALL tool',4000);
+      const pc=pathCellsList();if(pc.length>2)pointAt(pc[Math.floor(pc.length/2)],'block the road here',4000);}},
+  {t:'Call the wave — the glowing bar at the top (or press N). Early calls pay bonus gold.',done:()=>wave>=1,
+    at:()=>pointAt('#breakbar','call the wave [N]',4000)},
+  {t:'Survive! Your cyan HERO fights too — click him anytime to train his skills.',done:()=>wave>=1&&creeps.length===0&&spawnQueue.length===0,
+    at:()=>pointAt(avatar,'your HERO — click to train',4000)},
 ];
-function tutShow(){$('tutStep').textContent='TUTORIAL '+(TUT.step+1)+'/'+TUTS.length;$('tutText').textContent=TUTS[TUT.step].t;}
+function tutShow(){$('tutStep').textContent='TUTORIAL '+(TUT.step+1)+'/'+TUTS.length;$('tutText').textContent=TUTS[TUT.step].t;if(TUTS[TUT.step].at)TUTS[TUT.step].at();}
 function tutStart(){
   startGame(0,false);
   TUT.on=true;TUT.step=0;TUT.baseRoute=pathCellsList().length;
   $('tut').style.display='block';tutShow();
 }
-function tutEnd(msg){TUT.on=false;$('tut').style.display='none';if(msg)toast(msg);}
+function tutEnd(msg){TUT.on=false;$('tut').style.display='none';guideClear();if(msg)toast(msg);}
 function tutTick(){
   if(!TUT.on)return;
   if(TUTS[TUT.step].done()){
