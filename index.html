@@ -397,6 +397,7 @@
     <span class="kbd">drag</span> tower from bar · <span class="kbd">click</span> tower = upgrade/sell · <span class="kbd">click</span> hero = skill tree<br>
     <span class="kbd">drag</span> orbit · <span class="kbd">mid-drag</span> pan · <span class="kbd">wheel</span> zoom · <span class="kbd">N</span> call wave early · <span class="kbd">space</span> pause · <span class="kbd">1/2/3/4</span> speed to ×8<br>
     <span class="kbd">V</span> man the hero · <span class="kbd">C</span> 1st/3rd person · <span class="kbd">WASD</span> move · hold <span class="kbd">LMB</span> mine · <span class="kbd">RMB</span> place · <span class="kbd">Q/E</span> tools<br>
+    walk into a 1-block step to climb it automatically — 2-high needs <b>JUMP JETS</b> (hero skill tree)<br>
     <span class="kbd">Q/W/E/R/T/Y</span> select towers · <span class="kbd">G</span> dig · <span class="kbd">F</span> wall · <span class="kbd">Z/X/C/B/P/J</span> abilities<br>
     <span class="kbd">K</span> workshop (craft tools) · <span class="kbd">H</span> history · <span class="kbd">U</span> hide all UI · <span class="kbd">O</span> auto-rotate · <span class="kbd">Esc</span> menu / cancel
   </div>
@@ -2668,6 +2669,12 @@ const camPan=new THREE.Vector3(); /* middle-drag strafe offset */
 let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='tp',lockToastT=0,faceSwapT=0;
 let buildIdx=0,aimPulse=0,aimWireCell=-1,reorientT=0,tpK=1,bobT=0,bobAmp=0,stepAcc=0,stepAlt=0; /* walk-mode polish state */
 const walker={face:0,pos:new THREE.Vector3(),fwd:new THREE.Vector3(1,0,0)};
+/* AUTO-MANTLE: walking into a cell exactly 1 block higher climbs it automatically —
+   a brief eased boost up-and-forward at reduced pace, input locked while it runs.
+   That's how you crawl out of the pit you just dug (flooded ones too) without jump
+   jets. 2-high faces stay solid: those are for JUMP JETS and routes. */
+const MANTLE_DUR=.35;
+const mantle={t:0,from:new THREE.Vector3(),to:new THREE.Vector3(),h0:0,h1:0,lift:0};
 const avatar=(function(){ /* the hero, v2: arms, visor (no creep eyes!), backpack, swinging limbs */
   const g=new THREE.Group();
   const suit=new THREE.MeshStandardMaterial({color:0x2de0c8,roughness:.55});
@@ -2766,6 +2773,7 @@ function cellAtWorld(p){
 function groundLift(p){const i=cellAtWorld(p);return i<0?0:HMAP[i]*HSTEP;}
 function enterWalk(){
   mode='walk';
+  mantle.t=0; /* never resume a stale climb after a mode round-trip */
   if(!heroSpawned){
     walker.face=0;
     walker.pos.copy(cellTop(0*FCELLS+(S>>1)*S+1)); /* on the shell — the camera adds eye height itself */
@@ -3915,6 +3923,14 @@ function sim(dt){
 function updateWalk(dt){
   fpCool-=dt;
   if(hero.jumpT>0)hero.jumpT-=dt;
+  if(mantle.t>0){ /* mid-mantle: the climb owns the hero — movement and tools wait for it */
+    mantle.t-=dt;
+    const k=Math.min(1,1-Math.max(0,mantle.t)/MANTLE_DUR),e=k*k*(3-2*k); /* smoothstep up and forward */
+    walker.pos.lerpVectors(mantle.from,mantle.to,e);
+    mantle.lift=(mantle.h0+(mantle.h1-mantle.h0)*e)*HSTEP;
+    heroMove=.15;bobT+=dt*2; /* reduced pace: slow stride while hauling over the lip */
+    return;
+  }
   if(fpFiring&&document.pointerLockElement&&tool===2&&!camTrans.active)fpFire();
   if(fpMining&&document.pointerLockElement&&tool<2&&!camTrans.active){
     mineT-=dt;
@@ -3938,6 +3954,19 @@ function updateWalk(dt){
     const ni=cellAtWorld(walker.pos);
     if(ni>=0&&ni!==pi&&(TWR[ni]||DEC[ni]||(pi>=0&&HMAP[ni]-HMAP[pi]>(hero.jumpT>0?2:1)))){
       walker.pos.copy(prevPos); /* jump jets clear 2-high mid-air */
+      return;
+    }
+    if(ni>=0&&pi>=0&&ni!==pi&&HMAP[ni]-HMAP[pi]===1&&hero.jumpT<=0&&faceBasisAt(walker.pos)===walker.face){
+      /* AUTO-MANTLE: a 1-block step is climbable on foot — that's the way out of dug
+         (and flooded) pits without jump jets. Soft scuff = the step noise voice pitched
+         down, composed here at the call site (the SFX table stays untouched). Cross-face
+         steps fall through to the seam logic below and climb instantly, as before. */
+      mantle.t=MANTLE_DUR;
+      mantle.from.copy(prevPos);
+      mantle.to.copy(walker.pos).lerp(cellBase(ni),.45); /* end well inside the new cell */
+      mantle.h0=HMAP[pi];mantle.h1=HMAP[ni];mantle.lift=mantle.h0*HSTEP;
+      walker.pos.copy(prevPos);
+      if(auReady())nz(AC.currentTime,{dur:.14,vol:.05,filter:'bandpass',fq:300,Q:1.2,a:.004,rate:.55,pink:true});
       return;
     }
     bobT+=mv.length()*5.5;stepAcc+=mv.length(); /* feel: stride-driven head-bob phase + footstep cadence */
@@ -4065,7 +4094,7 @@ function tick(){
   let toPos,toQ;
   if(mode==='walk'){
     const F=FACES[walker.face];
-    const lift=groundLift(walker.pos)+(hero.jumpT>0?Math.sin((1-hero.jumpT/.55)*Math.PI)*.7:0);
+    const lift=(mantle.t>0?mantle.lift:groundLift(walker.pos))+(hero.jumpT>0?Math.sin((1-hero.jumpT/.55)*Math.PI)*.7:0); /* mantling eases the eye up instead of snapping to the new column */
     toPos=walker.pos.clone().addScaledVector(F.n,.55+lift);
     const fwd=F.r.clone().multiplyScalar(Math.sin(fpYaw)).addScaledVector(F.u,Math.cos(fpYaw));
     const lookDir=fwd.clone().multiplyScalar(Math.cos(fpPitch)).addScaledVector(F.n,Math.sin(fpPitch));
@@ -4577,7 +4606,7 @@ window.GameAPI={
     tool(n){setTool(n);return{ok:true,tool};},
     act(btn){fpAction(btn||0);return{ok:true};},
     aim(){const i=aimedTile();return i<0?{ok:false,why:'nothing in reach'}:{ok:true,cell:i,decoded:GameAPI.decode(i),h:HMAP[i]};},
-    pos(){return{face:walker.face,faceName:FACES[walker.face].name,yaw:+fpYaw.toFixed(2),pitch:+fpPitch.toFixed(2)};},
+    pos(){const i=cellAtWorld(walker.pos);return{face:walker.face,faceName:FACES[walker.face].name,yaw:+fpYaw.toFixed(2),pitch:+fpPitch.toFixed(2),cell:i,h:i>=0?HMAP[i]:null,mantling:mantle.t>0};},
     key(k,down){keys[k]=!!down;return{ok:true};},
     view(v){walkView=v==='tp'?'tp':'fp';return{ok:true,view:walkView};},
     build(name){const ts=Object.keys(TT).filter(towerUnlocked);const ix=ts.indexOf(name);
