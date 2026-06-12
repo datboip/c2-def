@@ -24,7 +24,7 @@
   .chip b{color:#ffd24a;font-weight:700;font-size:15px;line-height:1.1;font-variant-numeric:tabular-nums}
   .chip small{display:block;font-size:8px;color:#6b7385;letter-spacing:.12em;font-weight:400;line-height:1}
   .chip .cv{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
-  body.uihide #hud,body.uihide #buildbar,body.uihide #resbar,body.uihide #abilbar,body.uihide #histpanel,body.uihide #facetag,body.uihide #toast,body.uihide #wavesum,body.uihide #bhover{display:none!important}
+  body.uihide #hud,body.uihide #buildbar,body.uihide #resbar,body.uihide #abilbar,body.uihide #histpanel,body.uihide #facetag,body.uihide #toast,body.uihide #wavesum,body.uihide #bhover,body.uihide #compass{display:none!important}
   #uirestore{display:none;position:fixed;top:10px;right:10px;z-index:30;background:rgba(20,23,34,.9);border:1px solid #3a4158;color:#8a93ab;border-radius:8px;padding:6px 10px;font:11px ui-monospace,monospace;cursor:pointer}
   body.uihide #uirestore{display:block}
   .chip.canbreach{border-color:rgba(255,210,74,.5);box-shadow:0 0 10px rgba(255,210,74,.22)} /* steady "ready" glow — no strobe */
@@ -62,6 +62,7 @@
   #facetag{position:fixed;bottom:84px;left:14px;color:#6b7385;font-size:11px;letter-spacing:.2em;z-index:9;pointer-events:none}
   #xhair{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;width:5px;height:5px;border-radius:50%;background:#ffd24a;box-shadow:0 0 8px rgba(255,210,74,.8);z-index:8}
   #compass{display:none;position:fixed;right:18px;bottom:16px;width:90px;height:90px;z-index:9;pointer-events:none;opacity:.92}
+  #compass.live{pointer-events:auto} /* god view: the ViewCube takes clicks; on foot it stays a passive gizmo */
   #dmgnums{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:7}
   #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,40,70,.55));opacity:0;transition:opacity .6s;z-index:6}
   #wavebanner{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);color:#ffd24a;font-size:42px;font-weight:800;letter-spacing:.22em;pointer-events:none;opacity:0;text-shadow:0 0 30px rgba(255,210,74,.5),0 2px 10px rgba(0,0,0,.9);z-index:12}
@@ -835,7 +836,8 @@ const decoMats={
   pond:new THREE.MeshStandardMaterial({color:0x3b7bd4,roughness:.2,transparent:true,opacity:.85}),
   boulder:new THREE.MeshStandardMaterial({color:0x6e7280,roughness:.95}),
   snow:new THREE.MeshStandardMaterial({color:0xeef4f8,roughness:.7}),
-  flower:new THREE.MeshStandardMaterial({color:0xff7ab8,emissive:0xff7ab8,emissiveIntensity:.3,roughness:.6}),
+  flower:new THREE.MeshStandardMaterial({color:0xff7ab8,emissive:0xff7ab8,emissiveIntensity:.2,roughness:.6}),
+  flowerWhite:new THREE.MeshStandardMaterial({color:0xf2eadf,roughness:.7}),
   dune:new THREE.MeshStandardMaterial({color:0xb09a6a,roughness:1}),
   icespike:new THREE.MeshStandardMaterial({color:0xcfeaf8,roughness:.15}),
   megalith:new THREE.MeshStandardMaterial({color:0x808a93,roughness:.9}),
@@ -950,7 +952,19 @@ function buildDeco(kind){
   else if(kind==='pond'){const m=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.06,14),decoMats.pond);m.position.y=.04;g.add(m);}
   else if(kind==='boulder'){M(new THREE.DodecahedronGeometry(.27),decoMats.boulder,.24);M(new THREE.DodecahedronGeometry(.14),decoMats.boulder,.12).position.x=.22;}
   else if(kind==='snowball'){M(new THREE.SphereGeometry(.26,10,10),decoMats.snow,.24);M(new THREE.SphereGeometry(.14,8,8),decoMats.snow,.5);}
-  else if(kind==='flower'){M(new THREE.CylinderGeometry(.012,.012,.16,4),decoMats.tree,.08);M(new THREE.SphereGeometry(.05,6,6),decoMats.flower,.18);}
+  else if(kind==='flower'){ /* wildflower patch — visible stems + flattened blossoms over a leaf tuft.
+       (the old model was one .05 pink sphere on a hair-thin stalk: it rendered as a floating pink dot) */
+    const tuft=M(new THREE.SphereGeometry(.11,6,5),decoMats.leaf2,.03);tuft.scale.y=.38;
+    const heads=[decoMats.flower,decoMats.flowerWhite,decoMats.bloom];
+    for(let k=0;k<3;k++){
+      const h=.13+rnd()*.09,a2=(rnd()-.5)*.4,ox=(rnd()-.5)*.3,oz=(rnd()-.5)*.3;
+      const st=M(new THREE.CylinderGeometry(.013,.022,h,5),decoMats.tree,h*.5);
+      st.position.x=ox;st.position.z=oz;st.rotation.z=a2;
+      const hd=M(new THREE.SphereGeometry(.05,7,5),heads[(rnd()*3)|0],h*(.5+.5*Math.cos(a2))+.015);
+      hd.scale.y=.45;hd.rotation.z=a2*.6; /* blossom sits on its stem, tilted with it */
+      hd.position.x=ox-Math.sin(a2)*h*.5;hd.position.z=oz;
+    }
+  }
   else if(kind==='rock'){M(new THREE.DodecahedronGeometry(.13),decoMats.boulder,.1);}
   else if(kind==='dune'){const m=new THREE.Mesh(new THREE.SphereGeometry(.42,8,6),decoMats.dune);m.scale.set(1,.28,.65);m.position.y=.05;m.castShadow=true;g.add(m);}
   else if(kind==='icespike'){M(new THREE.ConeGeometry(.12,.6,5),decoMats.icespike,.3);const s2=M(new THREE.ConeGeometry(.07,.35,5),decoMats.icespike,.18);s2.position.x=.15;}
@@ -2635,7 +2649,27 @@ function placeDirt(i){
 
 /* ============ MODES / CAMERA ============ */
 let mode='overview',menuOpen=false;
-let camYaw=.7,camPitch=.45,camDist=26,autoSpin=true,downBtn=0;
+/* ===== free trackball orbit: a quaternion, not yaw/pitch — spin any direction, over the
+   poles, no gimbal clamp. camQ is the live pose, camQT the target (parks/swings slerp in). ===== */
+const camQ=new THREE.Quaternion(),camQT=new THREE.Quaternion(),camQF=new THREE.Quaternion();
+const tbQ=new THREE.Quaternion(),tbA=new THREE.Vector3(),orbEu=new THREE.Euler();
+let camDist=26,camDistT=26,camSwingT=1,autoSpin=true,downBtn=0; /* camSwingT<1 = a .8s eased swing is in flight */
+function orbitSet(yaw,pitch,fly){ /* express a classic yaw/pitch pose as a quaternion; fly=true swings, else parks */
+  orbEu.set(-pitch,yaw,0,'YXZ');
+  camQT.setFromEuler(orbEu);
+  if(fly){camQF.copy(camQ);camSwingT=0;}
+  else{camQ.copy(camQT);camSwingT=1;}
+}
+function orbitYP(){ /* read the live pose back as yaw/pitch (GameAPI reporting) */
+  const d=V3(0,0,1).applyQuaternion(camQ);
+  return{yaw:Math.atan2(d.x,d.z),pitch:Math.asin(Math.max(-1,Math.min(1,d.y)))};
+}
+function trackball(dx2,dy2){ /* rotate about the camera's OWN up/right — the no-lock free orbit */
+  camQ.multiply(tbQ.setFromAxisAngle(tbA.set(0,1,0),-dx2*.005));
+  camQ.multiply(tbQ.setFromAxisAngle(tbA.set(1,0,0),-dy2*.004));
+  camQ.normalize();camQT.copy(camQ);camSwingT=1; /* grabbing the cube cancels any swing */
+}
+orbitSet(.7,.45);
 const camPan=new THREE.Vector3(); /* middle-drag strafe offset */
 let fpYaw=0,fpPitch=-.15,tool=0,fpFiring=false,fpCool=0,fpMining=false,mineT=0,walkView='tp',lockToastT=0,faceSwapT=0;
 let buildIdx=0,aimPulse=0,aimWireCell=-1,reorientT=0,tpK=1,bobT=0,bobAmp=0,stepAcc=0,stepAlt=0; /* walk-mode polish state */
@@ -2706,9 +2740,9 @@ function buyHeroSkill(k){
   return{ok:true,skill:k,level:s.lv};
 }
 function orbitPose(){
-  const cp=Math.cos(camPitch),p=V3(Math.sin(camYaw)*camDist*cp,Math.sin(camPitch)*camDist,Math.cos(camYaw)*camDist*cp).add(camPan);
-  const m=new THREE.Matrix4().lookAt(p,camPan,V3(0,1,0));
-  return {pos:p,quat:new THREE.Quaternion().setFromRotationMatrix(m)};
+  /* camera orientation IS camQ; position hangs camDist behind it. (identity = +Z looking at camPan) */
+  const p=V3(0,0,camDist).applyQuaternion(camQ).add(camPan);
+  return {pos:p,quat:camQ.clone()};
 }
 const camTrans={active:false,t:0,dur:.7,fromPos:new THREE.Vector3(),fromQ:new THREE.Quaternion()};
 function startFly(){camTrans.fromPos.copy(camera.position);camTrans.fromQ.copy(camera.quaternion);camTrans.t=0;camTrans.active=true;}
@@ -2761,7 +2795,6 @@ function exitMode(){
 function showFPUI(b){
   $('xhair').style.display=b?'block':'none';
   $('hotbar').style.display=b?'flex':'none';
-  $('compass').style.display=b?'block':'none';
   $('slotBucket').style.display=hasTool('bucket')?'':'none';
   renderBuildSlot();
   $('buildbar').style.display=b?'none':'flex';
@@ -2830,7 +2863,9 @@ function updateAimWire(raw){
   aimWire.material.opacity=.9+aimPulse*.1;
   aimWire.visible=true;
 }
-/* ===== cube compass: tiny corner gizmo — your face lit, teal crystal, tinted awake portals ===== */
+/* ===== ViewCube (design v2): corner gizmo, now a CONTROL in god view — hover lights a face,
+   click swings the camera square onto it. On foot it stays the passive compass. Crystal stays
+   teal, awake portals keep their biome tint, current face lit amber. ===== */
 const cmpCtx=$('compass').getContext('2d');
 const CMPC=[];for(let cx=-1;cx<=1;cx+=2)for(let cy=-1;cy<=1;cy+=2)for(let cz=-1;cz<=1;cz+=2)CMPC.push(V3(cx,cy,cz));
 const CMPE=[];for(let a2=0;a2<8;a2++)for(let b2=a2+1;b2<8;b2++)if(CMPC[a2].distanceToSquared(CMPC[b2])===4)CMPE.push([a2,b2]);
@@ -2839,13 +2874,24 @@ const CMPF=FACES.map(F=>{ /* the 4 corners of each face, fan-ordered for a clean
   ix.sort((a2,b2)=>Math.atan2(CMPC[a2].dot(F.u),CMPC[a2].dot(F.r))-Math.atan2(CMPC[b2].dot(F.u),CMPC[b2].dot(F.r)));
   return ix;
 });
+const CMPLBL=['TOP','BOT','E','W','S','N']; /* face tags, matching FACES[] order */
 const cmpQ=new THREE.Quaternion(),cmpV=new THREE.Vector3(),cmpP=CMPC.map(()=>({x:0,y:0,z:0}));
+let cmpHover=-1,cmpLive=null,cmpShown=null,cmpCursor='';
 function cmpDot(i,col,r){
   cmpV.copy(cellBase(i)).divideScalar(HCUBE).applyQuaternion(cmpQ);
   cmpCtx.globalAlpha=cmpV.z>0?1:.3; /* far side fades */
   cmpCtx.fillStyle=col;
   cmpCtx.beginPath();cmpCtx.arc(45+cmpV.x*26,45-cmpV.y*26,r,0,7);cmpCtx.fill();
   cmpCtx.globalAlpha=1;
+}
+function cmpFacePath(f){
+  cmpCtx.beginPath();
+  CMPF[f].forEach((ci,k)=>k?cmpCtx.lineTo(cmpP[ci].x,cmpP[ci].y):cmpCtx.moveTo(cmpP[ci].x,cmpP[ci].y));
+  cmpCtx.closePath();
+}
+function cmpCurFace(){ /* the face the player is "on": boots in walk mode, camera's dominant axis in god view */
+  if(mode==='walk')return walker.face;
+  return faceBasisAt(cmpV.copy(V3(0,0,1)).applyQuaternion(camQ));
 }
 function drawCompass(){
   cmpCtx.clearRect(0,0,90,90);
@@ -2859,14 +2905,66 @@ function drawCompass(){
     cmpCtx.strokeStyle=(cmpP[ea].z+cmpP[eb].z)>0?'rgba(207,214,228,.75)':'rgba(207,214,228,.18)';
     cmpCtx.beginPath();cmpCtx.moveTo(cmpP[ea].x,cmpP[ea].y);cmpCtx.lineTo(cmpP[eb].x,cmpP[eb].y);cmpCtx.stroke();
   }
-  cmpCtx.beginPath(); /* the face under your boots, lit amber */
-  CMPF[walker.face].forEach((ci,k)=>k?cmpCtx.lineTo(cmpP[ci].x,cmpP[ci].y):cmpCtx.moveTo(cmpP[ci].x,cmpP[ci].y));
-  cmpCtx.closePath();
+  const cur=cmpCurFace();
+  cmpFacePath(cur); /* the face you're on / facing, lit amber */
   cmpCtx.fillStyle='rgba(255,210,74,.16)';cmpCtx.fill();
   cmpCtx.strokeStyle='rgba(255,210,74,.85)';cmpCtx.lineWidth=1.4;cmpCtx.stroke();
+  if(cmpHover>=0&&cmpHover!==cur&&mode==='overview'){ /* hover highlight — the click affordance */
+    cmpFacePath(cmpHover);
+    cmpCtx.fillStyle='rgba(141,232,216,.2)';cmpCtx.fill();
+    cmpCtx.strokeStyle='rgba(141,232,216,.9)';cmpCtx.lineWidth=1.2;cmpCtx.stroke();
+  }
+  cmpCtx.font='600 8px Oxanium,ui-monospace,monospace';
+  cmpCtx.textAlign='center';cmpCtx.textBaseline='middle';
+  for(let f=0;f<FN;f++){ /* face tags on whatever faces the camera can see */
+    cmpV.copy(FACES[f].n).applyQuaternion(cmpQ);
+    if(cmpV.z<.25)continue;
+    cmpCtx.globalAlpha=Math.min(1,(cmpV.z-.25)*1.6);
+    cmpCtx.fillStyle=f===cur?'rgba(255,210,74,.95)':f===cmpHover?'rgba(141,232,216,.95)':'rgba(207,214,228,.55)';
+    cmpCtx.fillText(CMPLBL[f],45+cmpV.x*26,45-cmpV.y*26);
+    cmpCtx.globalAlpha=1;
+  }
   cmpDot(CRYSTAL,'#2de0c8',3); /* teal = home */
   for(const p of PORTALS)cmpDot(p,'#'+BIOMES[faceOf(p)].pc.toString(16).padStart(6,'0'),2.4);
 }
+function compassFrame(){ /* per-frame visibility + interactivity, cached — no redundant DOM writes */
+  const show=!DEMO,live=show&&mode==='overview'; /* uihide is handled in CSS */
+  if(show!==cmpShown){cmpShown=show;$('compass').style.display=show?'block':'none';}
+  if(live!==cmpLive){cmpLive=live;$('compass').classList.toggle('live',live);if(!live)cmpHover=-1;}
+  if(show)drawCompass();
+}
+function cmpFaceAt(x,y){ /* which front face of last frame's projection is under the cursor */
+  let best=-1,bz=0;
+  for(let f=0;f<FN;f++){
+    cmpV.copy(FACES[f].n).applyQuaternion(cmpQ);
+    if(cmpV.z<=bz)continue; /* back faces and anything behind a better hit */
+    const ix=CMPF[f];let inside=false;
+    for(let a2=0,b2=ix.length-1;a2<ix.length;b2=a2++){
+      const P=cmpP[ix[a2]],Q2=cmpP[ix[b2]];
+      if((P.y>y)!==(Q2.y>y)&&x<(Q2.x-P.x)*(y-P.y)/(Q2.y-P.y)+P.x)inside=!inside;
+    }
+    if(inside){best=f;bz=cmpV.z;}
+  }
+  return best;
+}
+function flyToFace(f){ /* ViewCube click: swing the orbit camera square onto face f (same pose GameAPI.face parks at) */
+  const n=FACES[f].n;
+  orbitSet(Math.atan2(n.x,n.z),Math.asin(Math.max(-.92,Math.min(.92,n.y)))||.35,true);
+  camPan.set(0,0,0);
+  autoSpin=false;$('btnSpin').classList.remove('on');
+}
+$('compass').addEventListener('pointermove',e=>{
+  cmpHover=mode==='overview'?cmpFaceAt(e.offsetX,e.offsetY):-1;
+  const cu=cmpHover>=0?'pointer':'default';
+  if(cu!==cmpCursor){cmpCursor=cu;$('compass').style.cursor=cu;}
+});
+$('compass').addEventListener('pointerleave',()=>{cmpHover=-1;});
+$('compass').addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  if(mode!=='overview'||DEMO||menuOpen)return;
+  const f=cmpFaceAt(e.offsetX,e.offsetY);
+  if(f>=0){flyToFace(f);sfx('tick');}
+});
 /* ===== build-from-walk: hotbar slot 4 cycles the unlocked arsenal (T cycles types) ===== */
 function walkBuildType(){
   const ts=Object.keys(TT).filter(towerUnlocked);
@@ -3048,8 +3146,7 @@ renderer.domElement.addEventListener('pointermove',e=>{
             .addScaledVector(up,(e.clientY-py)*.011*(camDist/26));
       if(camPan.length()>9)camPan.setLength(9);
     }else{
-      camYaw-=(e.clientX-px)*.005;
-      camPitch=Math.min(1.35,Math.max(-1.35,camPitch+(e.clientY-py)*.004));
+      trackball(e.clientX-px,e.clientY-py); /* free spin — any direction, straight over the poles */
     }
     px=e.clientX;py=e.clientY;
     return;
@@ -3058,7 +3155,7 @@ renderer.domElement.addEventListener('pointermove',e=>{
 });
 addEventListener('wheel',e=>{
   if(mode==='walk'&&(document.pointerLockElement||lockFallback)){setTool(tool+(e.deltaY>0?1:-1));return;}
-  if(mode==='overview'||DEMO)camDist=Math.min(50,Math.max(14,camDist+e.deltaY*.02));
+  if(mode==='overview'||DEMO)camDistT=Math.min(50,Math.max(14,camDistT+e.deltaY*.02));
 },{passive:true});
 addEventListener('pointermove',e=>{
   if(!dragType)return;
@@ -3454,9 +3551,10 @@ function focusActive(){
   for(let f=0;f<FN;f++)if(ACTIVE[f])n.add(FACES[f].n);
   if(n.lengthSq()<.01)n.set(0,1,0);
   n.normalize();
-  camPitch=Math.max(-1.2,Math.min(1.2,Math.asin(n.y)*.33+.12)); /* OG 3/4 overhead-side view, not top-down */
-  if(Math.abs(n.x)>.01||Math.abs(n.z)>.01)camYaw=Math.atan2(n.x,n.z);
-  camDist=17+facesUnlocked*2.5;
+  const pit=Math.max(-1.2,Math.min(1.2,Math.asin(n.y)*.33+.12)); /* OG 3/4 overhead-side view, not top-down */
+  const yaw=(Math.abs(n.x)>.01||Math.abs(n.z)>.01)?Math.atan2(n.x,n.z):orbitYP().yaw;
+  orbitSet(yaw,pit);
+  camDist=camDistT=17+facesUnlocked*2.5;
   camPan.set(0,0,0);
 }
 function applyFaces(){
@@ -3557,11 +3655,10 @@ function unlockNextFace(){
   addScore(150);
   barCache='';renderBar();
   sfx('fanfare');
-  if(mode==='overview'){
+  if(mode==='overview'){ /* the unlock swing — a quaternion target now, eased in by the orbit slerp */
     const c2=cellBase(np);
-    camYaw=Math.atan2(c2.x,c2.z);
-    camPitch=Math.asin(Math.max(-.95,Math.min(.95,c2.y/c2.length())));
-    camDist=17+facesUnlocked*2.5;
+    orbitSet(Math.atan2(c2.x,c2.z),Math.asin(Math.max(-.95,Math.min(.95,c2.y/c2.length()))),true);
+    camDistT=17+facesUnlocked*2.5;
     camPan.set(0,0,0);
     autoSpin=false;$('btnSpin').classList.remove('on');
   }
@@ -3999,7 +4096,10 @@ function tick(){
   ambUpdate(t,day);musUpdate();
   crystal.material.emissiveIntensity=1.3+(1-day)*1.2;
   pring.rotation.z+=raw*1.4;pdisc.rotation.z-=raw*.9;
-  if(autoSpin&&mode==='overview'&&!held)camYaw+=raw*.07;
+  if(autoSpin&&mode==='overview'&&!held){ /* spin about world-up; premultiply ALL poses so a mid-flight swing keeps its shape */
+    tbQ.setFromAxisAngle(tbA.set(0,1,0),raw*.07);
+    camQ.premultiply(tbQ);camQT.premultiply(tbQ);camQF.premultiply(tbQ);
+  }
 
   /* the hero is always on the field once spawned (hidden only in first-person — you're inside it) */
   avatar.visible=heroSpawned&&(mode!=='walk'||walkView==='tp');
@@ -4066,6 +4166,12 @@ function tick(){
       toQ=new THREE.Quaternion().setFromRotationMatrix(m);
     }
   }else{
+    if(camSwingT<1){ /* parked swings fly over a fixed .8s with a cubic ease-out — deterministic, Fusion-style */
+      camSwingT=Math.min(1,camSwingT+raw/.8);
+      const ks=1-Math.pow(1-camSwingT,3);
+      camQ.copy(camQF).slerp(camQT,ks);
+    }
+    camDist+=(camDistT-camDist)*Math.min(1,raw*6);
     const o=orbitPose();toPos=o.pos;toQ=o.quat;
   }
   if(camTrans.active){
@@ -4090,7 +4196,7 @@ function tick(){
     if(shakeT<=0)$('flash').style.opacity=0;
   }
   updateAimWire(raw);
-  if(mode==='walk'&&!DEMO)drawCompass();
+  compassFrame(); /* ViewCube in god view, compass on foot — hidden only in DEMO */
 
   hudT+=raw;
   if(hudT>.25){
@@ -4479,10 +4585,14 @@ window.GameAPI={
   cam(yaw,pitch,dist,cell){ /* testing tool: park the orbit camera (screenshots, agents); cell pans onto it */
     autoSpin=false;camPan.set(0,0,0);
     if(cell>=0&&cell<N)camPan.copy(cellTop(cell));
-    if(yaw!=null)camYaw=+yaw;
-    if(pitch!=null)camPitch=Math.max(-1.35,Math.min(1.35,+pitch));
-    if(dist!=null)camDist=Math.max(4,Math.min(50,+dist)); /* tighter than the wheel allows — close-ups */
-    return{ok:true,yaw:+camYaw.toFixed(2),pitch:+camPitch.toFixed(2),dist:camDist};
+    if(yaw!=null||pitch!=null){ /* no-arg cam() is a pure read of the pose — never rebuilds camQ */
+      const cur=orbitYP();
+      orbitSet(yaw!=null?+yaw:cur.yaw,pitch!=null?Math.max(-1.55,Math.min(1.55,+pitch)):cur.pitch); /* instant park */
+    }
+    if(dist!=null)camDist=camDistT=Math.max(4,Math.min(50,+dist)); /* tighter than the wheel allows — close-ups */
+    const yp=orbitYP();
+    /* up<0 = the trackball carried you over a pole and the world is upside down — that's allowed now */
+    return{ok:true,yaw:+yp.yaw.toFixed(2),pitch:+yp.pitch.toFixed(2),dist:camDist,up:+V3(0,1,0).applyQuaternion(camQ).y.toFixed(2)};
   },
   face(f){ /* aim the orbit camera square at face f */
     f|=0;if(!(f>=0&&f<FN))return{ok:false,why:'face 0-5'};
