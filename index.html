@@ -309,10 +309,27 @@
   .bhbr{padding:2px 0;font-size:10.5px;line-height:1.5}
   .bhbr b{color:var(--acc)}
   .bhbr small{color:var(--ink2)}
+  /* ====== WARDEN boss bar — design language v2: hairline frame, Oxanium title, phase pips ====== */
+  #bossbar{display:none;position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:11;width:360px;pointer-events:none;
+    background:rgba(10,12,18,.92);border:1px solid var(--line);border-top-color:#ffd24a;padding:7px 13px 10px;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+  #bossbar .bbhead{display:flex;align-items:center;gap:10px;font-family:'Oxanium',ui-monospace,monospace;
+    letter-spacing:.24em;font-size:11px;font-weight:700;color:var(--val);margin-bottom:6px}
+  #bossmult{color:var(--ink2);letter-spacing:.1em;font-size:9.5px;font-weight:400}
+  #bossph{margin-left:auto;display:flex;gap:4px;align-items:center;color:#ffd24a}
+  #bossph i{width:7px;height:7px;border:1px solid var(--line);background:transparent}
+  #bossph i.on{border-color:currentColor;background:currentColor}
+  .bbtrack{position:relative;height:7px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+  #bossfill{height:100%;width:100%;background:#ffd24a;transition:width .15s linear,background .3s}
+  .bbtick{position:absolute;top:-2px;bottom:-2px;width:1px;background:#6b7385;opacity:.75}
+  .bb.bba{padding:8px 9px 7px;font-size:9px}
+  body.uihide #bossbar{display:none!important}
 </style>
 </head>
 <body>
 <div id="hud"></div>
+<div id="bossbar"><div class="bbhead"><span id="bossname">THE WARDEN</span><span id="bossmult"></span><span id="bossph"></span></div>
+  <div class="bbtrack"><div id="bossfill"></div><i class="bbtick" style="left:66%"></i><i class="bbtick" style="left:33%"></i></div></div>
 <div id="ctrls">
   <div class="seg" id="segSpeed">
     <div data-s="0" title="pause"></div><div data-s="1" class="on" title="normal"></div><div data-s="2" title="2x"></div><div data-s="4" title="4x"></div><div data-s="8" title="8x — idle mode"></div>
@@ -605,7 +622,13 @@ function bankShards(){ /* floor(score/1000), delta-banked so one run can never d
 /* per-run derived bonuses — set in startGame AFTER CFG defaults, CFG itself never
    mutated. An EXPLICIT seed = arena/comparison run: meta force-disabled. */
 const MRUN={on:false,gold:0,dirt:0,luck:0,dmg:1,hero:0};
-let simSpeed=1,paused=false,playSec=0,autopilot=true,selectedType=null,breakT=-1,waveTotal=0;
+let simSpeed=1,paused=false,playSec=0,selectedType=null,breakT=-1,waveTotal=0;
+/* granular autopilot — each director duty has its own switch (owner: "we need diff auto
+   buttons like auto build, auto upgrade, auto dig"). GameAPI.auto(b) still sets ALL four
+   (arena protocol: 'auto off' = all off); GameAPI.autoSet({...}) flips them singly. */
+const AUTO={build:true,upgrade:true,maze:true,wave:true};
+const anyAuto=()=>AUTO.build||AUTO.upgrade||AUTO.maze||AUTO.wave;
+function setAutoAll(b){AUTO.build=AUTO.upgrade=AUTO.maze=AUTO.wave=!!b;}
 const INV={iron:0,shard:0};
 const creeps=[],towers=[],shots=[],parts=[],fx=[];
 const toasts=[],LOGS=[];
@@ -1625,20 +1648,20 @@ function updateDmgNums(dt){
 }
 
 /* ============ CREEPS ============ */
-const CT={
-  grunt: {color:0xd4533b,speed:1.4,hp:1,  bounty:8,  s:1,   cost:10,cls:'walk', climbMul:.55},
-  runner:{color:0x3b7bd4,speed:2.3,hp:.5, bounty:9,  s:.8,  cost:12,cls:'walk', climbMul:.55},
-  tank:  {color:0x9b59c9,speed:.9, hp:2.8,bounty:16, s:1.25,cost:24,cls:'walk', climbMul:.3},
-  jumper:{color:0xe8b833,speed:1.5,hp:.9, bounty:14, s:.95, cost:18,cls:'jump', climbMul:1,minWave:6},
-  crawler:{color:0x8a5dd8,speed:1.1,hp:1.3,bounty:17,s:1.05,cost:22,cls:'climb',climbMul:.5,minWave:7},
-  healer:{color:0x4dd87a,speed:1.2,hp:1.2,bounty:18, s:1,   cost:30,cls:'walk', climbMul:.55,healer:true,minWave:6},
-  shield:{color:0x8a93ab,speed:1.1,hp:1.6,bounty:18, s:1.1, cost:28,cls:'walk', climbMul:.55,armor:.35,minWave:9},
-  burrower:{color:0xc07840,speed:1.15,hp:1.5,bounty:20,s:1.05,cost:26,cls:'walk',climbMul:.5,burrow:true,minWave:8,rare:true},
-  'swarm-mother':{color:0xd44fb0,speed:.7,hp:3.4,bounty:28,s:1.4,cost:36,cls:'walk',climbMul:.3,split:4,minWave:10,rare:true},
+const CT={ /* bounties trimmed ~12% across the board (2026-06-11): mid-game income was outpacing pressure */
+  grunt: {color:0xd4533b,speed:1.4,hp:1,  bounty:7,  s:1,   cost:10,cls:'walk', climbMul:.55},
+  runner:{color:0x3b7bd4,speed:2.3,hp:.5, bounty:8,  s:.8,  cost:12,cls:'walk', climbMul:.55},
+  tank:  {color:0x9b59c9,speed:.9, hp:2.8,bounty:14, s:1.25,cost:24,cls:'walk', climbMul:.3},
+  jumper:{color:0xe8b833,speed:1.5,hp:.9, bounty:12, s:.95, cost:18,cls:'jump', climbMul:1,minWave:6},
+  crawler:{color:0x8a5dd8,speed:1.1,hp:1.3,bounty:15,s:1.05,cost:22,cls:'climb',climbMul:.5,minWave:7},
+  healer:{color:0x4dd87a,speed:1.2,hp:1.2,bounty:16, s:1,   cost:30,cls:'walk', climbMul:.55,healer:true,minWave:6},
+  shield:{color:0x8a93ab,speed:1.1,hp:1.6,bounty:16, s:1.1, cost:28,cls:'walk', climbMul:.55,armor:.35,minWave:9},
+  burrower:{color:0xc07840,speed:1.15,hp:1.5,bounty:17,s:1.05,cost:26,cls:'walk',climbMul:.5,burrow:true,minWave:8,rare:true},
+  'swarm-mother':{color:0xd44fb0,speed:.7,hp:3.4,bounty:24,s:1.4,cost:36,cls:'walk',climbMul:.3,split:4,minWave:10,rare:true},
   spawn: {color:0xff8ad4,speed:2.6,hp:.18,bounty:2,s:.55,cost:6,cls:'walk',climbMul:.7,child:true},
-  saboteur:{color:0x49e0d2,speed:1.6,hp:1,bounty:22,s:.95,cost:30,cls:'jump',climbMul:1,sabo:4,minWave:12,rare:true},
-  wisp:  {color:0xaee8ff,speed:1.25,hp:1.1,bounty:20,s:1,cost:24,cls:'climb',climbMul:.6,wisp:true,minWave:9,night:true,rare:true},
-  boss:  {color:0xffb020,speed:.75,hp:15, bounty:150,s:2,   cost:0, cls:'walk', climbMul:.7,boss:true,regen:.012},
+  saboteur:{color:0x49e0d2,speed:1.6,hp:1,bounty:19,s:.95,cost:30,cls:'jump',climbMul:1,sabo:4,minWave:12,rare:true},
+  wisp:  {color:0xaee8ff,speed:1.25,hp:1.1,bounty:17,s:1,cost:24,cls:'climb',climbMul:.6,wisp:true,minWave:9,night:true,rare:true},
+  boss:  {color:0xffb020,speed:.75,hp:15, bounty:130,s:2,   cost:0, cls:'walk', climbMul:.7,boss:true,regen:.012},
   /* THE WARDEN — wave-20 phase boss (then every 10th endless wave). hp ~ two whole
      waves. P1 armored (50% dmg, crushes adjacent towers) · P2 stomps (stuns towers)
      · P3 enraged (×1.6 speed, spawns brood). A leak costs 6 lives. */
@@ -1773,12 +1796,15 @@ let spawnIdx=0,PORTAL_BORN=[0]; /* wave each portal opened — fresh portals ram
 function spawnCreep(typeName,atCell,mother){ /* atCell: mid-route births (swarm-mother splits) */
   const t=CT[typeName];
   let hp=(9*Math.pow(DIFF.exp,wave))*(1+prestige*.25)*t.hp*DIFF.hp;
+  if(wave>=6)hp*=Math.min(1.15,1+.015*(wave-5)); /* mid-game ramp (w6-15): +1.5%/wave hp, cap +15% */
   if(wave>20)hp*=Math.pow(1.08,wave-20); /* endless: compounding pressure past the Warden */
   if(t.warden)hp*=1+.6*wardenSeen++;     /* each returning Warden is 60% tougher */
   const mat=new THREE.MeshStandardMaterial({color:t.color,roughness:.7});
   const g=buildCreepBody(typeName,mat);
-  const bar=new THREE.Mesh(new THREE.PlaneGeometry(.5,.05),new THREE.MeshBasicMaterial({color:0x4dff7a,side:THREE.DoubleSide}));
-  bar.position.y=.78;g.add(bar);
+  /* the Warden carries a boss-grade bar: wider, taller, phase-colored (amber/orange/red) */
+  const bar=new THREE.Mesh(new THREE.PlaneGeometry(t.warden?.85:.5,t.warden?.09:.05),
+    new THREE.MeshBasicMaterial({color:t.warden?0xffd24a:0x4dff7a,side:THREE.DoubleSide}));
+  bar.position.y=t.warden?1.32:.78;g.add(bar);
   g.scale.setScalar(t.s);
   let sp,cell;
   if(atCell!=null){cell=atCell;sp=mother?mother.spawnPortal:PORTALS[0];}
@@ -1844,7 +1870,9 @@ function killCreep(c,src){
 /* waves */
 let spawnQueue=[],pendingQueue=[],spawnTimer=0;
 function composeQueue(){
-  const w=wave+1,budget=(16+w*9)*DIFF.budget,q=[]; /* retuned after the dangling-else fix made towers actually fire */
+  const w=wave+1,q=[]; /* retuned after the dangling-else fix made towers actually fire */
+  let budget=(16+w*9)*DIFF.budget;
+  if(w>=6)budget*=Math.min(1.25,1+.025*(w-5)); /* mid-game ramp (w6-15): +2.5%/wave creeps, cap +25% — income was outpacing pressure */
   if(w===20||(w>20&&w%10===0))return['warden']; /* THE WARDEN replaces the whole wave */
   if(w%5===0){q.push('boss');let b=budget*.5;while(b>0){q.push(rnd()<.5?'grunt':'runner');b-=12;}}
   else{
@@ -1924,7 +1952,8 @@ function callWave(early){
   if(early){const b=CFG.earlyBonus+5*wave;gold+=b;toast('early call +'+b+'g');}
   wave++;
   deepWave=Math.max(deepWave,wave);
-  if(wave>20&&!ENDLESS){ENDLESS=true;victChoice=false;toast('ENDLESS — the cube does not sleep');logEvent('endless mode begins');}
+  victChoice=false; /* any called wave ends the CONTINUE hold — it must never outlive it */
+  if(wave>20&&!ENDLESS){ENDLESS=true;toast('ENDLESS — the cube does not sleep');logEvent('endless mode begins');}
   /* first biome wakes early (wave 4) so the arsenal opens before the waves get mean; the rest follow the difficulty cadence */
   if(wave>=nextUnlockWave&&facesUnlocked<DIFF.maxFaces){unlockNextFace();nextUnlockWave=wave+DIFF.unlockEvery;}
   if(facesUnlocked<DIFF.maxFaces){
@@ -2129,15 +2158,25 @@ function aiDig(){
   puff(cellTop(i),0xc9925a,5);
   return true;
 }
+function wallable(i){return !PORTALS.includes(i)&&i!==CRYSTAL&&!TWR[i]&&!DEC[i]&&!WATER[i]&&HMAP[i]===0&&!creepOn(i);}
+function commitWall(i){
+  if(!tryEdit(()=>{HMAP[i]=1;},()=>{HMAP[i]=0;}))return false;
+  aiDirt--;setHeight(i,1);refreshPathDots();
+  puff(cellTop(i),0x7a6346,7);
+  return true;
+}
 function mazeWall(){
+  /* the director's prime directive: walls force the LONGEST path. greedy single wall
+     first; when no single wall gains, look ahead two walls (a wall pair often opens a
+     switchback no lone wall can); when even pairs are spent, dig pits ON the route. */
   if(aiDirt<=0)return aiDig();
   const path=pathCellsList();
   let best=-1,bestGain=0,n=0;
-  const base=pathDistSum();
+  const base=pathDistSum(),cand=[];
   for(const i of path){
-    if(PORTALS.includes(i)||i===CRYSTAL)continue;
-    if(n++>16)break;
-    if(TWR[i]||DEC[i]||WATER[i]||HMAP[i]!==0||creepOn(i))continue;
+    if(n++>20)break;
+    if(!wallable(i))continue;
+    cand.push(i);
     HMAP[i]=1;
     computeField(FIELDS.walk);
     let ok=true;for(const p of PORTALS)if(FIELDS.walk.dist[p]===INF){ok=false;break;}
@@ -2145,21 +2184,65 @@ function mazeWall(){
     HMAP[i]=0;
     if(gain>bestGain){bestGain=gain;best=i;}
   }
+  if(best>=0&&bestGain>=2){
+    computeField(FIELDS.walk);
+    if(!commitWall(best))return false;
+    logEvent('AI walled — route now '+pathCellsList().length+' cells');
+    return true;
+  }
+  /* 2-wall lookahead: single-wall gain hit 0 — try pairs from the route candidates */
+  if(aiDirt>=2){
+    let bi=-1,bj=-1,bg=0,tried=0;
+    const cs=cand.slice(0,8);
+    for(let a2=0;a2<cs.length;a2++)for(let b2=a2+1;b2<cs.length;b2++){
+      if(tried++>26)break;
+      const i=cs[a2],j=cs[b2];
+      HMAP[i]=1;HMAP[j]=1;
+      computeField(FIELDS.walk);
+      let ok=true;for(const p of PORTALS)if(FIELDS.walk.dist[p]===INF){ok=false;break;}
+      const gain=ok?pathDistSum()-base:-1;
+      HMAP[i]=0;HMAP[j]=0;
+      if(gain>bg){bg=gain;bi=i;bj=j;}
+    }
+    computeField(FIELDS.walk);
+    if(bi>=0&&bg>=3&&commitWall(bi)){
+      const two=wallable(bj)&&commitWall(bj); /* first wall can reroute — revalidate */
+      logEvent('AI walled '+(two?'a pair':'one of a pair')+' — route now '+pathCellsList().length+' cells');
+      return true;
+    }
+  }
   computeField(FIELDS.walk);
-  if(best<0||bestGain<3)return false;
-  if(!tryEdit(()=>{HMAP[best]=1;},()=>{HMAP[best]=0;}))return false;
-  aiDirt--;setHeight(best,1);refreshPathDots();
-  puff(cellTop(best),0x7a6346,7);
-  logEvent('AI walled — route now '+pathCellsList().length+' cells');
+  return aiPit();
+}
+function aiPit(){
+  /* walls exhausted: dig pits on the FINAL route — slow dots for the kill zones
+     (same gamble, same pick gates; the spoil feeds the next wall) */
+  if(gold<CFG.digCost&&freeDigs<=0)return false;
+  const path=pathCellsList(),cands=[];
+  for(const i of path){
+    if(PORTALS.includes(i)||i===CRYSTAL||TWR[i]||DEC[i]||WATER[i]||isEdgeCell(i)||creepOn(i))continue;
+    if(HMAP[i]!==0&&HMAP[i]!==-1)continue; /* 1-deep slows walkers, 2-deep stops them */
+    if(!hasTool(digToolFor(i)))continue;
+    cands.push(i);
+  }
+  if(!cands.length)return false;
+  const i=cands[(rnd()*cands.length)|0],kit=freeDigs>0;
+  if(!kit&&!rollMine(shovelBonus(i))){gold-=CFG.digCost;puff(cellTop(i),0x8a8f9c,3);return false;}
+  if(!tryEdit(()=>{HMAP[i]--;},()=>{HMAP[i]++;}))return false;
+  if(kit)freeDigs--;else gold-=CFG.digCost;
+  aiDirt++;setHeight(i,HMAP[i]);
+  floodIfBesideLiquid(i);refreshPathDots();
+  logEvent('AI dug a pit on the route ('+HMAP[i]+')');
+  puff(cellTop(i),0xc9925a,5);
   return true;
 }
 function director(dt){
-  if(!autopilot)return;
+  if(!(AUTO.build||AUTO.upgrade||AUTO.maze))return; /* AUTO.wave lives in sim() */
   directorTimer-=dt;if(directorTimer>0)return;
   directorTimer=2.2+rnd()*2.4;
-  /* tool progression: an awake biome our pick can't bite = craft the missing pick
-     the moment it's affordable (the AI shops at the same workshop, same costs) */
-  for(let f2=0;f2<FN;f2++)if(ACTIVE[f2]){
+  /* tool progression (part of the mazing duty — picks gate the digging): an awake biome
+     our pick can't bite = craft the missing pick the moment it's affordable */
+  if(AUTO.maze)for(let f2=0;f2<FN;f2++)if(ACTIVE[f2]){
     const nk=DIG_TIER[BIOMES[f2].name];
     if(!hasTool(nk)){
       const c2=TOOLS[nk].cost;
@@ -2173,44 +2256,48 @@ function director(dt){
   /* banking: if a stronger tower exists than what we own, save toward it instead of impulse-buying cannons */
   const best=types.sort((a,b)=>TT[b].cost-TT[a].cost)[0];
   const ownBest=towers.some(t=>t.type===best);
-  if(!saveFor&&!ownBest&&types.length>1&&rnd()<.6)saveFor=best;
-  if(saveFor&&!towerUnlocked(saveFor))saveFor=null;
+  if(AUTO.build){
+    if(!saveFor&&!ownBest&&types.length>1&&rnd()<.6)saveFor=best;
+    if(saveFor&&!towerUnlocked(saveFor))saveFor=null;
+  }else saveFor=null;
   let type=saveFor||types[(rnd()*types.length)|0];
   if(bossSoon&&!haveSniper&&towerUnlocked('sniper'))type='sniper';
   if(saveFor&&gold<TT[saveFor].cost){ /* while banking, only free actions: mazing with carried dirt */
-    if(aiDirt>0)mazeWall();
+    if(AUTO.maze&&aiDirt>0)mazeWall();
     return;
   }
   const cost=TT[type].cost,range=TT[type].range;
-  if(type==='sniper'&&bossSoon&&!haveSniper&&gold<cost)return;
-  /* towers shoot from BESIDE the route; walls (mazeWall) are what extend it */
+  if(AUTO.build&&type==='sniper'&&bossSoon&&!haveSniper&&gold<cost)return;
+  /* towers shoot from BESIDE the route; walls (mazeWall) are what extend it.
+     slow dots (water/pits/quicksand) are where creeps linger — coverage there counts double */
   const path=pathCellsList(),pathSet=new Set(path),cands=[];
-  for(let k=0;k<140;k++){
+  if(AUTO.build)for(let k=0;k<140;k++){
     const i=(rnd()*N)|0;
     if(!ACTIVE[faceOf(i)]||TWR[i]||DEC[i]||WATER[i]||HMAP[i]!==0||PORTALS.includes(i)||i===CRYSTAL||creepOn(i)||pathSet.has(i))continue;
     const p=cellTop(i);let cov=0;
-    for(const pi of path)if(p.distanceTo(cellTop(pi))<range)cov++;
+    for(const pi of path)if(p.distanceTo(cellTop(pi))<range)
+      cov+=((WATER[pi]&&WATER[pi]!==2)||HMAP[pi]<0)?2:1; /* hug the corridor where it crawls */
     for(const t2 of towers)if(p.distanceTo(t2.g.position)<1.3)cov-=3;
     if(faceOf(i)===TT[type].biome)cov+=2; /* prefer home biome */
     if(cov>0)cands.push({i,cov});
   }
   cands.sort((a,b)=>b.cov-a.cov);
   /* upgrade the PROVEN killers first — the stats know who earns their keep */
-  const ups=towers.filter(t=>t.tier<CFG.maxTier).sort((a,b)=>b.kills-a.kills);
+  const ups=AUTO.upgrade?towers.filter(t=>t.tier<CFG.maxTier).sort((a,b)=>b.kills-a.kills):[];
   const upT=ups[0];
-  if(!saveFor&&towers.length>=1&&rnd()<.8&&(mazeWall()||mazeWall())){
+  if(AUTO.maze&&!saveFor&&(towers.length>=1||!AUTO.build)&&rnd()<.8&&(mazeWall()||mazeWall())){
     /* the director's prime directive: the longest possible route — every wall that stretches it is free damage.
        two attempts per decision: the first is often just digging spoil, the second places the wall */
-  }else if(upT&&towers.length>=4&&gold>=upgradeCost(upT)&&rnd()<.65){
-    gold-=upgradeCost(upT);upgradeTower(upT);
+  }else if(upT&&towers.length>=4&&gold>=upgradeCost(upT)&&rnd()<.7){
+    gold-=upgradeCost(upT);upgradeTower(upT); /* upgrades before sprawl */
     logEvent('AI upgraded '+upT.type+' to t'+upT.tier);
-  }else if(cands.length&&gold>=cost&&(saveFor||towers.length<5||rnd()<.3)){
+  }else if(AUTO.build&&cands.length&&gold>=cost&&(saveFor||towers.length<5||rnd()<.3)){
     const tw=buildTower(cands[0].i,type,false);
     if(tw){gold-=cost;if(type===saveFor)saveFor=null;}
   }else if(upT&&gold>=upgradeCost(upT)){
     gold-=upgradeCost(upT);upgradeTower(upT);
     logEvent('AI upgraded '+upT.type+' to t'+upT.tier);
-  }else{
+  }else if(AUTO.upgrade){
     const br=towers.find(t=>t.tier>=CFG.maxTier&&!t.branch&&t.kills>=12);
     if(br&&gold>=branchCost(br)){gold-=branchCost(br);branchTower(br,(rnd()*2)|0);}
   }
@@ -3078,7 +3165,11 @@ $('buildbar').addEventListener('pointerdown',e=>{
   if(DEMO)return;
   const b=e.target.closest('.bb');if(!b)return;
   const t=b.dataset.t;if(!t)return; /* locked tower card */
-  if(t==='__auto'){autopilot=!autopilot;toast('autopilot '+(autopilot?'on':'off'));renderBar();hidePanel();return;}
+  if(t&&t.startsWith('__auto')){ /* granular autopilot toggles: build / upgrade / dig / wave */
+    const k=t.slice(6);
+    if(AUTO[k]!=null){AUTO[k]=!AUTO[k];toast('auto '+(k==='maze'?'dig':k)+' '+(AUTO[k]?'on':'off'));}
+    renderBar();hidePanel();return;
+  }
   if(t==='__dig'||t==='__wall'||t==='__bucket'){ /* terraform tools work from god view too — click tiles, Esc to put away */
     selectedType=(selectedType===t?null:t);
     hidePanel();renderBar();return;
@@ -3135,7 +3226,9 @@ function renderBar(){
   html+='<div class="bb'+(selectedType==='__dig'?' sel':'')+'" data-t="__dig" style="color:#c9925a"><span class="hk">G</span><span class="ico">'+IC.pick+'</span><span style="color:#cfd6e4">dig</span><br><span class="c">'+(freeDigs>0&&!FREE?freeDigs+' free':CFG.digCost+'g roll')+'</span></div>';
   html+='<div class="bb'+(selectedType==='__wall'?' sel':'')+((dirt<1&&!FREE)?' poor':'')+'" data-t="__wall" style="color:#8ee8d8"><span class="hk">F</span><span class="ico">'+IC.dirt+'</span><span style="color:#cfd6e4">wall</span><br><span class="c">1 dirt</span></div>';
   if(hasTool('bucket'))html+='<div class="bb'+(selectedType==='__bucket'?' sel':'')+'" data-t="__bucket" style="color:#4dd8ff"><span class="hk">G</span><span class="ico">'+IC.bucket+'</span><span style="color:#cfd6e4">bucket</span><br><span class="c">'+(carriedLiquid?LIQNAME[carriedLiquid]:'empty')+'</span></div>';
-  html+='<div class="bb'+(autopilot?' sel':'')+'" data-t="__auto" style="color:#8a93ab"><span class="ico">'+IC.cube+'</span><span style="color:#cfd6e4">auto</span><br><span class="c">'+(autopilot?'ON':'OFF')+'</span></div>';
+  /* granular autopilot chips — the director's four duties, each its own switch */
+  for(const[k,lab,ic]of[['build','auto build','cannon'],['upgrade','auto upg','up'],['maze','auto dig','pick'],['wave','auto wave','wave']])
+    html+='<div class="bb bba'+(AUTO[k]?' sel':'')+'" data-t="__auto'+k+'" style="color:#8a93ab"><span class="ico">'+IC[ic]+'</span><span style="color:#cfd6e4">'+lab+'</span><br><span class="c">'+(AUTO[k]?'ON':'OFF')+'</span></div>';
   if(html===barCache)return; /* skip DOM churn when nothing changed */
   barCache=html;
   $('buildbar').innerHTML=html;
@@ -3294,7 +3387,7 @@ $('mQuit').onclick=()=>{
   bankShards(); /* the run ends here — its score pays out before the reset wipes it */
   closeMenu(false);exitMode();
   renderLegacy();
-  DEMO=true;autopilot=true;autoSpin=true;gold=400;
+  DEMO=true;setAutoAll(true);autoSpin=true;gold=400;
   $('splash').style.display='flex';$('demoTag').style.display='block';
   resetGame(DIFFS[1],true);
 };
@@ -3616,7 +3709,7 @@ function resetGame(diff,demo){
 function startGame(diffIdx,free,seed,mode){
   srand(seed!=null?(+seed>>>0):((Math.random()*2**31)|0)); /* fixed seed => identical scenario */
   MODE=(mode==='siege'||NET.on)?'siege':(mode==='classic'?'classic':pickedMode); /* MP always sieges — guests own portals */
-  DEMO=false;FREE=!!free;autopilot=false;autoSpin=false;
+  DEMO=false;FREE=!!free;setAutoAll(false);autoSpin=false;
   $('splash').style.display='none';$('demoTag').style.display='none';
   resetGame(DIFFS[diffIdx],false);
   if(FREE)while(facesUnlocked<DIFF.maxFaces)unlockNextFace(); /* sandbox = the whole cube, awake */
@@ -3652,6 +3745,9 @@ function sim(dt){
     if(breakT<=0)callWave(false);
   }
   if(DEMO&&breakT>0&&breakT<CFG.breakTime-2)callWave(false);
+  /* AUTO WAVE: the director early-calls for the bonus once it has had 2s to spend.
+     never from a hold (>=900): START and CONTINUE — ENDLESS stay the player's call */
+  else if(AUTO.wave&&!DEMO&&breakT>0&&breakT<CFG.breakTime-2)callWave(true);
   if(spawnQueue.length>0){
     spawnTimer-=dt;
     if(spawnTimer<=0){spawnTimer=.85;spawnCreep(spawnQueue.shift());}
@@ -3729,6 +3825,7 @@ function sim(dt){
         addScore(-400);recordScore();
         const sh=bankShards(); /* the run's score pays out legacy shards here too */
         prestige++;goldMult=1+prestige*.3;lives=DIFF.lives;wave=Math.max(0,wave-6);
+        victChoice=false; /* hold leak: post-victory overrun must NOT leave every later break stuck on CONTINUE — ENDLESS */
         spawnQueue=[];toast('OVERRUN — prestige '+prestige+' (+'+Math.round((goldMult-1)*100)+'% gold)'+(sh?' · legacy shards +'+sh:''));
         if(!DEMO)endPanelShow('OVERRUN','#ff5e8a','THE CRYSTAL SHATTERS — prestige <b>'+prestige+'</b> (+'+Math.round((goldMult-1)*100)+'% gold)'+(sh?' · legacy shards <b>+'+sh+'</b>':'')+'<br>waves roll back to '+wave+' — dig in deeper');
       }
@@ -3814,8 +3911,9 @@ function sim(dt){
     if(c.g.userData.spin2)c.g.userData.spin2.rotation.z-=dt*3;
     c.bar.visible=c.burrowT<=0;
     c.bar.scale.x=Math.max(c.hp/c.maxHp,.001);
-    c.bar.material.color.setHSL(.33*(c.hp/c.maxHp),.9,.55);
-    c.bar.position.y=.78+(HMAP[c.cell]<0?(-HMAP[c.cell]*HSTEP)/c.tt.s:0); /* bars peek above pit rims — creeps in holes stay readable */
+    if(c.tt.warden)c.bar.material.color.setHex(c.phase===1?0xffd24a:c.phase===2?0xff8c2d:0xff5e5e); /* phase colors, not the hp gradient */
+    else c.bar.material.color.setHSL(.33*(c.hp/c.maxHp),.9,.55);
+    c.bar.position.y=(c.tt.warden?1.32:.78)+(HMAP[c.cell]<0?(-HMAP[c.cell]*HSTEP)/c.tt.s:0); /* bars peek above pit rims — creeps in holes stay readable */
     c.bar.lookAt(camera.position);
   }
   for(const tw of towers){
@@ -3956,6 +4054,7 @@ function updateWalk(dt){
 /* ============ MAIN LOOP ============ */
 const clock=new THREE.Clock();
 let hudT=0,frameNo=0,gameT=0,dpsT=0,hudCache='',resCache='',histCache='',lensCache='',showHist=true,lastTickMs=performance.now();
+let bossVis=false,bossPhCache=0,bossMultCache=null; /* WARDEN boss bar repaint guards */
 function tick(){
   requestAnimationFrame(tick);
   lastTickMs=performance.now();
@@ -4099,7 +4198,7 @@ function tick(){
     const lowLives=lives<=4;
     /* who's at the controls — so there's never any doubt */
     const who=NET.on?(NET.role==='host'?['#ff8c2d','HOST · '+(NET.guests.size+1)+'P']:['#4dd8ff','GUEST · '+(NET.myFace>=0?BIOMES[NET.myFace].name:'spec')]):
-      DEMO?['#a86bff','DEMO · AI']:autopilot?['#2de0c8','AI PLAYING']:['#ffd24a','HUMAN'];
+      DEMO?['#a86bff','DEMO · AI']:anyAuto()?['#2de0c8','AI ASSIST']:['#ffd24a','HUMAN'];
     const C=(icon,val,label,col,extra,id)=>'<div class="chip"'+(id?' id="'+id+'"':'')+' style="color:'+(col||'#cfd6e4')+(id?';pointer-events:auto;cursor:pointer':'')+'"'+(extra?' title="'+extra+'"':'')+'>'+icon+
       '<span class="cv"><b style="color:'+(col||'#ffd24a')+'">'+val+'</b><small>'+label+'</small></span></div>';
     const incoming=creeps.length+spawnQueue.length;
@@ -4146,6 +4245,23 @@ function tick(){
       if(!creeps.includes(inspCreep)){inspCreep=null;hidePanel();}
       else if($('panel').style.display==='block')renderCreepPanel();
     }
+    /* WARDEN boss bar: top-center strip while a Warden lives. Fill/colors are direct
+       style writes guarded by caches — never an innerHTML repaint per tick. */
+    const wdn=creeps.find(c2=>c2.tt.warden);
+    if(wdn){
+      if(!bossVis){bossVis=true;bossPhCache=0;$('bossbar').style.display='block';}
+      $('bossfill').style.width=(Math.max(0,wdn.hp/wdn.maxHp)*100).toFixed(1)+'%';
+      if(bossPhCache!==wdn.phase){bossPhCache=wdn.phase;
+        const pc=wdn.phase===1?'#ffd24a':wdn.phase===2?'#ff8c2d':'#ff5e5e';
+        $('bossfill').style.background=pc;
+        $('bossbar').style.borderTopColor=pc;
+        $('bossph').style.color=pc;
+        $('bossph').innerHTML='<i'+(wdn.phase>=1?' class="on"':'')+'></i><i'+(wdn.phase>=2?' class="on"':'')+'></i><i'+(wdn.phase>=3?' class="on"':'')+'></i>';
+      }
+      const mult=1+.6*Math.max(0,wardenSeen-1);
+      const ms=mult>1?'ENDLESS · HP ×'+mult.toFixed(1):'';
+      if(bossMultCache!==ms){bossMultCache=ms;$('bossmult').textContent=ms;}
+    }else if(bossVis){bossVis=false;$('bossbar').style.display='none';}
     renderBar();renderAbil();
     if(mode==='walk')renderBuildSlot(); /* affordability tint + new unlocks (cached) */
     if(mode==='walk'&&hasTool('lens')&&tool===0){ /* PROSPECTOR LENS rides the aim */
@@ -4199,7 +4315,7 @@ function netMsg(m){
         netHostPump(.06);
       },50);
     }else{
-      DEMO=false;FREE=false;autopilot=false;autoSpin=false;
+      DEMO=false;FREE=false;setAutoAll(false);autoSpin=false;
       $('splash').style.display='none';$('demoTag').style.display='none';
       resetGame(DIFFS[1],false);
       paused=true; /* guests render the host's truth, they don't simulate */
@@ -4367,7 +4483,7 @@ window.GameAPI={
       armor:CT[k].armor||0,minWave:CT[k].minWave||1,boss:!!CT[k].boss,healer:!!CT[k].healer,regen:CT[k].regen||0,climbMul:CT[k].climbMul,
       burrow:!!CT[k].burrow,split:CT[k].split||0,sabo:CT[k].sabo||0,wisp:!!CT[k].wisp,nightOnly:!!CT[k].night,child:!!CT[k].child,rare:!!CT[k].rare}))},
   state(){return{
-    demo:DEMO,free:FREE,paused,simSpeed,autopilot,mode,
+    demo:DEMO,free:FREE,paused,simSpeed,autopilot:anyAuto(),auto:Object.assign({},AUTO),mode,
     score,wave,gold,dirt,lives,kills,prestige,iron:INV.iron,shard:INV.shard,
     mining:{xp:mineXp,level:mineLvl(),chance:+mineChance().toFixed(2),freeDigs},
     tools:{owned:Object.keys(TOOLS).filter(hasTool),carried:carriedLiquid?LIQNAME[carriedLiquid]:null},
@@ -4466,7 +4582,13 @@ window.GameAPI={
   callWave(){if(breakT<=0)return{ok:false,why:'no break active'};callWave(true);return{ok:true,wave};},
   speed(n){if(![1,2,4,8].includes(n))return{ok:false,why:'1, 2, 4 or 8'};simSpeed=n;paused=false;return{ok:true};},
   pause(b){paused=!!b;return{ok:true,paused};},
-  auto(b){autopilot=!!b;return{ok:true,autopilot};},
+  auto(b){setAutoAll(b);renderBar();return{ok:true,autopilot:anyAuto(),auto:Object.assign({},AUTO)};},
+  /* flip the four director duties singly: autoSet({build,upgrade,maze,wave}) — omitted keys keep their state */
+  autoSet(o){
+    if(!o||typeof o!=='object')return{ok:false,why:'{build,upgrade,maze,wave} booleans'};
+    for(const k of['build','upgrade','maze','wave'])if(o[k]!=null)AUTO[k]=!!o[k];
+    renderBar();return{ok:true,auto:Object.assign({},AUTO)};
+  },
   logs:(n)=>LOGS.slice(-(n||30)),
   errors:()=>ERRLOG.slice(),
   testDmg(){const c=creeps[0];if(!c||!towers[0])return null;
