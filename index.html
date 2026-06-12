@@ -387,7 +387,7 @@
     <b>GUNS, NOT WALLS</b> — towers never bend the route; only <b>terrain</b> does. Towers standing on the route get <b style="color:#ff5e8a">trampled</b>.<br><br>
     <b>MATTER IS CONSERVED</b> — dig +1 dirt, place −1. Mining is a <b style="color:#ffd24a">gamble</b>: 3g a roll, 60% +5%/level; your first 10 digs are free and guaranteed. Layers drop gold → iron → shards, bedrock at 3. Press <span class="kbd">K</span> for the <b>WORKSHOP</b>: picks gate harder biomes (iron pick → frozen tundra, crystal pick → volcanic/caverns), the <b>bucket</b> moves liquids, the shovel and prospector lens sweeten mining.<br><br>
     <b>WATER</b> slows creeps to 45% (they prefer dry routes) · <b>ice</b> speeds them up · <b>lava</b> burns. Place dirt on water to reclaim it as land.<br><br>
-    <b>PATH DOTS</b>: <b style="color:#4dd87a">green</b> full pace · <b style="color:#ffd24a">yellow</b> slowed · <b style="color:#ff5e8a">red</b> crawling — reroute them through red. 1-deep pits slow walkers, 2-deep stop them. The route can never be fully sealed.
+    <b>PATH CHEVRONS</b> point the way the invasion flows: <b style="color:#ffeec9">white-amber</b> full pace · <b style="color:#ffb02d">amber</b> slowed · <b style="color:#ff4545">red</b> crawling — reroute them through red. 1-deep pits slow walkers, 2-deep stop them. The route can never be fully sealed.
   </div>
   <div class="hl hsec">
     <b style="color:#d4533b">grunt</b> fodder · <b style="color:#3b7bd4">runner</b> fast, fragile — slow it · <b style="color:#9b59c9">tank</b> 2.8× hp, stalls on slopes — snipe it · <b style="color:#e8b833">jumper</b> (w6+) hops 1-walls, 2-high stops it · <b style="color:#8a5dd8">crawler</b> (w7+) ignores ALL terrain — raw dps only · <b style="color:#4dd87a">healer</b> (w6+) kill it first · <b style="color:#8a93ab">shield</b> (w9+) 35% armor — big hits · <b style="color:#c07840">burrower</b> (w8+) first hit sends it underground 3s — water/ice/road deny the dive · <b style="color:#aee8ff">wisp</b> (w9+, night) half damage moving, DOUBLE while slowed · <b style="color:#d44fb0">swarm-mother</b> (w10+) splits into 4 spawn on death · <b style="color:#49e0d2">saboteur</b> (w12+) shorts one tower 4s · <b style="color:#ffb020">boss</b> (every 5th) regenerates — burn + freeze + focus fire · <b style="color:#ffd24a">THE WARDEN</b> (w20, then every 10th endless wave) phase colossus: armored 50% + crushes adjacent towers → armor cracks but it STOMPS (stuns towers 2s) → enrages ×1.6 speed + spawns brood — a leak costs 6 lives.<br><br>
@@ -702,10 +702,23 @@ const BIOMES=[ /* obs = the obstacle each biome drops ON the road — dig/chop i
   {name:'forest', a:0x1f4434,b:0x1a3a2c,deco:'pine',   obs:'boulder', pc:0x4dff7a,hz:{label:'undergrowth',mul:.85},wtr:{w:1,shape:'stream',n:7}}, /* deep dark forest ≠ meadow */
   {name:'tundra', a:0x8fa3b0,b:0x8298a6,deco:'snowpine',obs:'snowball',pc:0x9be8ff,hz:{label:'ice',mul:1.15,frostX:1.5},wtr:{w:2,shape:'blob',n:7}},
 ];
-const matBio=BIOMES.map(B=>[
-  new THREE.MeshStandardMaterial({color:B.a,roughness:.95}),
-  new THREE.MeshStandardMaterial({color:B.b,roughness:.95}),
-  new THREE.MeshStandardMaterial({color:new THREE.Color(B.a).offsetHSL(.015,.04,.05),roughness:.95})]); /* the occasional odd tile breaks the checkerboard monotony */
+/* ground identity: each biome gets 4 common top colors (checker pair + 2 hash-picked
+   variants) and 1 RARE accent tile — all chosen by the same per-cell integer hash the
+   old odd-tile scheme used, so layouts are deterministic and topMat stays a lookup. */
+const GROUND_VAR=[ /* indexed like BIOMES — v: 2 extra variants · acc: rare accent */
+  {v:[0x7cab57,0x85b465],acc:{c:0xa4c46d}},                   /* meadow: sunlit grass + pale light patches */
+  {v:[0x362c4e,0x271f3c],acc:{c:0x47386f,e:0x8a5dd8,ei:.3}},  /* caverns: stone shades + crystal-glint */
+  {v:[0xa98f5e,0x91784a],acc:{c:0xb79e6e}},                   /* desert: dune ripple crests and troughs */
+  {v:[0x523539,0x3a2528],acc:{c:0x331f1e,e:0xff3a10,ei:.35}}, /* volcanic: basalt + ember-crack (faint glow) */
+  {v:[0x265138,0x2d452f],acc:{c:0x4d3f27}},                   /* forest: moss shades + brown leaf-litter */
+  {v:[0x9cb1bd,0xa9bfca],acc:{c:0xcbe2ec,rg:.25}},            /* tundra: snow tones + ice-sheen */
+];
+const matBio=BIOMES.map((B,f)=>{
+  const G=GROUND_VAR[f],mk=c=>new THREE.MeshStandardMaterial({color:c,roughness:.95});
+  const acc=new THREE.MeshStandardMaterial({color:G.acc.c,roughness:G.acc.rg!=null?G.acc.rg:.95});
+  if(G.acc.e){acc.emissive=new THREE.Color(G.acc.e);acc.emissiveIntensity=G.acc.ei;}
+  return [mk(B.a),mk(B.b),mk(G.v[0]),mk(G.v[1]),acc];
+});
 const matLockA=new THREE.MeshStandardMaterial({color:0x14161d,roughness:1});
 const matLockB=new THREE.MeshStandardMaterial({color:0x101218,roughness:1});
 const matD=[null, /* pit floors darken with depth — the contrast IS the hole */
@@ -783,7 +796,10 @@ function topMat(i){
   if(h<0)return matD[-h];
   if(h>0)return matWall;
   if(ROAD[i])return matRoad;
-  if(((i*2654435761)>>>0)%9===0)return matBio[faceOf(i)][2];
+  const hsh=(i*2654435761)>>>0;
+  if(hsh%31===0)return matBio[faceOf(i)][4]; /* rare accent: glint / ember-crack / flower patch */
+  const r=hsh%9;
+  if(r<2)return matBio[faceOf(i)][2+r];      /* common variants break the checkerboard */
   return matBio[faceOf(i)][checker];
 }
 for(let i=0;i<N;i++){
@@ -997,6 +1013,18 @@ function buildDeco(kind){
 /* each biome's scenery comes in two flavours — rnd-weighted so layouts stay seeded */
 const DECO_VAR={tree:'bush',pine:'birch',cactus:'barrel',snowpine:'deadtree',spike:'snag',shard:'shroom'};
 function pickDeco(f){const d=BIOMES[f].deco;return rnd()<.32?DECO_VAR[d]:d;}
+/* scale identity: trees loom 1.8-2.2 tiles tall > towers ~0.9 > hero ~0.5. s is the
+   per-kind multiplier that lands each model in its band; xz<1 slims wide canopies so
+   they shade their own tile instead of swallowing the neighbors. */
+const DSCALE={tree:{s:2.8,xz:.72},bush:{s:1.5},pine:{s:2.0,xz:.85},birch:{s:2.6,xz:.8},
+  cactus:{s:2.0,xz:.85},barrel:{s:1.45},snowpine:{s:2.4,xz:.8},deadtree:{s:2.3,xz:.8},
+  spike:{s:2.4,xz:.8},snag:{s:2.5,xz:.8},shroom:{s:1.6},shard:{s:1.9,xz:.85},
+  boulder:{s:1.25},snowball:{s:1.25},flower:{s:1.4},rock:{s:1.3},dune:{s:1.5},icespike:{s:1.8},
+  menhir:{s:1.6},archhalf:{s:1.7},vent:{s:1.6},stump:{s:1.7},monolith:{s:1.6},pond:{s:1.3}};
+function applyDecoScale(g,kind,jitter){
+  const d=DSCALE[kind]||{s:1},s=d.s*(jitter||1),h=s*(d.xz||1);
+  g.scale.set(h,s,h); /* local y points along the face normal (orientOnFace) */
+}
 function waterFeature(f){
   const cfg=BIOMES[f].wtr;if(!cfg)return;
   const ok=i=>{
@@ -1035,9 +1063,10 @@ function decorateDormant(f){ /* locked faces show dark, sleeping versions of the
     const u=1+((rnd()*(S-2))|0),v=1+((rnd()*(S-2))|0);
     const i=f*FCELLS+v*S+u;
     if(DEC[i])continue;
-    const g=buildDeco(pickDeco(f));
+    const kind=pickDeco(f);
+    const g=buildDeco(kind);
     g.traverse(ch=>{if(ch.material)ch.material=dormantMat;});
-    g.scale.setScalar(.8+rnd()*.5);
+    applyDecoScale(g,kind,.8+rnd()*.3);
     orientOnFace(g,i,0);
     scene.add(g);DEC[i]=g;placed++;
   }
@@ -1067,7 +1096,7 @@ function decorateFace(f){
     DEC[i]=true;
     if(!bfs()){DEC[i]=null;continue;}
     const g=buildDeco(kind);
-    g.scale.setScalar(.8+rnd()*.6);
+    applyDecoScale(g,kind,.85+rnd()*.3);
     orientOnFace(g,i,0);
     scene.add(g);DEC[i]=g;placed++;
   }
@@ -1086,6 +1115,7 @@ function decorateFace(f){
     DEC[i]=true;
     if(!bfs()){DEC[i]=null;continue;}
     const g=buildDeco(BIOMES[f].obs);
+    applyDecoScale(g,BIOMES[f].obs,.9+rnd()*.2);
     orientOnFace(g,i,0);
     scene.add(g);DEC[i]=g;placedO++;
   }
@@ -1134,8 +1164,7 @@ function placeSetPieces(f){
     if(!bfs()){for(const j of cells)DEC[j]=null;continue;} /* would seal: pick elsewhere */
     cells.forEach((j,k)=>{
       const g=buildDeco(spec.kind);
-      if(spec.big)g.scale.setScalar(1.35+rnd()*.5);
-      else if(spec.kind==='menhir')g.scale.setScalar(.85+rnd()*.4);
+      applyDecoScale(g,spec.kind,spec.big?1.35+rnd()*.5:spec.kind==='menhir'?.85+rnd()*.4:1);
       orientOnFace(g,j,0);
       if(spec.n>1)aimDecoAt(g,j,k===0?cells[1]:cells[0]); /* halves face each other, stones lean in */
       scene.add(g);DEC[j]=g;
@@ -1162,8 +1191,10 @@ const pbeam=new THREE.Mesh(new THREE.CylinderGeometry(.13,.24,.8,12,1,true),
   new THREE.MeshBasicMaterial({color:0x9a5dff,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false}));
 pbeam.position.y=.4; /* short + faint: side-face beams used to read as broken protrusions from across the cube */
 portal.add(pring,pdisc,pbeam);scene.add(portal);
+portal.scale.setScalar(1.25); /* scale pass: the gate fills its tile (clones inherit) */
 const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.42),
   new THREE.MeshStandardMaterial({color:0x2de0c8,emissive:0x2de0c8,emissiveIntensity:1.3}));
+crystal.scale.setScalar(1.3); /* scale pass: the objective outranks the towers */
 crystal.castShadow=true;scene.add(crystal);
 let CRYSTAL=0;
 function orientOnFace(obj,i,lift){
@@ -1227,18 +1258,32 @@ function pathCellsList(){
   o.push(CRYSTAL);return o;}
 function tryEdit(fn,undo){fn();if(!bfs()){undo();bfs();return false;}refreshPathDots();NET.dirtyStatic=true;return true;}
 let pathDots=new THREE.Group();scene.add(pathDots);
-const dotGeo=new THREE.CircleGeometry(.1,8);
-/* dot color = how fast creeps cross that square: green normal, yellow slowed, red crawling */
-const dotMatF=new THREE.MeshBasicMaterial({color:0x4dd87a,transparent:true,opacity:.55,side:THREE.DoubleSide});
-const dotMatM=new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opacity:.6,side:THREE.DoubleSide});
-const dotMatS=new THREE.MeshBasicMaterial({color:0xff5e5e,transparent:true,opacity:.65,side:THREE.DoubleSide});
+const dotGeo=new THREE.CircleGeometry(.1,8); /* still used by the unlock-telegraph preview route */
+/* the live route reads as directional CHEVRONS: a dark rim under a bright unlit core,
+   so it pops on every ground color ("green dots on green grass" was invisible).
+   Speed semantics stay, recolored contrast-safe: white-amber full pace · amber slowed
+   · red crawling. A gentle scale/slide wave flows along the path (render-only, no rnd). */
+function chevGeo(hw,hl,t2){ /* a V band pointing +Y: half-width, half-length, stroke */
+  const f=t2/(2*hl),sh=new THREE.Shape();
+  sh.moveTo(-hw,-hl);sh.lineTo(0,hl);sh.lineTo(hw,-hl);
+  sh.lineTo(hw*(1-f),-hl);sh.lineTo(0,hl-t2);sh.lineTo(-hw*(1-f),-hl);
+  return new THREE.ShapeGeometry(sh);
+}
+const chevCore=chevGeo(.155,.13,.105),chevRim=chevGeo(.205,.175,.15);
+const chevRimMat=new THREE.MeshBasicMaterial({color:0x0b0d11,transparent:true,opacity:.7,side:THREE.DoubleSide});
+const dotMatF=new THREE.MeshBasicMaterial({color:0xffeec9,transparent:true,opacity:.9,side:THREE.DoubleSide});
+const dotMatM=new THREE.MeshBasicMaterial({color:0xffb02d,transparent:true,opacity:.9,side:THREE.DoubleSide});
+const dotMatS=new THREE.MeshBasicMaterial({color:0xff4545,transparent:true,opacity:.95,side:THREE.DoubleSide});
 let showPath=true;
+const chevTmpY=new THREE.Vector3();
 function refreshPathDots(){
   routeSet=new Set(pathCellsList());
   scene.remove(pathDots);pathDots=new THREE.Group();
   if(showPath){
-    let prev=-1;
+    let prev=-1,idx=0;
     for(const i of pathCellsList()){
+      const nx=FIELDS.walk.next[i];
+      if(nx<0){prev=i;continue;} /* the crystal marks its own end of the trail */
       let f=1;
       const hz=BIOMES[faceOf(i)].hz;
       if(hz&&hz.mul)f*=hz.mul;
@@ -1246,11 +1291,25 @@ function refreshPathDots(){
       if(WATER[i]===1)f*=.45;else if(WATER[i]===2)f*=1.35;else if(WATER[i]===3)f*=.5;else if(WATER[i]===4)f*=.35;
       if(prev>=0&&ADJ[i].includes(prev)&&Math.abs(HMAP[i]-HMAP[prev])>0)f*=.55;
       const F=FACES[faceOf(i)];
-      const d=new THREE.Mesh(dotGeo,f>=.99?dotMatF:f>=.6?dotMatM:dotMatS);
+      const d=new THREE.Group();
+      const rim=new THREE.Mesh(chevRim,chevRimMat);
+      const core=new THREE.Mesh(chevCore,f>=.99?dotMatF:f>=.6?dotMatM:dotMatS);
+      core.position.z=.012; /* core floats just over its rim */
+      d.add(rim,core);
       d.position.copy(cellTop(i)).addScaledVector(F.n,.03);
       d.quaternion.setFromUnitVectors(V3(0,0,1),F.n);
+      /* point the V the way the creeps flow: toward next[i], flattened onto the face */
+      const dir=cellTop(nx).sub(cellTop(i));
+      dir.addScaledVector(F.n,-dir.dot(F.n));
+      if(dir.lengthSq()>1e-6){
+        dir.normalize();
+        chevTmpY.set(0,1,0).applyQuaternion(d.quaternion); /* where local +Y landed */
+        const ang=Math.atan2(chevTmpY.clone().cross(dir).dot(F.n),chevTmpY.dot(dir));
+        d.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(F.n,ang));
+      }
+      d.userData={base:d.position.clone(),dir:dir.lengthSq()>1e-6?dir.clone():null,ph:idx*.55};
       pathDots.add(d);
-      prev=i;
+      prev=i;idx++;
     }
   }
   scene.add(pathDots);
@@ -1644,6 +1703,7 @@ const CT={
      · P3 enraged (×1.6 speed, spawns brood). A leak costs 6 lives. */
   warden:{color:0xffd24a,speed:.55,hp:30,bounty:250,s:2.6,cost:0,cls:'walk',climbMul:.45,boss:true,warden:true,leak:6,minWave:20},
 };
+const CREEP_SCALE=1.12; /* scale pass: keep creeps menacing next to the 1.3x towers */
 const eyeGeo=new THREE.BoxGeometry(.05,.05,.02);
 const eyeMat=new THREE.MeshBasicMaterial({color:0xffffff});
 const armorMat=new THREE.MeshStandardMaterial({color:0x23262f,roughness:.6});
@@ -1779,7 +1839,7 @@ function spawnCreep(typeName,atCell,mother){ /* atCell: mid-route births (swarm-
   const g=buildCreepBody(typeName,mat);
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(.5,.05),new THREE.MeshBasicMaterial({color:0x4dff7a,side:THREE.DoubleSide}));
   bar.position.y=.78;g.add(bar);
-  g.scale.setScalar(t.s);
+  g.scale.setScalar(t.s*CREEP_SCALE);
   let sp,cell;
   if(atCell!=null){cell=atCell;sp=mother?mother.spawnPortal:PORTALS[0];}
   else{
@@ -1953,6 +2013,7 @@ const TT={
 };
 const towerUnlocked=k=>FREE||TT[k].starter||!!ACTIVE[TT[k].biome];
 const baseGeo=new THREE.CylinderGeometry(.26,.34,.4,7);
+const TWR_SCALE=1.3; /* scale identity: trees ~2 tiles > towers ~0.9 > hero ~0.5 */
 /* tier reads at a glance: bronze → silver → gold base */
 const tierBaseMats=[
   new THREE.MeshStandardMaterial({color:0x9a6233,metalness:.35,roughness:.5}),
@@ -1983,6 +2044,7 @@ function buildTower(i,typeName,byPlayer){
   const warn=new THREE.Mesh(warnGeo,warnMat); /* red diamond: "you are standing on the route" */
   warn.position.y=1.2;warn.visible=false;g.add(warn);
   orientOnFace(g,i,0);
+  g.scale.setScalar(TWR_SCALE); /* ~0.9 tiles tall: under the trees, over the hero */
   scene.add(g);
   const onWall=HMAP[i]>0;
   const tw={g,head,headMat:hm,base,bar,warn,kick:0,tt:Object.assign({},tt),type:typeName,tier:1,cool:0,cell:i,invested:tt.cost,onWall,
@@ -2040,7 +2102,7 @@ function upgradeTower(tw){
   tw.base.material=tierBaseMats[Math.min(tw.tier-1,tierBaseMats.length-1)];
   tw.maxHp+=40;tw.hp=tw.maxHp;
   tw.tt.dmg*=1.7;tw.tt.range*=1.1;tw.tt.rate*=1.2;
-  tw.g.scale.setScalar(1+(tw.tier-1)*.18);
+  tw.g.scale.setScalar(TWR_SCALE*(1+(tw.tier-1)*.18));
   tw.headMat.emissiveIntensity=.4+tw.tier*.35;
   if(!NET.silent)ringFx(tw.cell,tw.tt.range,tw.headMat.color.getHex());
 }
@@ -2295,7 +2357,7 @@ function updateHero(dt){
       heroTmp.addScaledVector(F2.n,-heroTmp.dot(F2.n));
       if(heroTmp.lengthSq()>.001)hero.fwd.copy(heroTmp.normalize()); /* square up to the target */
       avatar.userData.shootT=.22; /* raise the sidearm */
-      boltFx(avatar.position.clone().addScaledVector(FACES[walker.face].n,.6),best.g.position,0x2de0c8);
+      boltFx(avatar.position.clone().addScaledVector(FACES[walker.face].n,.45),best.g.position,0x2de0c8); /* muzzle height tracks the .7-scaled avatar */
       const d2=heroDmg();
       dmgNum(best.g.position,Math.round(d2),'#2de0c8');
       damageCreep(best,d2,hero);
@@ -2665,6 +2727,7 @@ const avatar=(function(){ /* the hero, v2: arms, visor (no creep eyes!), backpac
   g.userData.limbs={armL,armR,legL,legR};
   const tag=new THREE.Mesh(new THREE.OctahedronGeometry(.07),new THREE.MeshBasicMaterial({color:0x2de0c8}));
   tag.position.y=1.05;g.add(tag);g.userData.tag=tag; /* bobbing marker so the hero reads from orbit */
+  g.scale.setScalar(.7); /* scale identity: the hero is the small one (~0.5 tiles) */
   g.visible=false;scene.add(g);
   return g;
 })();
@@ -4018,6 +4081,13 @@ function tick(){
   surfWater.opacity=.5+Math.sin(t*1.7)*.08;
   for(const m of WSURF.values())
     m.position.copy(m.userData.base).addScaledVector(m.userData.n,Math.sin(t*1.6+m.userData.ph)*(m.userData.amp||.016));
+  if(showPath)for(const d2 of pathDots.children){ /* gentle flow: a pulse travels the route (time-driven, never rnd) */
+    const u2=d2.userData;
+    if(!u2.dir)continue;
+    const k2=Math.sin(t*2.6-u2.ph);
+    d2.position.copy(u2.base).addScaledVector(u2.dir,k2*.045);
+    const s3=1+k2*.07;d2.scale.set(s3,s3,1);
+  }
   for(let i2=DECOFX.length-1;i2>=0;i2--){ /* set-piece life: monolith glint, vent smoke */
     const d2=DECOFX[i2];
     if(!d2.g.parent){DECOFX.splice(i2,1);continue;} /* chopped or cleared */
@@ -4273,7 +4343,7 @@ function guestMsg(m){
     const dset=new Set(m.decs);
     for(let i=0;i<N;i++)if(DEC[i]&&!dset.has(i)){scene.remove(DEC[i]);DEC[i]=null;}
     NET.silent=true;
-    for(const i of m.decs)if(!DEC[i]){const g=buildDeco(BIOMES[faceOf(i)].deco);orientOnFace(g,i,0);scene.add(g);DEC[i]=g;}
+    for(const i of m.decs)if(!DEC[i]){const k=BIOMES[faceOf(i)].deco,g=buildDeco(k);applyDecoScale(g,k,1);orientOnFace(g,i,0);scene.add(g);DEC[i]=g;}
     NET.silent=false;
     if(m.tools){ /* the room's toolbox mirrors host-side state */
       for(const k in TOOLBOX)TOOLBOX[k]=m.tools.includes(k);
@@ -4303,7 +4373,7 @@ function guestMsg(m){
       if(!e){
         const mat=new THREE.MeshStandardMaterial({color:CT[c.y].color,roughness:.7});
         const g=buildCreepBody(c.y,mat);
-        g.scale.setScalar(CT[c.y].s);
+        g.scale.setScalar(CT[c.y].s*CREEP_SCALE);
         e={type:c.y,g,tgt:new THREE.Vector3(c.x,c.z,c.q),last:new THREE.Vector3(c.x,c.z,c.q),vel:new THREE.Vector3(),at:now};
         g.position.copy(e.tgt);
         scene.add(g);NET.mirror.set(c.d,e);
