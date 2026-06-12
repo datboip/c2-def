@@ -733,7 +733,8 @@ function addWaterSurface(i){
   if(!w||w===2||WSURF.has(i))return; /* ice is solid, no surface */
   const F=FACES[faceOf(i)];
   const m=new THREE.Mesh(surfGeo,w===3?surfLava:w===4?surfQuick:surfWater);
-  m.userData.base=cellBase(i).clone().addScaledVector(F.n,-.08);
+  /* edge cells don't sink (see visTop) — their surface rides just above the slab top */
+  m.userData.base=cellBase(i).clone().addScaledVector(F.n,isEdgeCell(i)?.03:-.08);
   m.userData.amp=w===4?.004:w===3?.01:.016; /* sand doesn't dance; lava heaves; water ripples */
   m.userData.n=F.n;m.userData.ph=(i%9);
   m.position.copy(m.userData.base);
@@ -745,35 +746,24 @@ function rebuildWaterSurfaces(){
   WSURF.clear();
   for(let i=0;i<N;i++)if(WATER[i])addWaterSurface(i);
 }
-/* tiles are FRUSTUMS, not boxes: each column converges toward the core, exactly
-   partitioning the cube interior. Straight 4.4-deep boxes invaded neighboring faces'
-   territory near edges — sunken water beds and pit floors got buried inside another
-   face's geometry (the 'thin skin' / 'water in my hole' family of bugs). */
-function tileGeoFrustum(i,q,h){
-  /* blocks are TRUE CUBES everywhere the player can see — each vertex is only
-     clamped to its face's 45-degree sector boundary, so columns meet the
-     neighboring face in a clean mitred seam instead of interpenetrating it.
-     Rebuilt on height change so raised walls stay square top to bottom. */
-  const g=new THREE.BoxGeometry(.98,.98,4.4);
-  const F=FACES[faceOf(i)];
-  const T=cellBase(i).clone().addScaledVector(F.n,-2.2+(h||0)*HSTEP);
-  const p=g.attributes.position,v=new THREE.Vector3(),qi=q.clone().invert();
-  for(let k=0;k<p.count;k++){
-    v.set(p.getX(k),p.getY(k),p.getZ(k)).applyQuaternion(q).add(T); /* world */
-    const r=v.dot(F.n),d=HCUBE-r;                     /* depth below the face surface */
-    if(d>0){
-      const lim=Math.max(.1,HCUBE-d);                 /* the 45-degree sector wall */
-      let a=v.dot(F.r),b=v.dot(F.u);
-      a=Math.sign(a)*Math.min(Math.abs(a),lim);
-      b=Math.sign(b)*Math.min(Math.abs(b),lim);
-      v.copy(F.n).multiplyScalar(r).addScaledVector(F.r,a).addScaledVector(F.u,b);
-    }
-    v.sub(T).applyQuaternion(qi);                     /* back to local */
-    p.setXYZ(k,v.x,v.y,v.z);
-  }
-  g.computeVertexNormals();
-  return g;
-}
+/* ===== VOXEL EXPOSED-FACE TERRAIN =====
+   Every cell renders as ONE shared 1-deep slab (its top block) + explicit axis-
+   aligned WALL QUADS wherever two adjacent columns' visual tops differ. History:
+   4.4-deep boxes interpenetrated neighbors (buried the pond) -> core-tapered
+   frustums (wedge blocks) -> 45-degree sector clamp (tooth/trapezoid holes).
+   The law now: every visible surface is an axis-aligned square. No clever geometry. */
+const tileGeo=new THREE.BoxGeometry(.98,.98,1.0);
+/* the height of a cell's visible top surface above its face plane (water sinks .3,
+   ice stays solid-flush; EDGE cells never sink — the perpendicular seam slab would
+   roof the bed, so their liquid surface rides on top instead, see addWaterSurface) */
+const visTop=i=>HMAP[i]*HSTEP-((WATER[i]&&WATER[i]!==2&&!isEdgeCell(i))?.3:0);
+/* backstop: one opaque dark-matte inner cube so any sliver between blocks reads as
+   earth, never the core glow or sky. Half-size 2.24: just under the deepest visible
+   surface (flooded bedrock pit: -3*HSTEP-.3 => radial 2.26) and just over the core
+   glow's circumradius (2.2). */
+const backstop=new THREE.Mesh(new THREE.BoxGeometry(4.48,4.48,4.48),
+  new THREE.MeshStandardMaterial({color:0x14110d,roughness:1}));
+scene.add(backstop);
 const tiles=[];
 function topMat(i){
   const checker=((i%S+((i%FCELLS/S)|0))%2)?0:1;
@@ -789,23 +779,61 @@ function topMat(i){
 for(let i=0;i<N;i++){
   const f=faceOf(i),F=FACES[f];
   const q=new THREE.Quaternion().setFromUnitVectors(V3(0,0,1),F.n);
-  const m=new THREE.Mesh(tileGeoFrustum(i,q,0),[matSide,matSide,matSide,matSide,topMat(i),matSide]);
+  const m=new THREE.Mesh(tileGeo,[matSide,matSide,matSide,matSide,topMat(i),matSide]);
   m.quaternion.copy(q);
-  m.position.copy(cellBase(i)).addScaledVector(F.n,-2.2);
+  m.position.copy(cellBase(i)).addScaledVector(F.n,-.5); /* slab top flush with the face at h=0 */
   m.receiveShadow=true;m.castShadow=true;m.userData={i};
   scene.add(m);tiles[i]=m;
 }
+/* ===== WALL QUADS — the exposed faces between columns of different height =====
+   WALLS: Map keyed by the (a<b)-normalized ADJ pair -> {sig, ms:[meshes]}. Idempotent:
+   updateWall early-outs when the pair's top signature is unchanged, else removes the
+   old quads and re-adds. setHeight refreshes a cell's pairs, so dig/place/water/face
+   unlocks and the full refreshTile sweeps in applyFaces/resetGame all rebuild correctly. */
+const WALLS=new Map(),wallGrp=new THREE.Group();
+scene.add(wallGrp);
+const pickables=()=>tiles.concat(wallGrp.children); /* aim/click raycast set: slabs + walls */
+function mkWall(C,x,y,z,h,cell){ /* axis-aligned quad: basis x=width, y=up(face n), z=normal */
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(.98,h),matSide);
+  m.position.copy(C);
+  m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x,y,z));
+  m.castShadow=true;m.receiveShadow=true;
+  m.userData={i:cell}; /* aim-raycasts resolve a wall to the LOWER cell it borders */
+  wallGrp.add(m);
+  return m;
+}
+function updateWall(a,b){
+  if(a>b){const t=a;a=b;b=t;}
+  const k=a*N+b,ta=visTop(a),tb=visTop(b);
+  const sig=ta.toFixed(3)+'|'+tb.toFixed(3);
+  const e=WALLS.get(k);
+  if(e&&e.sig===sig)return;
+  if(e)for(const m of e.ms){wallGrp.remove(m);m.geometry.dispose();}
+  const ms=[],A=FACES[faceOf(a)],B=FACES[faceOf(b)];
+  if(A===B){ /* same-face boundary: one quad spanning the top difference, facing the lower cell */
+    if(Math.abs(ta-tb)>.001){
+      const lo=Math.min(ta,tb),hi=Math.max(ta,tb),L=ta<tb?a:b,H2=ta<tb?b:a;
+      const z=cellBase(L).sub(cellBase(H2)); /* unit: cells are 1 apart */
+      const C=cellBase(a).add(cellBase(b)).multiplyScalar(.5).addScaledVector(A.n,(lo+hi)/2);
+      ms.push(mkWall(C,new THREE.Vector3().crossVectors(A.n,z),A.n.clone(),z,hi-lo,L));
+    }
+  }else{ /* cube-seam pair: each column that protrudes past the shared arris gets a quad
+            at the arris plane, seen from (and resolving to) the OTHER face's cell */
+    const P=cellBase(a).addScaledVector(B.n,.5); /* the arris point: nA=HCUBE and nB=HCUBE */
+    if(ta>.001)ms.push(mkWall(P.clone().addScaledVector(A.n,ta/2),
+      new THREE.Vector3().crossVectors(A.n,B.n),A.n.clone(),B.n.clone(),ta,b));
+    if(tb>.001)ms.push(mkWall(P.clone().addScaledVector(B.n,tb/2),
+      new THREE.Vector3().crossVectors(B.n,A.n),B.n.clone(),A.n.clone(),tb,a));
+  }
+  WALLS.set(k,{sig,ms});
+}
+function updateWallsAt(i){for(const j of ADJ[i])updateWall(i,j);}
 function setHeight(i,h){
   HMAP[i]=h;
   const F=FACES[faceOf(i)];
-  tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,-2.2+h*HSTEP-((WATER[i]&&WATER[i]!==2)?.3:0));
-  tiles[i].scale.set(1,1,1); /* full-size floor: a dug block is ALL gone, minecraft-style */
-  if((tiles[i].userData.gh||0)!==h){ /* height changed: re-clamp the column to its sector */
-    tiles[i].geometry.dispose();
-    tiles[i].geometry=tileGeoFrustum(i,tiles[i].quaternion,h);
-    tiles[i].userData.gh=h;
-  }
+  tiles[i].position.copy(cellBase(i)).addScaledVector(F.n,visTop(i)-.5);
   tiles[i].material[4]=topMat(i);
+  updateWallsAt(i);
 }
 function refreshTile(i){setHeight(i,HMAP[i]);}
 /* ===== biome decorations: occupy cells, choppable for +1 dirt ===== */
@@ -2804,7 +2832,7 @@ const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();
 function aimedTile(){
   const dir=new THREE.Vector3();camera.getWorldDirection(dir);
   ray.set(camera.position,dir);
-  const hit=ray.intersectObjects(tiles,false)[0];
+  const hit=ray.intersectObjects(pickables(),false)[0];
   const reach=CFG.reach+(walkView==='tp'?3.7:0); /* tp camera trails the body — same effective arm length */
   return (hit&&hit.distance<=reach)?hit.object.userData.i:-1;
 }
@@ -2939,7 +2967,7 @@ function castAt(e,objs,rec){
   return ray.intersectObjects(objs,rec)[0];
 }
 function ghostAt(e,type){
-  const hit=castAt(e,tiles,false);
+  const hit=castAt(e,pickables(),false);
   if(hit){
     const i=hit.object.userData.i;
     if(type==='__dig'||type==='__wall'||type==='__bucket'){ /* terraform cursor: small tinted ring */
@@ -3009,7 +3037,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
   if(e.button===1){if(!dragging){showPath=!showPath;refreshPathDots();$('btnPath').classList.toggle('on',showPath);$('mPath').checked=showPath;}return;}
   if(e.button===2){ /* command link: right-click sends the hero */
     if(!dragging&&heroSpawned&&HSK.command.lv>0){
-      const hit=castAt(e,tiles,false);
+      const hit=castAt(e,pickables(),false);
       if(hit){const i=hit.object.userData.i;
         if(ACTIVE[faceOf(i)]){hero.moveTo=cellTop(i).clone();ringFx(i,.55,0x2de0c8);sfx('order');}}
     }else if(!dragging&&heroSpawned&&HSK.command.lv===0&&!DEMO){
@@ -3025,7 +3053,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
     const ch=castAt(e,creeps.map(c=>c.g),true);
     if(ch){let o=ch.object;while(o&&!o.userData.creep)o=o.parent;if(o){showCreepPanel(o.userData.creep);return;}}
   }
-  const hit=castAt(e,tiles,false);
+  const hit=castAt(e,pickables(),false);
   if(hit&&selectedType){
     const i=hit.object.userData.i;
     if(selectedType==='__dig'){dig(i);return;}      /* tools stay armed for painting */
@@ -4051,7 +4079,7 @@ function tick(){
       const boom=toPos.clone().sub(head),bLen=boom.length();
       ray.set(head,boom.multiplyScalar(1/bLen));ray.far=bLen;
       let bHit=Infinity;
-      const ht=ray.intersectObjects(tiles,false)[0];if(ht)bHit=ht.distance;
+      const ht=ray.intersectObjects(pickables(),false)[0];if(ht)bHit=ht.distance;
       const hw=ray.intersectObjects(towers.map(t2=>t2.g),true)[0];if(hw&&hw.distance<bHit)bHit=hw.distance;
       ray.far=Infinity;
       const wantK=bHit<bLen?Math.max(.1,(bHit-.25)/bLen):1;
