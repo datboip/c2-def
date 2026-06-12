@@ -1515,7 +1515,7 @@ function ambStop(){
 }
 function ambUpdate(t,day){
   if(!AC||AC.state!=='running')return;
-  if(DEMO){ambStop();return;}
+  if(DEMO||true){ambStop();return;} /* ambient drone RETIRED — owner: 'sounds like a long ass note'. Kill switch stays for a future, better ambience. */
   if(!AU.amb)ambStart();
   const a=AU.amb,ct=AC.currentTime;
   const press=Math.min(1,creeps.length/25); /* creep pressure leans on the pad */
