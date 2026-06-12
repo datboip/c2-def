@@ -119,6 +119,10 @@ GameAPI.autoSet({build:true, upgrade:false, maze:true, wave:false})
                                  // granular: auto build / auto upgrade / auto dig+wall
                                  //   (mazing) / auto wave (early-calls during breaks);
                                  //   omitted keys keep their state; state().auto reads back
+                                 //   the BUILD duty also works the ability bar: freeze on
+                                 //   crystal pressure/leaks, airstrike at 10+ creeps, repair
+                                 //   at 2+ hurt towers, surge vs the Warden or 25+ creeps,
+                                 //   golem (and tier reforges) from wave 8 when affordable
 GameAPI.logs(50)                 // timestamped event log (builds, leaks, unlocks…)
 GameAPI.errors()                 // captured runtime errors (also shown in the red bar)
 GameAPI.meta()                   // LEGACY shards + owned upgrades + this run's bonuses

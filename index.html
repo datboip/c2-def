@@ -2427,6 +2427,26 @@ function director(dt){
   if(!(AUTO.build||AUTO.upgrade||AUTO.maze))return; /* AUTO.wave lives in sim() */
   directorTimer-=dt;if(directorTimer>0)return;
   directorTimer=2.2+rnd()*2.4;
+  /* ABILITY CASTS (owner: "AI ain't using the powerups on the side") — the combat duty
+     (AUTO.build) also works the side bar. At most one cast per decision; useAbility()
+     respects cooldown + cost through each ability's can()/pay(). Triggers read live sim
+     state only — no dice rolled here, so seeded runs stay deterministic. */
+  if(AUTO.build){
+    const cryP=cellTop(CRYSTAL);
+    const nearCrystal=creeps.reduce((n,c)=>n+(c.g.position.distanceTo(cryP)<3.2?1:0),0);
+    const hurt=towers.reduce((n,t)=>n+(t.hp<t.maxHp*.5?1:0),0);
+    const wardenUp=creeps.some(c=>c.tt.warden);
+    if((nearCrystal>=8||leaksThisWave>=2)&&useAbility('freeze'))
+      logEvent('AI cast FREEZE — crystal under pressure ('+nearCrystal+' close, '+leaksThisWave+' leaked)');
+    else if(creeps.length>=10&&useAbility('strike'))
+      logEvent('AI called an AIRSTRIKE — '+creeps.length+' creeps on the route');
+    else if(hurt>=2&&useAbility('repair'))
+      logEvent('AI sent REPAIR drones — '+hurt+' towers under 50%');
+    else if((wardenUp||creeps.length+spawnQueue.length>=25)&&useAbility('surge'))
+      logEvent('AI cast SURGE'+(wardenUp?' — the Warden is on the field':' — big wave'));
+    else if(wave>=8&&useAbility('golem'))
+      logEvent(golems[0]&&golems[0].tier>1?'AI reforged the golem to tier '+golems[0].tier:'AI summoned a golem');
+  }
   /* tool progression (part of the mazing duty — picks gate the digging): an awake biome
      our pick can't bite = craft the missing pick the moment it's affordable */
   if(AUTO.maze)for(let f2=0;f2<FN;f2++)if(ACTIVE[f2]){
