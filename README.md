@@ -33,7 +33,8 @@ python3 -m http.server 8765 --directory .
 |---|---|
 | drag from build bar | place tower (ghost shows range) |
 | click a tower | upgrade / sell panel |
-| left-drag / wheel | orbit / zoom |
+| left-drag / wheel | free trackball orbit (any direction, straight over the poles) / zoom |
+| ViewCube (bottom-right) | click a face to swing the camera square onto it; on foot it's the compass |
 | **middle-drag** | pan to focus an area (middle-click toggles path dots) |
 | V | walk the cube first-person (WASD, wheel = tool, gravity follows you over edges) |
 | N / pill button | call wave early for bonus gold |
