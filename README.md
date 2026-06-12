@@ -23,7 +23,7 @@ python3 -m http.server 8765 --directory .
 - **Path dots show speed:** green = full pace, yellow = slowed, red = crawling. Kill zones belong on red.
 - **Mining is a gamble with a skill curve.** Every dig costs 3g to roll: 60% base success, +5% per mining level (cap 95%), XP for every attempt. Failures crumble the block and keep your gold. Chopping trees/scenery is free (+1 dirt) — and must happen before the ground under them can be dug. Successful digs go inward toward bedrock (3 layers): layer 1 drops gold, 2 iron, 3 shards/gems. The AI rolls on the same table.
 - **CRAFTING — the WORKSHOP.** Mining loot becomes tools: press **K** (or the hammer chip beside the resources). One-time crafts, kept for the run. Everyone starts with the **STONE PICK** (digs meadow/forest/desert). **IRON PICK** (3 iron) bites frozen tundra ground — without it the dig is denied. **CRYSTAL PICK** (2 shards + 50g) cracks volcanic basalt and cavern crystalbed. **BUCKET** (2 iron) scoops a liquid tile and pours it elsewhere — matter conserved, one load at a time, and pouring can never seal the route. **SHOVEL** (1 iron) +10% mining success on soft ground (cap stays 95%). **PROSPECTOR LENS** (1 shard) — the dig cursor reveals what the next layer holds (a pure peek: it never consumes RNG rolls). Hardness is mapped by biome *name*; the AI director crafts at the same workshop with the same costs. In multiplayer the toolbox belongs to the room — guests' craft requests run host-side.
-- **Wave 20 is THE WARDEN.** A phase boss replaces the whole wave: phase 1 it's armored (50% damage) and **crushes any tower within one cell**; below 66% the armor cracks but it **STOMPS** every ~6s (towers in range stunned 2s); below 33% it enrages — ×1.6 speed, birthing brood. Killing it pays +500g and the boss score — and is **victory**. If it breaches the crystal it costs **6 lives**.
+- **Wave 20 is THE WARDEN.** A phase boss replaces the whole wave: phase 1 it's armored (50% damage) and **crushes any tower within one cell**; below 66% the armor cracks but it **STOMPS** every ~6s (towers in range stunned 2s); below 33% it enrages — ×1.6 speed, birthing brood. While it lives a **boss bar** sits top-center (phase pips at 66%/33%, endless HP multiplier) and a wide phase-colored bar (amber → orange → red) floats over the colossus itself. Killing it pays +500g and the boss score — and is **victory**. If it breaches the crystal it costs **6 lives**.
 - **ENDLESS after victory.** The break bar becomes CONTINUE — ENDLESS (or quit via the menu). Past wave 20, creep hp compounds +8% per wave, and **every 10th wave another Warden** arrives, +60% hp per appearance. Score keeps accruing; `scorecard()` reports `endless` and `deepWave`.
 - **LEGACY shards (meta-progression).** Every run banks `floor(score/1000)` shards at victory, overrun, or quit (localStorage `c2meta`). Spend them on the splash screen's LEGACY panel: five permanent upgrades (start gold / start dirt / mining luck / tower damage / free hero skills), 3 levels each at 2/4/8 shards. Bonuses are derived at `start()` — base CFG is never mutated — and are **disabled on seeded runs** (see arena protocol).
 
@@ -81,7 +81,7 @@ The game scores every run, so different models (or humans) can be compared on id
 | overrun (prestige) | −400 |
 
 **The arena protocol** (for pitting models against each other):
-1. `start 1 <seed>` — frontier, real economy, **fixed seed** so every model faces the identical scenario (same map, waves, loot dice, AI dice). Never `free`, autopilot **off** (`auto off`) — the model plays, not the director. Also fix the **mode**: `GameAPI.start(1,false,seed,'classic')` (one portal, default) or `'siege'` (portal per biome) — scorecard records it. **Passing an explicit seed force-disables LEGACY meta-upgrades** (start gold/dirt, mining luck, tower damage, hero skills) and `scorecard()` reports `meta:false` — arena runs depend on identical conditions, so a player's permanent upgrades never tilt the comparison.
+1. `start 1 <seed>` — frontier, real economy, **fixed seed** so every model faces the identical scenario (same map, waves, loot dice, AI dice). Never `free`, autopilot **off** (`auto off` — this turns off **all four** granular toggles: auto build, auto upgrade, auto dig, auto wave; the model plays, not the director). Also fix the **mode**: `GameAPI.start(1,false,seed,'classic')` (one portal, default) or `'siege'` (portal per biome) — scorecard records it. **Passing an explicit seed force-disables LEGACY meta-upgrades** (start gold/dirt, mining luck, tower damage, hero skills) and `scorecard()` reports `meta:false` — arena runs depend on identical conditions, so a player's permanent upgrades never tilt the comparison.
 2. Fixed speed (×8) and a fixed **`playSec` budget** (e.g. 60 or 300). Budget by `playSec` from `scorecard()`, not wall-clock — headless browsers throttle frames.
 3. The model may read `GUIDE.md` (full bestiary/tower/terrain data — also machine-readable at `GameAPI.grid`) and gets `state` between actions.
 4. When the budget expires, report `GameAPI.scorecard()` verbatim.
@@ -90,7 +90,7 @@ Via CLI: `node play.js -e "start 1; auto off; ...model's moves...; score"`. Sani
 
 | player | score | wave | perfect | leaks | notes |
 |---|---|---|---|---|---|
-| built-in autopilot | **4600** | 17 | 15 | 4 | frontier · 60 playSec · ×8 |
+| built-in autopilot | **~7000** | 20-24 | 18-21 | 3-8 | frontier · 60 playSec · ×8 · 2026-06-11 rebalance: observed 6150-7950 across seeds (auto-wave early-calls now) |
 | *your model here* | | | | | |
 
 ## AI / automation API
@@ -113,7 +113,12 @@ GameAPI.craft('ironpick')        // WORKSHOP — ironpick | crystalpick | bucket
 GameAPI.bucket(i)                // scoop a liquid tile / pour the carried one (needs bucket)
 GameAPI.peek(i)                  // prospector lens: next layer's loot — never consumes RNG
 GameAPI.callWave()               // call early during a break
-GameAPI.speed(4); GameAPI.pause(true); GameAPI.auto(true)
+GameAPI.speed(4); GameAPI.pause(true)
+GameAPI.auto(true)               // autopilot — sets ALL FOUR director duties at once
+GameAPI.autoSet({build:true, upgrade:false, maze:true, wave:false})
+                                 // granular: auto build / auto upgrade / auto dig+wall
+                                 //   (mazing) / auto wave (early-calls during breaks);
+                                 //   omitted keys keep their state; state().auto reads back
 GameAPI.logs(50)                 // timestamped event log (builds, leaks, unlocks…)
 GameAPI.errors()                 // captured runtime errors (also shown in the red bar)
 GameAPI.meta()                   // LEGACY shards + owned upgrades + this run's bonuses
